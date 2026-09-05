@@ -1,0 +1,46 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Dado pessoal. NADA daqui pode entrar num commit.
+#
+# `docs/` são os extratos e faturas crus; `src/generated/` é o que o ingest
+# produz deles — e contém TODA transação: estabelecimento, valor, data,
+# descrição e conta. Os `*.config.ts` carregam nome, número de conta, salário e
+# metas. Cada um tem um `.example` versionado com a mesma forma e dados
+# fictícios; `pnpm setup` copia os que faltarem.
+# ─────────────────────────────────────────────────────────────────────────────
+docs/
+src/generated/
+scripts/accounts.config.ts
+scripts/rules.config.ts
+scripts/planned.config.ts
+scripts/goals.config.ts
+scripts/budget.config.ts
+
+# Ferramental local do Claude Code. Fica de fora inteiro: as rules, commands e skills
+# daqui vieram de outro repositório e carregam nome de pacote, caminho de rota e URL de
+# Confluence de um projeto interno — material que não é deste app nem é para ser público.
+.claude/
