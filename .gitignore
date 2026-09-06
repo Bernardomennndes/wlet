@@ -29,7 +29,8 @@ dist-ssr
 # `docs/` são os extratos e faturas crus; `src/generated/` é o que o ingest
 # produz deles — e contém TODA transação: estabelecimento, valor, data,
 # descrição e conta. Os `*.config.ts` carregam nome, número de conta, salário e
-# metas. Cada um tem um `.example` versionado com a mesma forma e dados
+# metas — e `receivables.config.ts` nomeia quem te deve dinheiro. Cada um tem um
+# `.example` versionado com a mesma forma e dados
 # fictícios; `pnpm setup` copia os que faltarem.
 # ─────────────────────────────────────────────────────────────────────────────
 docs/
@@ -37,6 +38,7 @@ src/generated/
 scripts/accounts.config.ts
 scripts/rules.config.ts
 scripts/planned.config.ts
+scripts/receivables.config.ts
 scripts/goals.config.ts
 scripts/budget.config.ts
 
