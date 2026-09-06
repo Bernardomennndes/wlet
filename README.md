@@ -11,7 +11,7 @@ pnpm dev
 `pnpm setup` deixa o app rodando com dados inventados, para você ver a tela antes de entregar
 qualquer extrato. Para usar os seus, veja **Como adicionar movimentações**.
 
-Outros scripts: `pnpm ingest`, `pnpm build`, `pnpm preview`, `pnpm lint`.
+Outros scripts: `pnpm ingest`, `pnpm build`, `pnpm preview`, `pnpm lint`, `pnpm check` (testes do calendário bancário e da conciliação, no runner do próprio Node).
 
 ## Privacidade
 
@@ -24,7 +24,8 @@ Outros scripts: `pnpm ingest`, `pnpm build`, `pnpm preview`, `pnpm lint`.
 | `scripts/accounts.config.ts` | seu nome e os números das suas contas |
 | `scripts/rules.config.ts` | o comércio do seu bairro, os seus clientes, a sua cidade |
 | `scripts/planned.config.ts` | salário e recebíveis previstos |
-| `scripts/goals.config.ts`, `scripts/budget.config.ts` | metas e teto de gastos |
+| `scripts/receivables.config.ts` | quem te deve dinheiro |
+| `scripts/goals.config.ts`, `scripts/budget.config.ts` | metas, teto de gastos e rubricas |
 
 Cada `*.config.ts` tem um `*.config.example.ts` versionado, com a mesma forma e dados
 fictícios — é dele que o `pnpm setup` parte. O `src/generated/` de um clone novo é escrito
@@ -59,7 +60,11 @@ Regras de leitura:
 
 - **Transação** (`src/data/types.ts`): valor com sinal, data de competência, descrição limpa, contraparte normalizada, categoria, parcela, fatura de origem e, se for transferência, o par e a conta do outro lado.
 - **Data de competência**: compras no cartão contam pela data da compra; parcelas são deslocadas mês a mês (parcela 4 de 6 comprada em setembro cai em dezembro).
+- **Lançamento previsto**: valor, categoria, recorrência e o dia em que cai — dia fixo (`{ kind: 'day', day: 25 }`) ou dia útil (`{ kind: 'business-day', nth: 5 }`, pelo calendário bancário). O dia é o que permite ao mês em curso mostrar o que ainda vence nele, em vez de esperar o mês virar.
 - **Transferência**: pareada quando há saída numa conta e entrada de valor idêntico em outra até 4 dias depois, com descrição apontando para o próprio titular ou para pagamento de fatura. Pagamento de fatura e Pix no Crédito sem o outro lado no período ganham a contraparte inferida (conta e cartão do mesmo banco). Aportes na conta investimento viram transferência para a conta virtual. O que sobra fica marcado como `unmatched-self` e não entra como receita nem despesa.
+- **Conta a pagar**: uma regra de `planned.config.ts` que declara `match` — credor conhecido e vencimento. Ganha situação de pagamento (paga, parcial, em aberto, em atraso). Sem `match` a regra só projeta, que é o certo para gasto sem credor único.
+- **Rubrica**: gasto esperado por categoria, em `budget.config.ts`. Teto no mês em curso, previsão nos meses futuros — e na projeção é piso, não soma: o que já está contratado em parcelas abate a rubrica em vez de se acumular a ela.
+- **Cobrança**: o que alguém te deve, com vencimento e vigência. Conciliada pelo ingest por contraparte e conta — nunca por valor, porque um rateio varia mês a mês. Uma cobrança parcelada é uma dívida só: o dinheiro abate a próxima parcela em aberto, então pagar adiantado não deixa o mês seguinte em atraso. O recebimento não é receita: é **reembolso**, o quarto fluxo, e abate a categoria de despesa que a cobrança declara. Pagar o aluguel inteiro e receber metade de volta deixa a moradia do mês pelo custo real, não pelo valor cheio.
 - **Recorte PF / PJ / Consolidado**: uma transferência só é neutra se as duas pontas estão no recorte. Na visão Empresa, o Pix do Inter para a XP vira "Retirada para o sócio"; na visão Pessoa física, "Retirada da PJ".
 
 ## Categorias
@@ -73,16 +78,21 @@ docs/                    extratos e faturas (entrada)
 scripts/ingest.ts        pipeline docs/ → src/generated/
 scripts/parsers.ts       OFX (extrato e fatura) e CSV da fatura XP
 scripts/setup.ts         prepara um clone novo (configs + dataset fictício)
+scripts/matching.ts      casa regra declarada com o extrato (usado pelo ingest E pelo seed)
+scripts/checks/          testes de `pnpm check`
 scripts/seed.ts          gera o dataset fictício de src/generated/
 scripts/rules.ts         categorização genérica e limpeza de descrição
 scripts/*.config.ts      dado pessoal, NÃO versionado (o `.example` de cada um é)
 scripts/accounts.config.ts  contas conhecidas
-scripts/planned.config.ts   lançamentos previstos (a previsão dos gráficos)
+scripts/planned.config.ts   lançamentos previstos (a previsão dos gráficos), com o dia de cada um
+scripts/receivables.config.ts  cobranças: quem te deve, e a despesa que o recebimento abate
 scripts/goals.config.ts     metas de poupança (o cartão "Metas" da visão geral)
-scripts/budget.config.ts    teto de gastos do mês (o cartão "Controle de orçamento")
+scripts/budget.config.ts    teto do mês e rubricas de gasto por categoria
+src/lib/settlement.ts    conciliação: uma só para cobrança e conta a pagar
 src/generated/*.json     saída gerada, NÃO versionada
 src/data/                vocabulário de domínio (tipos, listas de enum, catálogo de categorias)
 src/lib/finance.ts       recortes, agregações mensais, por categoria, recorrências
+src/lib/receivables.ts   cobranças: vencimento, conciliação e situação por mês
 src/components/ui/       componentes shadcn (estilo base-mira, Base UI) + AppSelect, AppCombobox, MonthPicker e BarProgress compostos sobre eles
 src/components/enum-badge.tsx  o badge de enum, e a tradução de `tone` em cor num lugar só
 src/components/*-badge.tsx  badges de domínio (entidade, categoria, tipo de conta, tipo de transferência, fluxo, status)
@@ -91,7 +101,8 @@ src/components/not-informed.tsx  o texto de ausência de dado, num lugar só
 src/components/layout/nav.ts  fonte única da navegação: barra lateral e trilha
 src/components/kpi/      shells de KPI com explicação obrigatória do cálculo
 src/components/data-list/ lista de leitura por item (ul/li + dt/dd)
-src/components/charts/chart-theme.ts  tokens de gráfico compartilhados por todas as telas
+src/lib/business-days.ts calendário bancário: o 5º dia útil de um lançamento previsto
+src/components/charts/  o que mais de uma tela desenha: tokens, divisor de projeção, barra de volume
 src/routes/<url>/        uma pasta por rota: index.tsx + -content.tsx + -components/
 src/routes/-components/  gráfico de UMA tela mora na rota dela (MonthlyFlowChart na visão geral;
                          BarList e CategoryStackChart em src/routes/categorias/-components/)
