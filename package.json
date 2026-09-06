@@ -8,6 +8,7 @@
     "setup": "tsx scripts/setup.ts",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "check": "tsx --test scripts/checks/*.test.ts",
     "preview": "vite preview",
     "ingest": "tsx scripts/ingest.ts && biome format --write src/generated",
     "format": "biome format --write .",

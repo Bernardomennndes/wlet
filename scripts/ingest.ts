@@ -12,10 +12,12 @@ import { ACCOUNT_PROFILES, SELF_NAME_PATTERNS, type AccountProfile } from './acc
 import { BUDGET } from './budget.config.ts'
 import { GOALS } from './goals.config.ts'
 import { PLANNED_ENTRIES } from './planned.config.ts'
+import { RECEIVABLES } from './receivables.config.ts'
 import { parseOfx, parseXpInvoiceCsv, type ParsedFile, type RawTransaction } from './parsers.ts'
+import { matchPlanned, matchReceivables, ruleProblems } from './matching.ts'
 import { RULES, cleanDescription, deriveMerchant, normalizeForRules } from './rules.ts'
 import { CATEGORY_MAP } from '../src/data/categories.ts'
-import type { Account, DatasetMeta, PlannedEntry, Transaction, Transfer, TransferKind } from '../src/data/types.ts'
+import type { Account, DatasetMeta, MatchRule, PlannedEntry, Transaction, Transfer, TransferKind } from '../src/data/types.ts'
 
 const ROOT = new URL('..', import.meta.url).pathname
 const DOCS_DIR = join(ROOT, 'docs')
@@ -165,6 +167,8 @@ function buildTransaction(raw: RawTransaction, file: ParsedFile, profile: Accoun
     transferId: null,
     transferKind: null,
     counterpartAccountId: null,
+    receivableId: null,
+    plannedId: null,
     source: relative(ROOT, file.path),
     fitId: raw.fitId,
   }
@@ -320,6 +324,21 @@ function detectTransfers(transactions: Transaction[], profiles: Map<string, Acco
 // 5. Execução
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// 5. Cobranças: quem te deve, e qual entrada quitou
+// ---------------------------------------------------------------------------
+
+interface ReceivableMatch {
+  receivableId: string
+  /** Meses da janela que já poderiam ter sido pagos, dado o que os extratos cobrem. */
+  months: string[]
+  /** Meses em que alguma entrada da contraparte apareceu. */
+  matched: string[]
+  received: number
+  /** Quem de fato pagou — pode não ser quem deve. */
+  payers: Set<string>
+}
+
 function main() {
   const files = pickBestFormat(walk(DOCS_DIR))
   const parsed = files.map(parseFile).filter((f): f is ParsedFile => f !== null)
@@ -362,6 +381,8 @@ function main() {
   }
 
   const transfers = detectTransfers(transactions, profiles)
+  const receivableMatches = matchReceivables(transactions, RECEIVABLES)
+  const plannedMatches = matchPlanned(transactions, PLANNED_ENTRIES)
   transactions.sort((a, b) => b.date.localeCompare(a.date) || b.postedDate.localeCompare(a.postedDate) || a.id.localeCompare(b.id))
 
   const accounts: Account[] = [...profiles.values()].map((p) => {
@@ -414,8 +435,48 @@ function main() {
     for (const month of Object.keys(entry.exceptions ?? {})) {
       if (!/^\d{4}-\d{2}$/.test(month)) plannedProblems.push(`${where}: exceção "${month}" não é AAAA-MM`)
     }
+    // O dia é o que autoriza o mês em curso a mostrar o que ainda vence nele; um número
+    // fora da faixa passaria silencioso e a ocorrência cairia no dia errado.
+    if (entry.dueOn?.kind === 'day' && !(Number.isInteger(entry.dueOn.day) && entry.dueOn.day >= 1 && entry.dueOn.day <= 31)) {
+      plannedProblems.push(`${where}: dueOn.day precisa ser um inteiro de 1 a 31`)
+    }
+    if (entry.dueOn?.kind === 'business-day' && !(Number.isInteger(entry.dueOn.nth) && entry.dueOn.nth >= 1 && entry.dueOn.nth <= 18)) {
+      plannedProblems.push(`${where}: dueOn.nth precisa ser um inteiro de 1 a 18 (nenhum mês tem mais dias úteis que isso)`)
+    }
+    if (entry.match) {
+      plannedProblems.push(...ruleProblems(where, entry.match))
+      if (entry.match.accountId && !profiles.has(entry.match.accountId)) plannedProblems.push(`${where}: conta "${entry.match.accountId}" não existe`)
+      // Conciliar sem dia deixaria "atrasado" indistinguível de "ainda vai vencer".
+      if (!entry.dueOn) plannedProblems.push(`${where}: regra com match precisa de dueOn, senão não há como dizer se atrasou`)
+    }
   }
   const planned: PlannedEntry[] = PLANNED_ENTRIES.map((e) => ({ ...e, exceptions: e.exceptions ?? {} }))
+
+  // ---- Cobranças: mesma validação, mesmo motivo. Uma categoria de entrada aqui abateria
+  // a coisa errada, e um `matchMerchant` minúsculo nunca casaria nada em silêncio.
+  const receivableProblems: string[] = [...receivableMatches.conflicts]
+  const seenReceivableIds = new Set<string>()
+  for (const receivable of RECEIVABLES) {
+    const where = receivable.id || '(sem id)'
+    if (!receivable.id) receivableProblems.push('cobrança sem id')
+    else if (seenReceivableIds.has(receivable.id)) receivableProblems.push(`${where}: id repetido`)
+    seenReceivableIds.add(receivable.id)
+    if (!receivable.debtor.trim()) receivableProblems.push(`${where}: sem devedor`)
+    if (!(receivable.amount > 0)) receivableProblems.push(`${where}: valor precisa ser maior que zero`)
+    if (!/^\d{4}-\d{2}$/.test(receivable.startMonth)) receivableProblems.push(`${where}: startMonth "${receivable.startMonth}" não é AAAA-MM`)
+    if (receivable.endMonth && receivable.endMonth < receivable.startMonth) receivableProblems.push(`${where}: endMonth antes de startMonth`)
+    if (receivable.match.accountId && !profiles.has(receivable.match.accountId)) receivableProblems.push(`${where}: conta "${receivable.match.accountId}" não existe`)
+    receivableProblems.push(...ruleProblems(where, receivable.match))
+    const offset = CATEGORY_MAP[receivable.offsetsCategoryId]
+    if (!offset) receivableProblems.push(`${where}: categoria "${receivable.offsetsCategoryId}" não existe`)
+    else if (offset.kind !== 'expense') receivableProblems.push(`${where}: "${receivable.offsetsCategoryId}" é categoria de entrada — uma cobrança abate DESPESA`)
+    if (receivable.dueOn.kind === 'day' && !(Number.isInteger(receivable.dueOn.day) && receivable.dueOn.day >= 1 && receivable.dueOn.day <= 31)) {
+      receivableProblems.push(`${where}: dueOn.day precisa ser um inteiro de 1 a 31`)
+    }
+    if (receivable.dueOn.kind === 'business-day' && !(Number.isInteger(receivable.dueOn.nth) && receivable.dueOn.nth >= 1 && receivable.dueOn.nth <= 18)) {
+      receivableProblems.push(`${where}: dueOn.nth precisa ser um inteiro de 1 a 18`)
+    }
+  }
 
   // Metas: mesma validação das regras de previsão, pelo mesmo motivo — o config é escrito à
   // mão e um erro aqui só apareceria como cartão torto na tela.
@@ -442,6 +503,7 @@ function main() {
   writeFileSync(join(OUT_DIR, 'planned.json'), JSON.stringify(planned, null, 2))
   writeFileSync(join(OUT_DIR, 'goals.json'), JSON.stringify(GOALS, null, 2))
   writeFileSync(join(OUT_DIR, 'budget.json'), JSON.stringify(BUDGET, null, 2))
+  writeFileSync(join(OUT_DIR, 'receivables.json'), JSON.stringify(RECEIVABLES, null, 2))
 
   // Relatório
   console.log(`Arquivos lidos: ${byDocument.size} (ignorados como duplicados: ${skipped.length})`)
@@ -463,15 +525,51 @@ function main() {
         : e.recurrence === 'once'
           ? `uma vez em ${e.startMonth}`
           : `todo mês de ${e.startMonth}${e.endMonth ? ` a ${e.endMonth}` : ' em diante'}`
+    const day = e.dueOn ? (e.dueOn.kind === 'business-day' ? `, ${e.dueOn.nth}º dia útil` : `, dia ${e.dueOn.day}`) : ''
     const exceptions = Object.entries(e.exceptions ?? {})
     console.log(
-      `  · ${e.entity} ${(e.kind === 'income' ? 'entrada' : 'saída').padEnd(7)} ${e.amount.toFixed(2).padStart(10)}  ${e.label.padEnd(28)} ${when}` +
+      `  · ${e.entity} ${(e.kind === 'income' ? 'entrada' : 'saída').padEnd(7)} ${e.amount.toFixed(2).padStart(10)}  ${e.label.padEnd(28)} ${when}${day}` +
         (exceptions.length ? `  [exceções: ${exceptions.map(([m, v]) => `${m}=${v.toFixed(2)}`).join(', ')}]` : ''),
     )
   }
+  const conciliated = PLANNED_ENTRIES.filter((e) => e.match)
+  if (conciliated.length) {
+    console.log(`  conciliadas com o extrato: ${conciliated.length} de ${PLANNED_ENTRIES.length}`)
+    for (const entry of conciliated) {
+      const match = plannedMatches.matches.find((m) => m.plannedId === entry.id)
+      const missing = match ? match.months.filter((month) => !match.matched.includes(month)) : []
+      console.log(`      ${entry.label.padEnd(28)} ${match?.matched.length ?? 0}/${match?.months.length ?? 0} meses cumpridos, total ${(match?.total ?? 0).toFixed(2)}`)
+      if (missing.length) console.warn(`      ⚠️  sem lançamento em: ${missing.join(', ')}`)
+    }
+  }
+  plannedProblems.push(...plannedMatches.conflicts)
   if (plannedProblems.length) {
     console.warn(`⚠️  Problemas nas regras de previsão: ${plannedProblems.length}`)
     for (const p of plannedProblems) console.warn(`  · ${p}`)
+  }
+  console.log(`Cobranças: ${RECEIVABLES.length} (scripts/receivables.config.ts)`)
+  for (const receivable of RECEIVABLES) {
+    const match = receivableMatches.matches.find((m) => m.receivableId === receivable.id)
+    const months = match?.months.length ?? 0
+    const matched = match?.matched.length ?? 0
+    const missing = match ? match.months.filter((month) => !match.matched.includes(month)) : []
+    const isPlan = receivable.recurrence !== 'monthly'
+    const count = Math.max(1, receivable.count ?? 1)
+    const window = isPlan ? `${count}x de ${receivable.startMonth}` : `${receivable.startMonth}${receivable.endMonth ? ` a ${receivable.endMonth}` : ' em diante'}`
+    const received = match?.received ?? 0
+    // Numa parcelada não faz sentido contar "meses casados": o dinheiro abate a próxima
+    // parcela em aberto, e duas parcelas podem vir num Pix só.
+    const progress = isPlan
+      ? `${Math.floor(received / receivable.amount + 0.005)}/${count} parcelas cobertas, recebido ${received.toFixed(2)} de ${(receivable.amount * count).toFixed(2)}`
+      : `${matched}/${months} meses casados, recebido ${received.toFixed(2)}`
+    console.log(`  · ${receivable.debtor.padEnd(28)} ${receivable.amount.toFixed(2).padStart(9)}${isPlan ? '/parc' : '/mês '}  ${window.padEnd(22)} ${progress}`)
+    const others = [...(match?.payers ?? [])].filter((payer) => payer !== receivable.debtor)
+    if (others.length) console.log(`      pago também por: ${others.join(', ')}`)
+    if (!isPlan && missing.length) console.warn(`      ⚠️  sem contraparte em: ${missing.join(', ')}`)
+  }
+  if (receivableProblems.length) {
+    console.warn(`⚠️  Problemas nas cobranças: ${receivableProblems.length}`)
+    for (const problem of receivableProblems) console.warn(`  · ${problem}`)
   }
   console.log(`Metas: ${GOALS.length} (scripts/goals.config.ts)`)
   for (const g of GOALS) {
@@ -485,6 +583,24 @@ function main() {
   console.log(`Teto de gastos: ${BUDGET.monthlyLimit.toFixed(2)}/mês, avisando a partir de ${Math.round(BUDGET.warnAt * 100)}% (scripts/budget.config.ts)`)
   if (!(BUDGET.monthlyLimit > 0)) console.warn('⚠️  Teto de gastos precisa ser maior que zero')
   if (!(BUDGET.warnAt > 0 && BUDGET.warnAt <= 1)) console.warn('⚠️  `warnAt` do teto precisa estar entre 0 e 1')
+  const rubricas = BUDGET.byCategory ?? []
+  if (rubricas.length) {
+    const seenCategories = new Set<string>()
+    let declared = 0
+    for (const rubrica of rubricas) {
+      declared += rubrica.amount
+      const category = CATEGORY_MAP[rubrica.categoryId]
+      if (!category) console.warn(`⚠️  Rubrica: categoria "${rubrica.categoryId}" não existe`)
+      else if (category.kind !== 'expense') console.warn(`⚠️  Rubrica: "${rubrica.categoryId}" é categoria de entrada — rubrica é de gasto`)
+      if (seenCategories.has(rubrica.categoryId)) console.warn(`⚠️  Rubrica: categoria "${rubrica.categoryId}" declarada duas vezes`)
+      seenCategories.add(rubrica.categoryId)
+      if (!(rubrica.amount > 0)) console.warn(`⚠️  Rubrica "${rubrica.categoryId}": valor precisa ser maior que zero`)
+      console.log(`  · ${(category?.label ?? rubrica.categoryId).padEnd(28)} ${rubrica.amount.toFixed(2).padStart(9)}/mês`)
+    }
+    // Rubricas acima do teto global não são erro — o teto cobre categoria não declarada
+    // também —, mas se a soma já o ultrapassa, o teto nasce estourado e vale avisar.
+    if (declared > BUDGET.monthlyLimit) console.warn(`⚠️  As rubricas somam ${declared.toFixed(2)}, acima do teto global de ${BUDGET.monthlyLimit.toFixed(2)}`)
+  }
   const byCat = new Map<string, number>()
   for (const t of transactions) byCat.set(t.categoryId, (byCat.get(t.categoryId) ?? 0) + 1)
   console.log('Por categoria:')

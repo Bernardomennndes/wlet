@@ -17,7 +17,9 @@ import { fileURLToPath } from 'node:url'
 import type { Account, DatasetMeta, Transaction, Transfer } from '../src/data/types.ts'
 import { BUDGET } from './budget.config.ts'
 import { GOALS } from './goals.config.ts'
+import { matchPlanned, matchReceivables } from './matching.ts'
 import { PLANNED_ENTRIES } from './planned.config.ts'
+import { RECEIVABLES } from './receivables.config.ts'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT_DIR = join(ROOT, 'src', 'generated')
@@ -96,6 +98,8 @@ function add(input: TxInput): Transaction {
     transferId: null,
     transferKind: null,
     counterpartAccountId: null,
+    receivableId: null,
+    plannedId: null,
     source: 'seed',
     fitId: null,
   }
@@ -145,7 +149,14 @@ const CARD_PURCHASES: { merchant: string; categoryId: string; base: number; spre
 /** Uma compra parcelada por cartão, para a previsão ter parcela já contratada para projetar. */
 const INSTALLMENT_PURCHASE = { merchant: 'Notebook Loja de Informática', categoryId: 'tecnologia', amount: 583.25, total: 10, startsAt: 3 }
 
-function seedCard(accountId: string, purchaseMonth: string, howMany: number) {
+/**
+ * As compras de cartão do mês.
+ *
+ * `lastDay` trava a data no último dia que o mês "já viveu". Sem ele, o mês em curso ganhava
+ * compras datadas depois do próprio corte, `lastDateWithData()` ia parar no futuro e contas
+ * que ainda nem venceram apareciam em atraso.
+ */
+function seedCard(accountId: string, purchaseMonth: string, howMany: number, lastDay: number) {
   const invoiceMonth = shiftMonth(purchaseMonth, 1)
   const invoice = { dueDate: day(invoiceMonth, 10), month: invoiceMonth }
   let total = 0
@@ -156,7 +167,7 @@ function seedCard(accountId: string, purchaseMonth: string, howMany: number) {
     add({
       accountId,
       entity: 'PF',
-      date: day(purchaseMonth, 2 + Math.floor(rand() * 24)),
+      date: day(purchaseMonth, Math.min(lastDay, 2 + Math.floor(rand() * 24))),
       amount: -amount,
       description: item.merchant,
       merchant: item.merchant,
@@ -193,6 +204,17 @@ for (const [index, month] of months.entries()) {
   // --- PF: contas fixas, aporte e o repasse para a conta do outro banco ---
   if (lastDay >= 12) {
     add({ accountId: 'xp-conta', entity: 'PF', date: day(month, 10), amount: -2400, description: 'Aluguel', merchant: 'Imobiliária Fictícia', categoryId: 'moradia' })
+    // Metade do aluguel volta: é o que dá o que conciliar ao `receivables.config.example.ts`.
+    // Sem esta entrada o clone abre a tela de Cobranças com tudo em atraso.
+    add({
+      accountId: 'xp-conta',
+      entity: 'PF',
+      date: day(month, 15),
+      amount: 1200,
+      description: 'Pix recebido de Colega de Apartamento',
+      merchant: 'Colega de Apartamento',
+      categoryId: 'pix-recebido',
+    })
     add({ accountId: 'xp-conta', entity: 'PF', date: day(month, 12), amount: -around(95, 20), description: 'Plano de celular', merchant: 'Operadora Fictícia', categoryId: 'telefonia' })
     transfer({
       kind: 'investment',
@@ -222,8 +244,8 @@ for (const [index, month] of months.entries()) {
   }
 
   // --- Cartões: as compras do mês caem na fatura do mês seguinte ---
-  const xpTotal = seedCard('xp-cartao', month, 6)
-  const nubankTotal = seedCard('nubank-cartao', month, 4)
+  const xpTotal = seedCard('xp-cartao', month, lastDay >= 2 ? 6 : 0, lastDay)
+  const nubankTotal = seedCard('nubank-cartao', month, lastDay >= 2 ? 4 : 0, lastDay)
 
   // Parcelas de uma compra antiga: uma por mês, deslocadas, como o ingest as entrega.
   if (index >= INSTALLMENT_PURCHASE.startsAt) {
@@ -291,6 +313,12 @@ const accounts: Account[] = ACCOUNT_SEEDS.map((profile) => {
   }
 })
 
+// O mesmo casamento do `pnpm ingest`, e não uma cópia: é ele que escreve `receivableId` e
+// `plannedId` nos lançamentos. Sem esta etapa o dataset fictício nasce sem conciliação, e as
+// telas de Cobranças e Pagamentos abrem um clone novo dizendo que tudo está em atraso.
+matchReceivables(transactions, RECEIVABLES)
+matchPlanned(transactions, PLANNED_ENTRIES)
+
 transactions.sort((a, b) => (a.date === b.date ? a.id.localeCompare(b.id) : a.date.localeCompare(b.date)))
 
 const meta: DatasetMeta = {
@@ -317,6 +345,7 @@ writeFileSync(
 )
 writeFileSync(join(OUT_DIR, 'goals.json'), JSON.stringify(GOALS, null, 2))
 writeFileSync(join(OUT_DIR, 'budget.json'), JSON.stringify(BUDGET, null, 2))
+writeFileSync(join(OUT_DIR, 'receivables.json'), JSON.stringify(RECEIVABLES, null, 2))
 
 console.log(`Dataset fictício gerado em src/generated/: ${transactions.length} lançamentos, ${transfers.length} transferências, ${months.length} meses (${months[0]} a ${months[months.length - 1]}).`)
 console.log('Nada aqui é dado real. Coloque seus extratos em docs/ e rode `pnpm ingest` para substituir.')
