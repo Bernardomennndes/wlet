@@ -3,6 +3,7 @@ import metaJson from '@/generated/meta.json'
 import transactionsJson from '@/generated/transactions.json'
 import transfersJson from '@/generated/transfers.json'
 import { CATEGORY_MAP } from '@/data/categories'
+import { offsetCategoryOf } from './receivables'
 import type { Account, DatasetMeta, Flow, Transaction, Transfer } from '@/data/types'
 
 // `Flow` e `flowKinds` moram em `@/data/types` com os outros pares de enum; reexportados
@@ -38,6 +39,10 @@ export function accountInScope(accountId: string, scope: Scope): boolean {
  * (ex.: retirada da PJ para a PF é despesa na visão PJ e renda na visão PF).
  */
 export function flowOf(tx: Transaction, scope: Scope): Flow {
+  // Antes de tudo: dinheiro que entra e não é seu. É o rateio de uma despesa que você
+  // adiantou, então não é receita (somá-la infla os dois lados) nem transferência (veio de
+  // outra pessoa) — ele abate a despesa de origem. Ver `summarizeByMonth`.
+  if (tx.receivableId && tx.amount > 0) return 'reimbursement'
   if (tx.transferKind) {
     if (tx.transferKind === 'unmatched-self') return 'transfer'
     if (!tx.counterpartAccountId) return 'transfer'
@@ -51,6 +56,9 @@ export function flowOf(tx: Transaction, scope: Scope): Flow {
 export function displayCategoryId(tx: Transaction, scope: Scope, override?: string): string {
   const base = override ?? tx.categoryId
   const flow = flowOf(tx, scope)
+  // O crédito precisa cair na MESMA categoria que ele abate, senão ele não anula nada: uma
+  // entrada em "Pix de pessoas" não reduz "Moradia" no empilhado nem na BarList.
+  if (flow === 'reimbursement') return override ?? offsetCategoryOf(tx.receivableId) ?? base
   if (flow === 'transfer') return base
   if (tx.transferKind && tx.counterpartAccountId) {
     const own = ACCOUNT_MAP[tx.accountId]?.entity
@@ -88,6 +96,22 @@ export function monthsBetween(from: string, to: string): string[] {
 /** Último mês que tem lançamentos no conjunto, independente do período selecionado. */
 export function lastMonthWithData(): string {
   return META.months[META.months.length - 1]
+}
+
+/**
+ * A última data coberta por algum extrato ou fatura, em AAAA-MM-DD.
+ *
+ * Não é "hoje": o que separa o que já aconteceu do que ainda vai acontecer, para este app,
+ * é até onde os arquivos vão. Um recebimento de ontem que ainda não foi exportado continua
+ * sendo previsão — e contá-lo como previsão é o certo, porque ele não está nos dados.
+ */
+export function lastDateWithData(): string {
+  let last = ''
+  for (const account of ACCOUNTS) {
+    const to = account.coverage?.to
+    if (to && to > last) last = to
+  }
+  return last || `${lastMonthWithData()}-01`
 }
 
 /**
@@ -169,6 +193,10 @@ export function summarizeByMonth(txs: ViewTransaction[], months: string[]): Mont
     row.count += 1
     if (tx.flow === 'income') row.income += tx.amount
     else if (tx.flow === 'expense') row.expense += -tx.amount
+    // Reembolso é despesa negativa: a parte que voltou nunca foi custo seu. Não entra em
+    // `income` — se entrasse, entrada e saída ficariam infladas na mesma medida e o resultado
+    // do mês estaria certo por acaso, com os dois números errados.
+    else if (tx.flow === 'reimbursement') row.expense -= tx.amount
     else if (tx.amount < 0) row.transfersOut += -tx.amount
   }
   for (const row of map.values()) {
@@ -189,13 +217,27 @@ export interface CategoryTotal {
   byMonth: Record<string, number>
 }
 
+/**
+ * Totais por categoria.
+ *
+ * No eixo de despesa, o reembolso entra como CRÉDITO na categoria que ele abate — é a mesma
+ * conta de `summarizeByMonth`, aberta por categoria, e sem ela a moradia apareceria pelo
+ * valor cheio enquanto o total do mês já viria líquido.
+ *
+ * O crédito não conta como lançamento: "113 despesas em 8 meses" contaria uma entrada.
+ *
+ * O valor é travado em zero na saída. Se um reembolso chegar num mês sem a despesa
+ * correspondente — o rateio de agosto pago em setembro —, a categoria ficaria negativa, e
+ * nem pilha nem barra desenham fatia negativa. O total do MÊS continua exato, então nesse
+ * caso raro a soma das fatias fica acima dele e a diferença aparece como "Outras saídas"
+ * menor. Preferível a uma fatia impossível de desenhar.
+ */
 export function summarizeByCategory(txs: ViewTransaction[], flow: 'income' | 'expense'): CategoryTotal[] {
   const map = new Map<string, CategoryTotal>()
-  let grand = 0
   for (const tx of txs) {
-    if (tx.flow !== flow) continue
-    const value = Math.abs(tx.amount)
-    grand += value
+    const isOffset = flow === 'expense' && tx.flow === 'reimbursement'
+    if (tx.flow !== flow && !isOffset) continue
+    const value = isOffset ? -Math.abs(tx.amount) : Math.abs(tx.amount)
     const row = map.get(tx.displayCategoryId) ?? {
       categoryId: tx.displayCategoryId,
       label: CATEGORY_MAP[tx.displayCategoryId]?.label ?? tx.displayCategoryId,
@@ -205,11 +247,20 @@ export function summarizeByCategory(txs: ViewTransaction[], flow: 'income' | 'ex
       byMonth: {},
     }
     row.total += value
-    row.count += 1
+    if (!isOffset) row.count += 1
     row.byMonth[tx.month] = (row.byMonth[tx.month] ?? 0) + value
     map.set(tx.displayCategoryId, row)
   }
-  const rows = [...map.values()].sort((a, b) => b.total - a.total)
+  const rows: CategoryTotal[] = []
+  let grand = 0
+  for (const row of map.values()) {
+    row.total = Math.max(0, toCents(row.total))
+    for (const month of Object.keys(row.byMonth)) row.byMonth[month] = Math.max(0, toCents(row.byMonth[month]))
+    if (row.total <= 0) continue
+    grand += row.total
+    rows.push(row)
+  }
+  rows.sort((a, b) => b.total - a.total)
   for (const row of rows) row.share = grand > 0 ? row.total / grand : 0
   return rows
 }

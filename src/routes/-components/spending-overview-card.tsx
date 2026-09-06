@@ -7,7 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { NotInformed } from '@/components/not-informed'
 import { formatBRL, formatPercent } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { splitExpense, type ExpenseSegment } from './expense-segments'
+import { splitExpense, type ExpenseSegment } from '@/lib/expense-segments'
 
 interface Props {
   /** Saídas do período. */

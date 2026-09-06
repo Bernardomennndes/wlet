@@ -15,9 +15,10 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empt
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { categoryColor } from '@/lib/chart-tokens'
 import { CATEGORIES, CATEGORY_MAP, categoryGroupLabel, type Category } from '@/data/categories'
-import { detectRecurring, lastMonthWithData, sum, summarizeByCategory, summarizeByMerchant } from '@/lib/finance'
+import { ACCOUNT_MAP, detectRecurring, lastMonthWithData, sum, summarizeByCategory, summarizeByMerchant } from '@/lib/finance'
 import { buildCategoryForecast } from '@/lib/forecast'
 import { plannedInScope } from '@/lib/planned'
+import { receivablesInScope } from '@/lib/receivables'
 import { formatAxis, formatBRL, formatDate, formatMonthLong, formatMonthLongLabel, formatMonthShort, formatPercent, plural } from '@/lib/format'
 import { useFilters } from '@/providers/use-filters'
 import { BarList, type BarListItem } from './-components/bar-list'
@@ -50,6 +51,7 @@ export function CategoriasPageContent() {
     const forecast = buildCategoryForecast({
       history,
       planned: plannedInScope(scope),
+      receivables: receivablesInScope(scope, (id) => ACCOUNT_MAP[id]?.entity),
       targets: months.filter((m) => m >= projectedFrom),
     })
     return expenseCats.map((c) => (forecast[c.categoryId] ? { ...c, byMonth: { ...c.byMonth, ...forecast[c.categoryId] } } : c))
@@ -92,7 +94,9 @@ export function CategoriasPageContent() {
   }, [expenseCats, selected, select])
 
   const detail = selected ? expenseCats.find((c) => c.categoryId === selected) : null
-  const detailRows = useMemo(() => transactions.filter((t) => t.flow === 'expense' && t.displayCategoryId === selected), [transactions, selected])
+  // O reembolso entra na lista: ele é o que explica a diferença entre o valor cheio da
+  // despesa e o total líquido da categoria. Fora dela, a soma da lista não fecharia com o topo.
+  const detailRows = useMemo(() => transactions.filter((t) => (t.flow === 'expense' || t.flow === 'reimbursement') && t.displayCategoryId === selected), [transactions, selected])
   const detailMerchants = useMemo(() => summarizeByMerchant(detailRows, 'expense'), [detailRows])
 
   // Config do gráfico de detalhe: a cor vem do slot fixo da categoria, nunca do índice.
@@ -138,7 +142,7 @@ export function CategoriasPageContent() {
           <CardTitle>Despesas por mês e categoria</CardTitle>
           <CardDescription>
             As sete maiores categorias do conjunto; o restante agrupado em “Outras”.
-            {projectedFrom ? ' Meses hachurados são previsão: parcelas já contratadas mais as regras cadastradas em Previsão.' : ''}
+            {projectedFrom ? ' Neste gráfico tudo é saída, então a hachura marca PREVISÃO: parcelas já contratadas, contas declaradas e rubricas.' : ''}
           </CardDescription>
         </CardHeader>
         <CardContent>

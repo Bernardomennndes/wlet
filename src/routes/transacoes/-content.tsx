@@ -20,7 +20,7 @@ const ALL = 'all'
 /** Chaves de URL que pertencem a esta tela — as únicas que "Limpar filtros" apaga. */
 const FILTER_KEYS = ['q', 'conta', 'categoria', 'fluxo', 'mes']
 const CATEGORY_ITEMS = [{ value: ALL, label: 'Todas as categorias' }, ...CATEGORIES.map((c) => ({ value: c.id, label: c.label }))]
-const FLOW_ITEMS = [{ value: ALL, label: 'Entradas, saídas e transferências' }, ...flowKinds.map((o) => ({ value: o.value, label: `Só ${o.labelPlural!.toLowerCase()}` }))]
+const FLOW_ITEMS = [{ value: ALL, label: 'Todos os lançamentos' }, ...flowKinds.map((o) => ({ value: o.value, label: `Só ${o.labelPlural!.toLowerCase()}` }))]
 
 export function TransacoesPageContent() {
   useDocumentTitle('Transações')
@@ -75,7 +75,11 @@ export function TransacoesPageContent() {
   }, [transactions, q, accountValue, category, flow, monthValue])
 
   const totalIn = sum(rows.filter((t) => t.flow === 'income').map((t) => t.amount))
-  const totalOut = sum(rows.filter((t) => t.flow === 'expense').map((t) => -t.amount))
+  // Saída BRUTA e abatimento separados, não a diferença entre eles. O líquido é o que vale no
+  // resto do app, mas aqui o cabeçalho resume as linhas FILTRADAS: com o filtro em "Só
+  // reembolsos" a subtração dava "saídas −R$ 6.439,69", um rótulo que mente sobre o sinal.
+  const totalOut = sum(rows.filter((t) => t.flow === 'expense').map((t) => Math.abs(t.amount)))
+  const totalOffset = sum(rows.filter((t) => t.flow === 'reimbursement').map((t) => Math.abs(t.amount)))
 
   const exportOverrides = () => {
     const blob = new Blob([JSON.stringify(overrides, null, 2)], { type: 'application/json' })
@@ -96,6 +100,7 @@ export function TransacoesPageContent() {
             <h1 className="text-lg font-semibold tracking-tight">Transações</h1>
             <p className="text-xs text-muted-foreground">
               {rows.length} {plural(rows.length, 'lançamento', 'lançamentos')} · entradas {formatBRL(totalIn)} · saídas {formatBRL(totalOut)}
+              {totalOffset > 0 ? ` · abatido ${formatBRL(totalOffset)}` : ''}
             </p>
           </div>
         </div>

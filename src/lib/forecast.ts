@@ -1,6 +1,10 @@
+import { CalendarClock, CreditCard, Target, Undo2 } from 'lucide-react'
+import type { EnumOption } from '@/data/types'
 import type { ViewTransaction } from './finance'
-import { shiftMonth } from './finance'
-import { amountAt, occursIn, type PlannedEntry } from './planned'
+import { shiftMonth, toCents } from './finance'
+import { BUDGET } from './budget'
+import { amountAt, dueDateOf, occursIn, pendingIn, settlePlanned, type PlannedEntry } from './planned'
+import { dueDateOf as receivableDueDateOf, occursIn as receivableOccursIn, settle, type Receivable } from './receivables'
 
 /**
  * Previsão de um mês futuro.
@@ -16,8 +20,25 @@ export interface ForecastMonth {
   expense: number
   net: number
   committed: number
+  /**
+   * A saída aberta por ORIGEM. Existe porque a previsão de um mês vem de quatro lugares, e
+   * sem discriminá-los o total vira um número que ninguém consegue conferir — foi assim que a
+   * tela de Previsão passou a mostrar moradia cheia enquanto o gráfico mostrava a líquida.
+   */
+  sources: ForecastSources
   /** Nada cadastrado nem contratado: o mês aparece vazio de propósito. */
   empty: boolean
+}
+
+export interface ForecastSources {
+  /** Regras de `planned.config.ts`: o que você declarou que vai pagar. */
+  declared: number
+  /** Parcelas de cartão já compradas. Não é declaração, é fato. */
+  committed: number
+  /** Rubricas de `budget.config.ts`, já como PISO — só o que elas acrescentam ao acima. */
+  rubric: number
+  /** O que as cobranças abatem, negativo. */
+  offset: number
 }
 
 type Installment = NonNullable<ViewTransaction['installment']>
@@ -42,8 +63,26 @@ function purchaseKey(tx: ViewTransaction, installment: Installment): string {
  * todas conta a mesma compra várias vezes. Medido no conjunto — 117 linhas de parcela para
  * 31 compras, e um "já contratado" de R$ 6.200,00 no lugar dos R$ 3.100,00 reais.
  */
-function committedByCategory(history: ViewTransaction[], targets: string[]): Map<string, Map<string, number>> {
-  const out = new Map<string, Map<string, number>>()
+export interface CommittedInstallment {
+  month: string
+  merchant: string
+  /** Identidade da COMPRA de origem. Duas compras do mesmo estabelecimento se distinguem. */
+  purchase: string
+  /** Valor absoluto da parcela. */
+  amount: number
+  categoryId: string
+  installment: Installment
+}
+
+/**
+ * As parcelas em aberto, UMA A UMA.
+ *
+ * `committedByCategory` é derivada daqui e não o contrário: a regra difícil — só a última
+ * parcela vista projeta, e só se ela apareceu na fatura mais recente daquele cartão — passou
+ * a viver num lugar só. Duas implementações dela divergiriam, e o defeito seria silencioso.
+ */
+function committedInstallments(history: ViewTransaction[], targets: string[]): CommittedInstallment[] {
+  const out: CommittedInstallment[] = []
   const wanted = new Set(targets)
 
   // A fatura mais recente de cada cartão. Uma compra só continua rodando se a última parcela
@@ -71,10 +110,25 @@ function committedByCategory(history: ViewTransaction[], targets: string[]): Map
     for (let k = 1; k <= installment.total - installment.current; k++) {
       const month = shiftMonth(tx.month, k)
       if (!wanted.has(month)) continue
-      const byMonth = out.get(tx.displayCategoryId) ?? new Map<string, number>()
-      byMonth.set(month, (byMonth.get(month) ?? 0) + Math.abs(tx.amount))
-      out.set(tx.displayCategoryId, byMonth)
+      out.push({
+        month,
+        merchant: tx.merchant,
+        purchase: purchaseKey(tx, installment),
+        amount: Math.abs(tx.amount),
+        categoryId: tx.displayCategoryId,
+        installment: { current: installment.current + k, total: installment.total },
+      })
     }
+  }
+  return out
+}
+
+function committedByCategory(history: ViewTransaction[], targets: string[]): Map<string, Map<string, number>> {
+  const out = new Map<string, Map<string, number>>()
+  for (const item of committedInstallments(history, targets)) {
+    const byMonth = out.get(item.categoryId) ?? new Map<string, number>()
+    byMonth.set(item.month, (byMonth.get(item.month) ?? 0) + item.amount)
+    out.set(item.categoryId, byMonth)
   }
   return out
 }
@@ -99,6 +153,40 @@ export function committedFor(history: ViewTransaction[], months: string[]): { by
   return { byMonth, byCategory }
 }
 
+/**
+ * O que as regras cadastradas ainda vão trazer para o mês EM CURSO — só as ocorrências cuja
+ * data cai depois de `after`, a última data com dado.
+ *
+ * A regra antiga era não misturar regra nenhuma num mês que já tem extrato, porque um "todo
+ * mês entra tal valor" recontaria o que já aconteceu. O que destravou isso foi o dia: com
+ * ele, a ocorrência de 25/09 é claramente futura num extrato que vai até 02/09, e a de 05/09
+ * é claramente passada. Regra sem dia declarado continua de fora — ver `pendingIn`.
+ */
+export interface Pending {
+  income: number
+  expense: number
+  byCategory: Map<string, number>
+}
+
+export function pendingFor(input: Omit<Input, 'targets'>, month: string, after: string): Pending {
+  let income = 0
+  let expense = 0
+  const byCategory = new Map<string, number>()
+  for (const item of forecastItems(input, month, after)) {
+    // Parcela contratada entra pelo `committedFor`, que quem chama já soma à parte. Ela está
+    // na agenda porque é fato do mês; contá-la aqui de novo dobraria a saída.
+    if (item.origin === 'committed') continue
+    if (item.amount > 0 && item.origin === 'declared') {
+      income += item.amount
+      continue
+    }
+    // Abatimento é crédito na despesa, não entrada — a mesma leitura de `flowOf`.
+    expense -= item.amount
+    byCategory.set(item.categoryId, Math.max(0, (byCategory.get(item.categoryId) ?? 0) - item.amount))
+  }
+  return { income, expense, byCategory }
+}
+
 interface Input {
   /**
    * Histórico COMPLETO do recorte, não a fatia do período do cabeçalho. Parcela contratada
@@ -109,30 +197,87 @@ interface Input {
   history: ViewTransaction[]
   /** Regras já filtradas pelo recorte PF/PJ vigente. */
   planned: PlannedEntry[]
+  /** Cobranças já filtradas pelo recorte. O que elas abatem também é previsão. */
+  receivables: Receivable[]
   /** Meses a prever, em ordem. */
   targets: string[]
 }
 
-export function buildForecast({ history, planned, targets }: Input): ForecastMonth[] {
+/**
+ * A saída prevista de um mês, aberta por categoria.
+ *
+ * Três camadas, e a ordem entre elas é a regra:
+ *
+ * 1. o que já é FATO — parcela de cartão contratada — mais o que está DECLARADO em
+ *    `planned.config.ts` com credor conhecido;
+ * 2. a rubrica de `budget.config.ts` como PISO, não soma: uma categoria com R$ 300 já
+ *    contratados e rubrica de R$ 1.000 projeta 1.000, não 1.300. Somar contaria o mesmo gasto
+ *    duas vezes — a parcela do Airbnb já é viagem, e a rubrica de viagem não a acrescenta;
+ * 3. o abatimento das cobranças, que é crédito e entra por último, sobre o valor já formado.
+ *    Sem ele o aluguel projetaria R$ 1.500 cheios enquanto metade volta todo mês.
+ */
+function expenseByCategory(input: Input, month: string, committedByCat: Map<string, Map<string, number>>): { byCategory: Map<string, number>; sources: ForecastSources } {
+  const out = new Map<string, number>()
+  const sources: ForecastSources = { declared: 0, committed: 0, rubric: 0, offset: 0 }
+  const add = (categoryId: string, value: number) => {
+    if (value === 0) return
+    out.set(categoryId, (out.get(categoryId) ?? 0) + value)
+  }
+
+  for (const [categoryId, byMonth] of committedByCat) {
+    const value = byMonth.get(month) ?? 0
+    add(categoryId, value)
+    sources.committed += value
+  }
+  for (const entry of input.planned) {
+    if (entry.kind !== 'expense' || !occursIn(entry, month)) continue
+    const value = amountAt(entry, month)
+    add(entry.categoryId, value)
+    sources.declared += value
+  }
+
+  for (const rubrica of BUDGET.byCategory ?? []) {
+    const already = out.get(rubrica.categoryId) ?? 0
+    if (rubrica.amount <= already) continue
+    // Só o que ela ACRESCENTA entra na origem: a rubrica é piso, então a parte já coberta por
+    // parcela ou por conta declarada pertence àquelas origens, não a esta.
+    sources.rubric += rubrica.amount - already
+    out.set(rubrica.categoryId, rubrica.amount)
+  }
+
+  for (const receivable of input.receivables) {
+    if (!receivableOccursIn(receivable, month)) continue
+    const already = out.get(receivable.offsetsCategoryId) ?? 0
+    const applied = Math.min(already, receivable.amount)
+    sources.offset -= applied
+    out.set(receivable.offsetsCategoryId, already - applied)
+  }
+  return { byCategory: out, sources }
+}
+
+export function buildForecast(input: Input): ForecastMonth[] {
+  const { history, planned, targets } = input
   if (!targets.length) return []
 
+  const byCategory = committedByCategory(history, targets)
   const committed = new Map<string, number>()
-  for (const byMonth of committedByCategory(history, targets).values()) {
-    for (const [month, value] of byMonth) committed.set(month, (committed.get(month) ?? 0) + value)
+  for (const perMonth of byCategory.values()) {
+    for (const [month, value] of perMonth) committed.set(month, (committed.get(month) ?? 0) + value)
   }
 
   return targets.map((month) => {
     let income = 0
-    let planExpense = 0
     for (const entry of planned) {
-      if (!occursIn(entry, month)) continue
-      const value = amountAt(entry, month)
-      if (entry.kind === 'income') income += value
-      else planExpense += value
+      if (entry.kind !== 'income' || !occursIn(entry, month)) continue
+      income += amountAt(entry, month)
     }
+    // A saída sai da abertura por categoria, e não de uma soma paralela: é ela que aplica o
+    // piso da rubrica e o abatimento das cobranças. Duas contas divergiriam.
+    const { byCategory: perCategory, sources } = expenseByCategory(input, month, byCategory)
+    let expense = 0
+    for (const value of perCategory.values()) expense += value
     const c = committed.get(month) ?? 0
-    const expense = planExpense + c
-    return { month, income, expense, net: income - expense, committed: c, empty: income === 0 && expense === 0 }
+    return { month, income, expense: toCents(expense), net: toCents(income - expense), committed: c, sources, empty: income === 0 && expense === 0 }
   })
 }
 
@@ -143,25 +288,136 @@ export function buildForecast({ history, planned, targets }: Input): ForecastMon
  *
  * Devolve `categoria → mês → valor previsto`.
  */
-export function buildCategoryForecast({ history, planned, targets }: Input): Record<string, Record<string, number>> {
+export function buildCategoryForecast(input: Input): Record<string, Record<string, number>> {
+  const { history, targets } = input
   if (!targets.length) return {}
 
+  const committed = committedByCategory(history, targets)
   const out: Record<string, Record<string, number>> = {}
-  const add = (category: string, month: string, value: number) => {
-    if (value <= 0) return
-    out[category] ??= {}
-    out[category][month] = (out[category][month] ?? 0) + value
-  }
-
-  for (const [category, byMonth] of committedByCategory(history, targets)) {
-    for (const [month, value] of byMonth) add(category, month, value)
-  }
-  for (const entry of planned) {
-    if (entry.kind !== 'expense') continue
-    for (const month of targets) {
-      if (!occursIn(entry, month)) continue
-      add(entry.categoryId, month, amountAt(entry, month))
+  for (const month of targets) {
+    for (const [category, value] of expenseByCategory(input, month, committed).byCategory) {
+      if (value <= 0) continue
+      out[category] ??= {}
+      out[category][month] = value
     }
   }
   return out
+}
+
+/**
+ * De onde vem um item previsto. Não é enum de domínio — nada disto é serializado —, então a
+ * lista mora aqui, ao lado de quem a produz, e não em `data/types.ts`.
+ */
+export type ForecastOrigin = 'declared' | 'committed' | 'rubric' | 'offset'
+
+export const forecastOrigins: EnumOption<ForecastOrigin>[] = [
+  { value: 'committed', label: 'Contratado', icon: CreditCard, tone: 'neutral' },
+  { value: 'declared', label: 'Declarado', icon: CalendarClock, tone: 'neutral' },
+  { value: 'rubric', label: 'Rubrica', icon: Target, tone: 'muted' },
+  { value: 'offset', label: 'Abatido', icon: Undo2, tone: 'positive' },
+]
+
+export interface ForecastItem {
+  key: string
+  /** Dia em que cai, quando se sabe. Parcela e rubrica não têm — ver `ForecastAgenda`. */
+  date: string | null
+  label: string
+  categoryId: string
+  /** Com sinal: positivo entra, negativo sai. */
+  amount: number
+  origin: ForecastOrigin
+  installment?: Installment
+}
+
+/**
+ * O que vai acontecer num mês, item a item.
+ *
+ * Segue EXATAMENTE a ordem de `expenseByCategory` — fato e declarado, depois o piso da
+ * rubrica, depois o abatimento — porque a soma daqui tem que fechar com o total que o
+ * gráfico desenha. Se as duas divergirem, a gaveta contradiz a linha que a abriu.
+ *
+ * `pendingAfter` liga a leitura do mês EM CURSO: só o que ainda vence, e sem rubrica — uma
+ * rubrica no mês corrente não é algo a acontecer, é um teto sendo consumido.
+ */
+export function forecastItems(input: Omit<Input, 'targets'>, month: string, pendingAfter?: string): ForecastItem[] {
+  const partial = pendingAfter !== undefined
+  const items: ForecastItem[] = []
+  const gross = new Map<string, number>()
+  const bump = (categoryId: string, value: number) => gross.set(categoryId, (gross.get(categoryId) ?? 0) + value)
+
+  // Quanto de cada regra JÁ foi cumprido na ocorrência deste mês. Vem da CONCILIAÇÃO, não de
+  // uma soma dos lançamentos do mês: numa cobrança parcelada o dinheiro pode ter entrado em
+  // agosto e quitar setembro, e somar por mês diria que setembro está em aberto — foi o que a
+  // agenda mostrou, cobrando de novo um rateio que o pagador já tinha adiantado.
+  const done = new Map<string, number>()
+  if (partial) {
+    for (const occurrence of settle(input.history, [month], pendingAfter)) {
+      if (occurrence.month === month) done.set(occurrence.ruleId, occurrence.actual)
+    }
+    for (const occurrence of settlePlanned(input.history, [month], pendingAfter)) {
+      if (occurrence.month === month) done.set(occurrence.ruleId, occurrence.actual)
+    }
+  }
+
+  for (const item of committedInstallments(input.history, [month])) {
+    bump(item.categoryId, item.amount)
+    items.push({
+      // Pela COMPRA e não pelo estabelecimento: duas compras do mesmo lugar podem cair no
+      // mesmo mês com o mesmo número de parcela, e a chave repetida quebraria a lista.
+      key: `committed-${item.purchase}-${item.installment.current}`,
+      date: null,
+      label: item.merchant,
+      categoryId: item.categoryId,
+      amount: -item.amount,
+      origin: 'committed',
+      installment: item.installment,
+    })
+  }
+
+  for (const entry of input.planned) {
+    if (partial ? !pendingIn(entry, month, pendingAfter) : !occursIn(entry, month)) continue
+    const value = partial ? Math.max(0, amountAt(entry, month) - (done.get(entry.id) ?? 0)) : amountAt(entry, month)
+    if (value === 0) continue
+    if (entry.kind === 'expense') bump(entry.categoryId, value)
+    items.push({
+      key: `declared-${entry.id}`,
+      date: dueDateOf(entry, month),
+      label: entry.label,
+      categoryId: entry.categoryId,
+      amount: entry.kind === 'income' ? value : -value,
+      origin: 'declared',
+    })
+  }
+
+  if (!partial) {
+    for (const rubrica of BUDGET.byCategory ?? []) {
+      const already = gross.get(rubrica.categoryId) ?? 0
+      if (rubrica.amount <= already) continue
+      const extra = rubrica.amount - already
+      gross.set(rubrica.categoryId, rubrica.amount)
+      items.push({ key: `rubric-${rubrica.categoryId}`, date: null, label: 'Gasto planejado', categoryId: rubrica.categoryId, amount: -extra, origin: 'rubric' })
+    }
+  }
+
+  for (const receivable of input.receivables) {
+    if (!receivableOccursIn(receivable, month)) continue
+    const due = receivableDueDateOf(receivable, month)
+    if (partial && (!due || due <= pendingAfter)) continue
+    const expected = partial ? Math.max(0, receivable.amount - (done.get(receivable.id) ?? 0)) : receivable.amount
+    const already = gross.get(receivable.offsetsCategoryId) ?? 0
+    const applied = Math.min(already, expected)
+    if (applied <= 0) continue
+    gross.set(receivable.offsetsCategoryId, already - applied)
+    items.push({ key: `offset-${receivable.id}`, date: due, label: `Rateio · ${receivable.debtor}`, categoryId: receivable.offsetsCategoryId, amount: applied, origin: 'offset' })
+  }
+
+  // Ordem: por dia, e o que não tem dia vai para o fim. Parcela cai na fatura, cuja data
+  // depende do fechamento; rubrica não tem dia nenhum. Fingir uma data ali seria inventar
+  // precisão que o dado não tem.
+  return items.sort((a, b) => {
+    if (a.date && b.date) return a.date.localeCompare(b.date) || Math.abs(b.amount) - Math.abs(a.amount)
+    if (a.date) return -1
+    if (b.date) return 1
+    return Math.abs(b.amount) - Math.abs(a.amount)
+  })
 }

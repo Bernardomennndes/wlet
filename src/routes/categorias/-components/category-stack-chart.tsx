@@ -52,7 +52,14 @@ export function CategoryStackChart({ categories, months, height = 280, projected
       <BarChart accessibilityLayer data={data} margin={{ top: PROJECTION_MARKER_SPACE, right: 8, left: 0, bottom: 0 }} barCategoryGap="32%">
         <defs>
           {/* Uma hachura por categoria, no matiz da própria série: mês previsto muda de
-              textura, não de cor, então a identidade da categoria se mantém. */}
+              textura, não de cor, então a identidade da categoria se mantém.
+
+              Aqui a textura codifica MEDIDO × PREVISTO, e não o eixo do fluxo como no gráfico
+              da Visão geral. É a precondição da §1 da regra de dataviz: toda fatia deste
+              gráfico é saída, então a textura não teria o que distinguir e fica livre para o
+              próximo eixo. Hachurar tudo foi tentado e medido — com oito séries em barra de
+              24px, vários segmentos têm 4 a 6px de altura, a hachura vira ruído em vez de
+              textura, a cor deixa de ser legível e a fronteira da previsão some. */}
           {ids.map((id) => (
             <pattern key={id} id={`stack-${id}`} width={HATCH.stack.step} height={HATCH.stack.step} patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
               <rect width={HATCH.stack.step} height={HATCH.stack.step} style={{ fill: 'var(--card)' }} />

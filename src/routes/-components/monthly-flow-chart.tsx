@@ -26,8 +26,8 @@ const CHART_MARGIN = { top: PROJECTION_MARKER_SPACE, right: 8, left: 0, bottom: 
 
 /** Hachura das saídas. Só existe uma instância deste gráfico, então o id pode ser fixo. */
 const STRIPE_ID = 'wallet-expense-stripes'
-/** Mesma hachura, traço mais fraco: marca saída prevista, não medida. */
-const STRIPE_SOFT_ID = 'wallet-expense-stripes-soft'
+/** O traço da marca prevista: o mesmo tracejado do divisor de projeção. */
+const PROJECTED_DASH = '4 4'
 
 /** Fundo listrado do quadradinho de legenda: mesmo ângulo e proporção do <pattern> do SVG,
  *  no passo `fine` — a amostra tem 14px e, com o passo da barra, mostraria uma listra só. */
@@ -42,6 +42,10 @@ export interface FlowPoint extends MonthSummary {
   empty?: boolean
   /** Mês MEDIDO ainda em curso, somado às parcelas já contratadas que faltam cair nele. */
   partial?: boolean
+  /** Entrada declarada que ainda vence no mês em curso — a parte dele que não é medição. */
+  plannedIncome?: number
+  /** Saída declarada que ainda vence no mês em curso. */
+  plannedExpense?: number
 }
 
 interface FlowRow extends FlowPoint {
@@ -125,10 +129,6 @@ export function MonthlyFlowChart({ data, height = 300, projectedFrom, headline }
               <rect width={HATCH.wide.step} height={HATCH.wide.step} style={{ fill: 'var(--series-expense-fill)' }} />
               <rect width={HATCH.wide.stripe} height={HATCH.wide.step} style={{ fill: 'var(--series-expense-stripe)' }} />
             </pattern>
-            <pattern id={STRIPE_SOFT_ID} width={HATCH.wide.step} height={HATCH.wide.step} patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
-              <rect width={HATCH.wide.step} height={HATCH.wide.step} style={{ fill: 'var(--series-expense-fill)' }} />
-              <rect width={HATCH.wide.stripe} height={HATCH.wide.step} style={{ fill: 'var(--series-expense-soft)' }} />
-            </pattern>
           </defs>
 
           <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
@@ -175,15 +175,23 @@ export function MonthlyFlowChart({ data, height = 300, projectedFrom, headline }
 
           {/* Barra prevista nunca pode parecer barra medida: entrada vira só contorno,
               saída vira hachura fraca. A distinção é estrutural, não de tonalidade. */}
-          <Bar dataKey="income" maxBarSize={64} radius={[8, 8, 0, 0]} isAnimationActive={false}>
+          <Bar dataKey="income" maxBarSize={64} radius={[5, 5, 0, 0]} isAnimationActive={false}>
             {rows.map((r) => (
               <Cell key={r.month} fill={r.projected ? 'transparent' : 'var(--color-income)'} stroke={r.projected ? 'var(--series-income)' : 'none'} strokeWidth={r.projected ? 1 : 0} />
             ))}
             <LabelList dataKey="ratio" content={<RatioPill />} />
           </Bar>
-          <Bar dataKey="expense" maxBarSize={64} radius={[8, 8, 0, 0]} isAnimationActive={false}>
+          <Bar dataKey="expense" maxBarSize={64} radius={[5, 5, 0, 0]} isAnimationActive={false}>
             {rows.map((r) => (
-              <Cell key={r.month} fill={`url(#${r.projected ? STRIPE_SOFT_ID : STRIPE_ID})`} />
+              // Saída prevista é contorno tracejado e oco, como na lista: o preenchimento é o
+              // que diz "aconteceu", e o tracejado é o mesmo traço do divisor de projeção.
+              <Cell
+                key={r.month}
+                fill={r.projected ? 'transparent' : `url(#${STRIPE_ID})`}
+                stroke={r.projected ? 'var(--series-expense)' : 'none'}
+                strokeWidth={r.projected ? 1 : 0}
+                strokeDasharray={r.projected ? PROJECTED_DASH : undefined}
+              />
             ))}
           </Bar>
         </BarChart>

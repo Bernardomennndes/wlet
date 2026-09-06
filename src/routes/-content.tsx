@@ -12,17 +12,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/components/ui/item'
-import { detectRecurring, lastCompleteMonth, lastMonthWithData, sum, summarizeByCategory, summarizeByMerchant, summarizeByMonth, toCents } from '@/lib/finance'
-import { buildCategoryForecast, buildForecast, committedFor } from '@/lib/forecast'
+import { ACCOUNT_MAP, detectRecurring, lastCompleteMonth, lastDateWithData, lastMonthWithData, sum, summarizeByCategory, summarizeByMerchant, summarizeByMonth, toCents } from '@/lib/finance'
+import { buildCategoryForecast, buildForecast, committedFor, forecastItems, pendingFor } from '@/lib/forecast'
 import { formatBRL, formatMonthLong, formatMonthShort, formatPercent, plural } from '@/lib/format'
 import { plannedInScope } from '@/lib/planned'
+import { receivablesInScope } from '@/lib/receivables'
 import { useFilters } from '@/providers/use-filters'
 import type { FlowPoint } from './-components/monthly-flow-chart'
 import { BudgetCard } from './-components/budget-card'
 import { GoalsCard } from './-components/goals-card'
 import { SpendingOverviewCard } from './-components/spending-overview-card'
 import { MonthlyFlowChart } from './-components/monthly-flow-chart'
-import type { ExpenseSegment } from './-components/expense-segments'
+import type { ExpenseSegment } from '@/lib/expense-segments'
+import { ForecastAgenda } from './-components/forecast-agenda'
 import { MonthlyList } from './-components/monthly-list'
 import { OVERVIEW_METRICS } from './-metric-definitions'
 
@@ -32,10 +34,10 @@ export function OverviewPageContent() {
   const [params, setParams] = useSearchParams()
 
   // O mês aberto vive na URL: o estado sobrevive a recarga e o link é compartilhável.
-  // Mês projetado não entra: ele não tem lançamento nenhum para listar, e abrir a gaveta
-  // nele mostrava "0 lançamentos · R$ 0,00" como se fosse medição.
+  // Mês projetado abre também: a gaveta dele não lista lançamento — mostra a agenda do que
+  // vai acontecer, item a item. Antes ele era barrado porque não havia o que mostrar.
   const selected = params.get('mes') ?? ''
-  const openMonth = months.includes(selected) && selected <= lastMonthWithData() ? selected : ''
+  const openMonth = months.includes(selected) ? selected : ''
   // Inicial pelo link direto: abrir em `?mes=` já deixa a lembrança correta sem evento nenhum.
   const [rememberedMonth, setRememberedMonth] = useState(openMonth)
 
@@ -54,6 +56,9 @@ export function OverviewPageContent() {
 
   // Quem manda no horizonte é o filtro do cabeçalho. Se o período escolhido passa do
   // último mês com lançamentos, esses meses entram vazios e o gráfico os marca como previsão.
+  // O que as cobranças abatem também é previsão: sem elas o aluguel projetaria cheio.
+  const scopedReceivables = useMemo(() => receivablesInScope(scope, (id) => ACCOUNT_MAP[id]?.entity), [scope])
+
   const projectedFrom = useMemo(() => months.find((m) => m > lastMonthWithData()), [months])
 
   // Meses do período que de fato têm lançamentos. Estender o filtro para o futuro não
@@ -68,9 +73,10 @@ export function OverviewPageContent() {
       buildForecast({
         history,
         planned: plannedInScope(scope),
+        receivables: scopedReceivables,
         targets: months.filter((m) => m > lastMonthWithData()),
       }),
-    [history, scope, months],
+    [history, scope, scopedReceivables, months],
   )
 
   // O último mês com dados quase sempre está em curso: a fatura ainda não fechou, e as
@@ -80,17 +86,36 @@ export function OverviewPageContent() {
   const partial = useMemo(() => committedFor(history, [partialMonth]), [history, partialMonth])
   const partialCommitted = partial.byMonth.get(partialMonth) ?? 0
 
+  // E as regras cadastradas que ainda vencem nele. O corte é a última data COM DADO, não
+  // hoje: o que não está nos arquivos ainda não aconteceu, para efeito desta tela.
+  const partialPlanned = useMemo(
+    () => pendingFor({ history, planned: plannedInScope(scope), receivables: scopedReceivables }, partialMonth, lastDateWithData()),
+    [history, scope, scopedReceivables, partialMonth],
+  )
+
   // O gráfico e a tabela recebem medido e previsto juntos; os blocos do topo, não.
   const chartRows = useMemo<FlowPoint[]>(() => {
     const byMonth = new Map(forecast.map((f) => [f.month, f]))
     return monthly.map((m) => {
       const f = byMonth.get(m.month)
       if (f) return { ...m, income: f.income, expense: f.expense, net: f.net, committed: f.committed, projected: true, empty: f.empty }
-      if (m.month !== partialMonth || partialCommitted <= 0) return m
-      const expense = toCents(m.expense + partialCommitted)
-      return { ...m, expense, net: toCents(m.income - expense), committed: partialCommitted, partial: true }
+      if (m.month !== partialMonth) return m
+      const pending = partialCommitted + partialPlanned.expense
+      if (pending <= 0 && partialPlanned.income <= 0) return m
+      const income = toCents(m.income + partialPlanned.income)
+      const expense = toCents(m.expense + pending)
+      return {
+        ...m,
+        income,
+        expense,
+        net: toCents(income - expense),
+        committed: partialCommitted,
+        plannedIncome: partialPlanned.income,
+        plannedExpense: partialPlanned.expense,
+        partial: true,
+      }
     })
-  }, [monthly, forecast, partialMonth, partialCommitted])
+  }, [monthly, forecast, partialMonth, partialCommitted, partialPlanned])
 
   const forecastTotals = useMemo(
     () => ({
@@ -118,13 +143,14 @@ export function OverviewPageContent() {
     for (const cat of expenseCats) for (const [month, value] of Object.entries(cat.byMonth)) add(month, cat.categoryId, value)
     const targets = months.filter((m) => m > lastMonthWithData())
     if (targets.length) {
-      const forecastByCategory = buildCategoryForecast({ history, planned: plannedInScope(scope), targets })
+      const forecastByCategory = buildCategoryForecast({ history, planned: plannedInScope(scope), receivables: scopedReceivables, targets })
       for (const [categoryId, monthsOfCategory] of Object.entries(forecastByCategory)) for (const [month, value] of Object.entries(monthsOfCategory)) add(month, categoryId, value)
     }
     for (const [categoryId, monthsOfCategory] of partial.byCategory) for (const [month, value] of monthsOfCategory) add(month, categoryId, value)
+    for (const [categoryId, value] of partialPlanned.byCategory) add(partialMonth, categoryId, value)
     for (const list of Object.values(byMonth)) list.sort((a, b) => b.value - a.value)
     return byMonth
-  }, [expenseCats, months, history, scope, partial])
+  }, [expenseCats, months, history, scope, scopedReceivables, partial, partialPlanned, partialMonth])
   const merchants = useMemo(() => summarizeByMerchant(transactions, 'expense'), [transactions])
   const recurring = useMemo(() => detectRecurring(merchants, months.length), [merchants, months.length])
 
@@ -147,7 +173,13 @@ export function OverviewPageContent() {
   // O teto é do MÊS CORRENTE, então lê `history` e não o período do cabeçalho: estreitar o
   // filtro não pode fazer o gasto do mês encolher. O recorte PF/PJ continua valendo.
   const budgetMonth = lastMonthWithData()
-  const budgetSpent = useMemo(() => sum(history.filter((t) => t.month === budgetMonth && t.flow === 'expense').map((t) => Math.abs(t.amount))), [history, budgetMonth])
+  // Líquido de reembolso: o teto mede o que saiu do seu bolso, e a metade do aluguel que o
+  // colega devolve nunca foi gasto seu. Sem isso o mês estouraria por um custo alheio.
+  const budgetSpent = useMemo(
+    () =>
+      sum(history.filter((t) => t.month === budgetMonth && (t.flow === 'expense' || t.flow === 'reimbursement')).map((t) => (t.flow === 'reimbursement' ? -Math.abs(t.amount) : Math.abs(t.amount)))),
+    [history, budgetMonth],
+  )
 
   const insights = useMemo(() => buildInsights({ monthly, expenseCats, recurring, months: monthsWithData, scope }), [monthly, expenseCats, recurring, monthsWithData, scope])
 
@@ -161,10 +193,20 @@ export function OverviewPageContent() {
   // mês, não a linha de `monthly` — `summarizeByMonth` escreve nas linhas que devolve, e
   // uma dependência que o compilador vê como mutável derruba a memoização do mesmo jeito.
   const sheetMonth = openMonth || rememberedMonth
-  const sheetRow = monthly.find((m) => m.month === sheetMonth)
+  // `chartRows` e não `monthly`: num mês previsto o segundo é medição vazia, e o cabeçalho
+  // da gaveta dizia "entradas R$ 0,00" em cima de uma agenda com dez itens.
+  const sheetRow = chartRows.find((m) => m.month === sheetMonth)
   const sheetRows = useMemo(() => transactions.filter((t) => t.month === sheetMonth), [transactions, sheetMonth])
   // A paginação vive aqui porque o rodapé dela é o rodapé do sheet, fora da tabela.
   const sheetPaging = useTransactionPaging(sheetRows)
+  const sheetProjected = Boolean(sheetMonth) && sheetMonth > partialMonth
+  // O mês em curso ganha as DUAS: a tabela do que já caiu e a agenda do que ainda vai cair.
+  // Sem a segunda, quem abre a gaveta vê 9 lançamentos e uma linha que diz R$ 2.480,00.
+  const sheetAgenda = useMemo(() => {
+    if (!sheetMonth) return []
+    const input = { history, planned: plannedInScope(scope), receivables: scopedReceivables }
+    return forecastItems(input, sheetMonth, sheetProjected ? undefined : lastDateWithData())
+  }, [sheetMonth, sheetProjected, history, scope, scopedReceivables])
 
   return (
     <div className="flex flex-col gap-5">
@@ -249,7 +291,8 @@ export function OverviewPageContent() {
             <CardTitle>Mês a mês</CardTitle>
             <CardDescription>
               Clique num mês para ver os lançamentos dele. A barra é o movimento do mês inteiro: o bloco sólido são as entradas, e as saídas vêm fatiadas nas três maiores categorias mais o restante.
-              “% das entradas” é outra leitura — quanto das entradas as saídas consumiram, o mesmo número da etiqueta no gráfico. Meses esmaecidos são previsão e não têm lançamentos para abrir.
+              “% das entradas” é outra leitura — quanto das entradas as saídas consumiram, o mesmo número da etiqueta no gráfico. Mês previsto vem com a barra oca — contorno sólido na entrada,
+              tracejado na saída — e não tem lançamentos para abrir.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -316,16 +359,24 @@ export function OverviewPageContent() {
             <>
               <SheetHeader className="flex-row items-start justify-between gap-4 border-b">
                 <span className="flex flex-col gap-1.5">
-                  <SheetTitle>Lançamentos de {formatMonthLong(sheetRow.month)}</SheetTitle>
+                  <SheetTitle>
+                    {sheetProjected ? 'Previsão de' : 'Lançamentos de'} {formatMonthLong(sheetRow.month)}
+                  </SheetTitle>
                   <SheetDescription>
-                    {sheetRow.count} {plural(sheetRow.count, 'lançamento', 'lançamentos')} · entradas {formatBRL(sheetRow.income)} · saídas {formatBRL(sheetRow.expense)} · resultado{' '}
-                    {formatBRL(sheetRow.net)}
+                    {sheetProjected ? null : (
+                      <>
+                        {sheetRow.count} {plural(sheetRow.count, 'lançamento', 'lançamentos')} ·{' '}
+                      </>
+                    )}
+                    entradas {formatBRL(sheetRow.income)} · saídas {formatBRL(sheetRow.expense)} · resultado {formatBRL(sheetRow.net)}
                   </SheetDescription>
                 </span>
                 <span className="flex shrink-0 items-center gap-1">
-                  <Button variant="link" size="sm" render={<Link to={`/transacoes?mes=${sheetRow.month}`} />}>
-                    Ver com filtros
-                  </Button>
+                  {sheetProjected ? null : (
+                    <Button variant="link" size="sm" render={<Link to={`/transacoes?mes=${sheetRow.month}`} />}>
+                      Ver com filtros
+                    </Button>
+                  )}
                   <SheetClose render={<Button variant="ghost" size="sm" />}>Fechar</SheetClose>
                 </span>
               </SheetHeader>
@@ -334,12 +385,26 @@ export function OverviewPageContent() {
                   esticar o painel. */}
               {/* Sem padding: a tabela vai de borda a borda, e o respiro fica por conta
                   do `p-2` das próprias células. */}
-              <div className="min-h-0 flex-1">
-                <TransactionTable key={sheetRow.month} rows={sheetRows} paging={sheetPaging} scrollable />
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                {sheetProjected ? (
+                  <ForecastAgenda items={sheetAgenda} />
+                ) : (
+                  <>
+                    <TransactionTable key={sheetRow.month} rows={sheetRows} paging={sheetPaging} scrollable />
+                    {sheetAgenda.length ? (
+                      <div className="border-t">
+                        <p className="px-4 pt-4 pb-2 font-medium text-xs">Ainda vai acontecer neste mês</p>
+                        <ForecastAgenda items={sheetAgenda} />
+                      </div>
+                    ) : null}
+                  </>
+                )}
               </div>
-              <SheetFooter className="border-t p-4 px-6">
-                <TransactionTablePagination paging={sheetPaging} />
-              </SheetFooter>
+              {sheetProjected ? null : (
+                <SheetFooter className="border-t p-4 px-6">
+                  <TransactionTablePagination paging={sheetPaging} />
+                </SheetFooter>
+              )}
             </>
           ) : null}
         </SheetContent>

@@ -1,4 +1,4 @@
-import { ArrowLeftRight, CalendarClock, Landmark, LayoutDashboard, List, PieChart, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, CalendarClock, HandCoins, Landmark, LayoutDashboard, List, PieChart, Receipt, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -17,6 +17,8 @@ export const NAV: NavItem[] = [
   { to: '/categorias', label: 'Categorias', icon: PieChart },
   { to: '/contas', label: 'Contas', icon: Landmark },
   { to: '/transferencias', label: 'Transferências', icon: ArrowLeftRight },
+  { to: '/pagamentos', label: 'Pagamentos', icon: Receipt },
+  { to: '/cobrancas', label: 'Cobranças', icon: HandCoins },
   { to: '/previsao', label: 'Previsão', icon: CalendarClock },
 ]
 

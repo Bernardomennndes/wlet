@@ -1,10 +1,9 @@
 import { DataList, DataListField, DataListItem, DataListItemFields, DataListItemHeader } from '@/components/data-list/data-list'
 import { NotInformed } from '@/components/not-informed'
-import { SERIES_SWATCH } from '@/components/charts/chart-theme'
-import { INCOME_VAR } from '@/lib/chart-tokens'
+import { SegmentLabel, VolumeBar } from '@/components/charts/volume-bar'
 import { formatBRL, formatMonthLong, formatMonthLongLabel, formatPercent } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { splitExpense, type ExpenseSegment, type SegmentPart } from './expense-segments'
+import { splitVolume, type ExpenseSegment } from '@/lib/expense-segments'
 import type { FlowPoint } from './monthly-flow-chart'
 
 interface Props {
@@ -36,38 +35,34 @@ export function MonthlyList({ rows, segmentsByMonth, openMonth, onSelect }: Prop
 
 function MonthItem({ month, segments, open, onSelect }: { month: FlowPoint; segments: ExpenseSegment[]; open: boolean; onSelect: (month: string) => void }) {
   const name = formatMonthLongLabel(month.month)
-  // Mês previsto não tem lançamentos para listar: nada de clique nele.
-  const selectable = !month.projected
   const toggle = () => onSelect(open ? '' : month.month)
   const ratio = month.income > 0 ? month.expense / month.income : null
   const parts = splitVolume(month.income, month.expense, segments)
 
   return (
-    <DataListItem selected={open} onClick={selectable ? toggle : undefined} className={cn('gap-2', month.projected && 'text-muted-foreground opacity-50', selectable && 'cursor-pointer')}>
+    // Todo mês abre: o medido mostra os lançamentos, o previsto mostra a agenda do que vai
+    // acontecer. O previsto era barrado quando não havia o que mostrar nele.
+    <DataListItem selected={open} onClick={toggle} className={cn('gap-2 cursor-pointer', month.projected && 'text-muted-foreground')}>
       <DataListItemHeader>
         <span className="flex items-center gap-1.5">
-          {selectable ? (
-            // Botão real: a linha inteira responde ao mouse, mas o teclado precisa de um
-            // alvo focável. O que ele abre é um DIÁLOGO, então o anúncio correto é
-            // `haspopup`: `aria-controls` apontaria para um id que só existe enquanto o
-            // sheet está montado, e `aria-expanded` descreve conteúdo que se revela na
-            // própria página.
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation()
-                toggle()
-              }}
-              aria-haspopup="dialog"
-              className="rounded-sm text-left underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/40"
-            >
-              {name}
-            </button>
-          ) : (
-            name
-          )}
-          {/* Sem badge, por decisão de layout: o que marca o mês previsto é a opacidade.
-              Opacidade não existe para leitor de tela, então a palavra fica em `sr-only` —
+          {/* Botão real: a linha inteira responde ao mouse, mas o teclado precisa de um
+              alvo focável. O que ele abre é um DIÁLOGO, então o anúncio correto é
+              `haspopup`: `aria-controls` apontaria para um id que só existe enquanto o
+              sheet está montado, e `aria-expanded` descreve conteúdo que se revela na
+              própria página. */}
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              toggle()
+            }}
+            aria-haspopup="dialog"
+            className="rounded-sm text-left underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/40"
+          >
+            {name}
+          </button>
+          {/* Sem badge, por decisão de layout: o que marca o mês previsto é a barra oca.
+              Contorno não existe para leitor de tela, então a palavra fica em `sr-only` —
               senão o mês projetado seria indistinguível de um medido para quem ouve. */}
           {month.projected ? <span className="sr-only">Previsão</span> : null}
         </span>
@@ -85,8 +80,10 @@ function MonthItem({ month, segments, open, onSelect }: { month: FlowPoint; segm
         <NotInformed>Nada previsto</NotInformed>
       ) : (
         <>
-          {/* A descrição do leitor de tela é frase, então o mês vai em minúscula ali. */}
-          <VolumeBar parts={parts} month={formatMonthLong(month.month)} />
+          {/* A descrição do leitor de tela é frase, então o mês vai em minúscula ali.
+              A altura é a mesma nas linhas medidas e nas previstas — a barra existe para
+              comparar meses, e comparar comprimentos de alturas diferentes não funciona. */}
+          <VolumeBar parts={parts} label={`Movimento de ${formatMonthLong(month.month)}`} projected={month.projected} className="h-5 rounded-sm [&>span]:rounded-sm" />
           <DataListItemFields>
             <DataListField label="Entradas" separator={false}>
               {formatBRL(month.income)}
@@ -97,11 +94,24 @@ function MonthItem({ month, segments, open, onSelect }: { month: FlowPoint; segm
                 com o que ainda vai cair, e a contagem de lançamentos cobre só a primeira
                 parte. É ele que torna o número auditável. */}
             {month.partial && month.committed ? <DataListField label="Parcelas ainda a cair">{formatBRL(month.committed)}</DataListField> : null}
+            {/* Mesma razão do campo acima, do outro lado do movimento: a entrada exibida
+                soma o que já caiu com o que ainda vence, e a contagem de lançamentos cobre
+                só a primeira parte. */}
+            {month.partial && month.plannedIncome ? <DataListField label="Entradas ainda a receber">{formatBRL(month.plannedIncome)}</DataListField> : null}
+            {month.partial && month.plannedExpense ? <DataListField label="Saídas ainda a vencer">{formatBRL(month.plannedExpense)}</DataListField> : null}
           </DataListItemFields>
           {parts.expense.length ? (
             <DataListItemFields>
               {parts.expense.map((part, i) => (
-                <DataListField key={part.key} separator={i > 0} label={<SegmentLabel background={part.background}>{part.label}</SegmentLabel>}>
+                <DataListField
+                  key={part.key}
+                  separator={i > 0}
+                  label={
+                    <SegmentLabel part={part} projected={month.projected}>
+                      {part.label}
+                    </SegmentLabel>
+                  }
+                >
                   {formatBRL(part.value)}
                 </DataListField>
               ))}
@@ -110,50 +120,5 @@ function MonthItem({ month, segments, open, onSelect }: { month: FlowPoint; segm
         </>
       )}
     </DataListItem>
-  )
-}
-
-/** O quadradinho reproduz a MARCA que ele identifica: hachurado se a fatia é hachurada. */
-function SegmentLabel({ background, children }: { background: string; children: string }) {
-  return (
-    <span className="inline-flex items-center gap-1">
-      <span aria-hidden className={SERIES_SWATCH} style={{ background }} />
-      {children}
-    </span>
-  )
-}
-
-/**
- * O volume do mês repartido: entrada como bloco sólido, saída fatiada nas maiores
- * categorias. O denominador é entrada + saída, não a entrada — é por isso que a barra
- * responde "quanto do movimento foi o quê" e não "as saídas passaram das entradas?",
- * que é a leitura da porcentagem no cabeçalho.
- *
- * A cor de cada fatia sai de `categoryColor`, a mesma fonte dos gráficos: uma categoria
- * tem um matiz só no app inteiro.
- */
-function splitVolume(income: number, expense: number, segments: ExpenseSegment[]): { total: number; income: SegmentPart | null; expense: SegmentPart[] } {
-  return {
-    total: income + expense,
-    // Entrada sólida, saída hachurada: a mesma distinção do gráfico logo acima, então a
-    // textura sozinha já diz de que lado do movimento a fatia é.
-    income: income > 0 ? { key: '__entradas', label: 'Entradas', value: income, background: INCOME_VAR } : null,
-    expense: splitExpense(segments, expense),
-  }
-}
-
-function VolumeBar({ parts, month }: { parts: ReturnType<typeof splitVolume>; month: string }) {
-  const { total, income, expense } = parts
-  if (total <= 0) return <NotInformed>Sem movimento no mês</NotInformed>
-  const all = income ? [income, ...expense] : expense
-  const description = all.map((p) => `${p.label} ${formatBRL(p.value)}`).join(', ')
-  return (
-    // `role="img"` com a descrição inteira: as fatias são desenho, e um leitor de tela
-    // precisa da leitura completa, não de doze retângulos sem nome.
-    <span role="img" aria-label={`Movimento de ${month}: ${description}`} className="flex h-2 w-full gap-1 overflow-hidden rounded-xs">
-      {all.map((part) => (
-        <span key={part.key} className="h-full min-w-0.5 rounded-xs" style={{ width: `${(part.value / total) * 100}%`, background: part.background }} />
-      ))}
-    </span>
   )
 }

@@ -8,11 +8,16 @@ import { EntityBadge } from '@/components/entity-badge'
 import { FlowBadge } from '@/components/flow-badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { categoryLabel } from '@/data/categories'
 import { plannedRecurrences, type PlannedEntry } from '@/data/types'
-import { lastMonthWithData, monthsBetween, shiftMonth } from '@/lib/finance'
-import { formatBRL, formatMonthLongLabel, formatMonthShort, plural } from '@/lib/format'
-import { PLANNED, amountAt, lastOccurrence, occursIn } from '@/lib/planned'
+import type { ExpenseSegment } from '@/lib/expense-segments'
+import { ACCOUNT_MAP, lastDateWithData, lastMonthWithData, monthsBetween, shiftMonth, toCents } from '@/lib/finance'
+import { buildCategoryForecast, buildForecast, pendingFor } from '@/lib/forecast'
+import { receivablesInScope } from '@/lib/receivables'
+import { useFilters } from '@/providers/use-filters'
+import { formatBRL, formatDayMonth, formatMonthShort, plural } from '@/lib/format'
+import { PLANNED, dueDateOf, lastOccurrence, occursIn, pendingIn, plannedInScope } from '@/lib/planned'
+import { ForecastList, type ForecastRow } from './-components/forecast-list'
 
 /** Fora do render: a busca na lista não depende de nenhuma prop. */
 const RECURRENCE_OPTIONS = new Map(plannedRecurrences.map((option) => [option.value, option]))
@@ -38,14 +43,37 @@ function describeWhen(entry: PlannedEntry): string {
   }
 }
 
+/**
+ * O dia da ocorrência, dito como regra e não como data: "5º dia útil" é o que a pessoa
+ * declarou, e a data de um mês específico muda com o calendário. A próxima data resolvida
+ * vai ao lado, para a regra ser conferível sem contar no dedo.
+ *
+ * A próxima sai do primeiro mês em que a regra INCIDE, não do primeiro mês da janela: o
+ * salário começa em outubro, e resolver o dia em setembro dava uma data que nunca existiu.
+ */
+function describeDueDay(entry: PlannedEntry, window: string[]): string | null {
+  if (!entry.dueOn) return null
+  const rule = entry.dueOn.kind === 'business-day' ? `${entry.dueOn.nth}º dia útil` : `Dia ${entry.dueOn.day}`
+  const month = window.find((candidate) => occursIn(entry, candidate))
+  const next = month ? dueDateOf(entry, month) : null
+  return next ? `${rule} · próxima em ${formatDayMonth(next)}` : rule
+}
+
 export function PrevisaoPageContent() {
   useDocumentTitle('Previsão')
+  const { history, scope } = useFilters()
   // A janela da prévia sai das próprias regras, não do filtro do cabeçalho: começa no mês
   // seguinte ao último com lançamentos e vai até a última ocorrência conhecida. Mínimo de
   // 12 meses para dar contexto, máximo de 24 para não virar tabela infinita quando houver
   // regra sem prazo.
+  // O mês em curso entra na janela quando ainda há regra vencendo nele — a manutenção do
+  // dia 25 num extrato que vai até o dia 2 é previsão, não passado.
+  const partialMonth = lastMonthWithData()
+  const cutoff = lastDateWithData()
+  const partialHasPending = useMemo(() => PLANNED.some((entry) => pendingIn(entry, partialMonth, cutoff)), [partialMonth, cutoff])
+
   const futureMonths = useMemo(() => {
-    const start = shiftMonth(lastMonthWithData(), 1)
+    const start = partialHasPending ? partialMonth : shiftMonth(partialMonth, 1)
     const finite = PLANNED.map(lastOccurrence)
       .filter((m): m is string => m !== null)
       .sort()
@@ -53,22 +81,44 @@ export function PrevisaoPageContent() {
     const min = shiftMonth(start, 11)
     const max = shiftMonth(start, 23)
     return monthsBetween(start, last > min ? (last > max ? max : last) : min)
-  }, [])
+  }, [partialMonth, partialHasPending])
 
-  const preview = useMemo(
-    () =>
-      futureMonths.map((month) => {
-        let income = 0
-        let expense = 0
-        for (const entry of PLANNED) {
-          if (!occursIn(entry, month)) continue
-          if (entry.kind === 'income') income += amountAt(entry, month)
-          else expense += amountAt(entry, month)
-        }
-        return { month, income, expense, net: income - expense }
-      }),
-    [futureMonths],
-  )
+  // A MESMA previsão que o gráfico da Visão geral desenha. Antes esta tela somava só as
+  // regras de `planned.config.ts`, e o resultado era um terceiro número para o mesmo mês:
+  // moradia lia 1.500 aqui e 750 lá, porque o abatimento da cobrança — igualmente declarado —
+  // ficava de fora. Previsão é uma só; o que muda é o quanto dela se explica.
+  const input = useMemo(() => ({ history, planned: plannedInScope(scope), receivables: receivablesInScope(scope, (id) => ACCOUNT_MAP[id]?.entity) }), [history, scope])
+
+  const preview = useMemo<ForecastRow[]>(() => {
+    const toSegments = (byCategory: Map<string, number>): ExpenseSegment[] =>
+      [...byCategory]
+        .filter(([, value]) => value > 0)
+        .map(([categoryId, value]) => ({ categoryId, label: categoryLabel(categoryId), value }))
+        .sort((a, b) => b.value - a.value)
+
+    const rows: ForecastRow[] = []
+    // O mês em curso não é previsão inteira: metade dele já está no extrato, e aqui só entra
+    // o que ainda vence — por isso ele não passa por `buildForecast`.
+    if (futureMonths[0] === partialMonth) {
+      const pending = pendingFor(input, partialMonth, cutoff)
+      rows.push({
+        month: partialMonth,
+        income: toCents(pending.income),
+        expense: toCents(pending.expense),
+        net: toCents(pending.income - pending.expense),
+        segments: toSegments(pending.byCategory),
+        partial: true,
+      })
+    }
+
+    const targets = futureMonths.filter((month) => month > partialMonth)
+    const byCategory = buildCategoryForecast({ ...input, targets })
+    for (const month of buildForecast({ ...input, targets })) {
+      const perCategory = new Map(Object.entries(byCategory).map(([categoryId, months]) => [categoryId, months[month.month] ?? 0]))
+      rows.push({ month: month.month, income: month.income, expense: month.expense, net: month.net, segments: toSegments(perCategory), sources: month.sources })
+    }
+    return rows
+  }, [futureMonths, partialMonth, cutoff, input])
 
   return (
     <div className="flex flex-col gap-5">
@@ -108,6 +158,7 @@ export function PrevisaoPageContent() {
             <DataList aria-label="Lançamentos previstos">
               {PLANNED.map((entry) => {
                 const exceptions = Object.entries(entry.exceptions ?? {}).sort()
+                const due = describeDueDay(entry, futureMonths)
                 return (
                   <DataListItem key={entry.id}>
                     <DataListItemHeader className="justify-start gap-1.5">
@@ -123,6 +174,7 @@ export function PrevisaoPageContent() {
                         <CategoryBadge value={entry.categoryId} />
                       </DataListField>
                       <DataListField label="Quando">{describeWhen(entry)}</DataListField>
+                      {due ? <DataListField label="Dia">{due}</DataListField> : null}
                       {exceptions.length === 0 ? null : (
                         <DataListField label="Exceções">{exceptions.map(([month, value]) => `${formatMonthShort(month)}: ${formatBRL(value)}`).join(' · ')}</DataListField>
                       )}
@@ -137,32 +189,14 @@ export function PrevisaoPageContent() {
 
       <Card>
         <CardHeader>
-          <CardTitle>O que isso gera</CardTitle>
+          <CardTitle>Previsão mês a mês</CardTitle>
           <CardDescription>
-            Só as regras acima, somando as duas entidades. As parcelas de cartão já contratadas entram além disso e aparecem nos gráficos. A janela vai até a última ocorrência conhecida.
+            A mesma previsão que o gráfico da Visão geral desenha, com a origem de cada real discriminada: o que você declarou acima, as parcelas de cartão já contratadas, as rubricas de{' '}
+            <code className="font-mono">budget.config.ts</code> e o que as cobranças abatem. A janela vai até a última ocorrência conhecida.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table className="min-w-[420px]">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Mês</TableHead>
-                <TableHead className="text-right">Entradas</TableHead>
-                <TableHead className="text-right">Saídas</TableHead>
-                <TableHead className="text-right">Resultado</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody className="tabular-nums">
-              {preview.map((row) => (
-                <TableRow key={row.month}>
-                  <TableCell className="font-medium">{formatMonthLongLabel(row.month)}</TableCell>
-                  <TableCell className="text-right">{formatBRL(row.income)}</TableCell>
-                  <TableCell className="text-right">{formatBRL(row.expense)}</TableCell>
-                  <TableCell className={row.net < 0 ? 'text-right text-[var(--status-critical)]' : 'text-right text-[var(--status-good-text)]'}>{formatBRL(row.net)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <ForecastList rows={preview} />
         </CardContent>
       </Card>
     </div>

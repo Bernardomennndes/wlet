@@ -153,7 +153,12 @@ export function TransactionTable({ rows, compact = false, paging: external, scro
                   </ButtonGroup>
                   {tx.displayCategoryId !== current ? <CategoryBadge value={tx.displayCategoryId} className="mt-1" /> : null}
                 </TableCell>
-                <TableCell className={cn('text-right tabular-nums font-medium', tx.flow === 'transfer' ? 'text-muted-foreground' : tx.amount > 0 ? 'text-[var(--status-good-text)]' : '')}>
+                <TableCell
+                  className={cn(
+                    'text-right tabular-nums font-medium',
+                    tx.flow === 'transfer' || tx.flow === 'reimbursement' ? 'text-muted-foreground' : tx.amount > 0 ? 'text-[var(--status-good-text)]' : '',
+                  )}
+                >
                   {formatSigned(tx.amount)}
                 </TableCell>
               </TableRow>
