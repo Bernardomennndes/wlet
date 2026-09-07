@@ -143,6 +143,76 @@ export interface Transfer {
   description: string
 }
 
+/** Uma posição da carteira na data do relatório da B3. */
+export interface InvestmentHolding {
+  code: string
+  kind: 'fixed-income' | 'equity'
+  label: string
+  quantity: number
+  value: number
+}
+
+export interface InvestmentSnapshot {
+  /** Data do relatório de posição — não é "hoje", é quando você exportou. */
+  asOf: string
+  source: string
+  holdings: InvestmentHolding[]
+  /** Só os papéis. O patrimônio é este mais o `cash`. */
+  total: number
+  /**
+   * Dinheiro parado no caixa da corretora — não é papel, e o relatório da B3 não o vê.
+   * Vem do extrato da própria corretora (`scripts/brokerage.ts`).
+   */
+  cash: number
+  /**
+   * Ações entram na SÉRIE a custo, não a mercado: preço histórico exige uma fonte com
+   * cadastro. O `total` acima é a mercado, porque vem da própria posição da B3.
+   */
+  equityAtCost: boolean
+}
+
+/**
+ * Um mês da evolução patrimonial.
+ *
+ * `contributed` é o aporte LÍQUIDO acumulado — o que entrou na corretora vindo do seu banco
+ * menos o que voltou para ele, pelo extrato da corretora. O resto é valor: renda fixa
+ * acumulada pelo CDI de cada título, ações a custo, e o caixa parado. A distância entre um e
+ * outro é o rendimento.
+ *
+ * O aporte NÃO sai do extrato bancário. Sairia errado: parte do resgate volta descrita como
+ * TED do próprio titular, que nenhuma regra sobre "conta investimento" reconhece — e o que
+ * não é reconhecido como resgate segue contado como dinheiro ainda aplicado.
+ */
+export interface PatrimonyPoint {
+  month: string
+  contributed: number
+  fixedIncome: number
+  equity: number
+  cash: number
+  total: number
+  /**
+   * O que os MESMOS aportes valeriam rendendo 100% do CDI. É a régua de comparação: uma
+   * carteira quase toda em CDB pós-fixado não se mede contra o Ibovespa, se mede contra o
+   * custo de oportunidade de ter deixado o dinheiro rendendo o básico.
+   */
+  benchmark: number
+}
+
+/**
+ * Os proventos de um mês, separados pelas três naturezas que a corretora distingue.
+ *
+ * São coisas com tributação diferente, e é por isso que valem separadas: dividendo é isento
+ * na pessoa física, JCP tem 15% retido na fonte, e rendimento de renda fixa segue a tabela
+ * regressiva. Somá-los num número só esconde qual parte da renda é líquida.
+ */
+export interface IncomeMonth {
+  month: string
+  dividends: number
+  jcp: number
+  yields: number
+  total: number
+}
+
 export interface DatasetMeta {
   generatedAt: string
   sourceFiles: { path: string; account: string; transactions: number; skippedAsDuplicate: boolean }[]
