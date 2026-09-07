@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useSearchParams } from 'react-router'
 import { Breadcrumbs } from '@/components/breadcrumbs'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { CalendarClock } from 'lucide-react'
@@ -15,8 +16,10 @@ import { ACCOUNT_MAP, lastDateWithData, lastMonthWithData, monthsBetween, shiftM
 import { buildCategoryForecast, buildForecast, pendingFor } from '@/lib/forecast'
 import { receivablesInScope } from '@/lib/receivables'
 import { useFilters } from '@/providers/use-filters'
+import { usePlans } from '@/providers/use-plans'
 import { formatBRL, formatDayMonth, formatMonthShort, plural } from '@/lib/format'
 import { PLANNED, dueDateOf, lastOccurrence, occursIn, pendingIn, plannedInScope } from '@/lib/planned'
+import { SimulationCard } from './-components/simulation-card'
 import { ForecastList, type ForecastRow } from './-components/forecast-list'
 
 /** Fora do render: a busca na lista não depende de nenhuma prop. */
@@ -87,7 +90,28 @@ export function PrevisaoPageContent() {
   // regras de `planned.config.ts`, e o resultado era um terceiro número para o mesmo mês:
   // moradia lia 1.500 aqui e 750 lá, porque o abatimento da cobrança — igualmente declarado —
   // ficava de fora. Previsão é uma só; o que muda é o quanto dela se explica.
-  const input = useMemo(() => ({ history, planned: plannedInScope(scope), receivables: receivablesInScope(scope, (id) => ACCOUNT_MAP[id]?.entity) }), [history, scope])
+  const { items: allPlans, decided } = usePlans()
+  const [params, setParams] = useSearchParams()
+
+  // Quais planos EM ESTUDO estão ligados. Vive na URL, como recorte, período e mês — a
+  // simulação passa a ser compartilhável, e recarregar a página não desfaz o que se montou.
+  const simulated = useMemo(() => new Set((params.get('simular') ?? '').split(',').filter(Boolean)), [params])
+  const toggleSimulated = (id: string) => {
+    const next = new Set(simulated)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    const q = new URLSearchParams(params)
+    if (next.size) q.set('simular', [...next].join(','))
+    else q.delete('simular')
+    setParams(q, { replace: true })
+  }
+
+  const considering = useMemo(() => allPlans.filter((p) => p.status === 'considering'), [allPlans])
+  // Decididos sempre; em estudo só o que a simulação ligou. É aqui que a fronteira entre o
+  // número que se usa para decidir e o número que se está testando fica explícita.
+  const plans = useMemo(() => [...decided, ...considering.filter((p) => simulated.has(p.id))], [decided, considering, simulated])
+
+  const input = useMemo(() => ({ history, planned: plannedInScope(scope), receivables: receivablesInScope(scope, (id) => ACCOUNT_MAP[id]?.entity), plans }), [history, scope, plans])
 
   const preview = useMemo<ForecastRow[]>(() => {
     const toSegments = (byCategory: Map<string, number>): ExpenseSegment[] =>
@@ -186,6 +210,8 @@ export function PrevisaoPageContent() {
           )}
         </CardContent>
       </Card>
+
+      <SimulationCard considering={considering} simulated={simulated} onToggle={toggleSimulated} />
 
       <Card>
         <CardHeader>

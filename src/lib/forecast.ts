@@ -1,9 +1,10 @@
-import { CalendarClock, CreditCard, Target, Undo2 } from 'lucide-react'
-import type { EnumOption } from '@/data/types'
+import { CalendarClock, CreditCard, ShoppingBag, Target, Undo2 } from 'lucide-react'
+import type { EnumOption, Plan } from '@/data/types'
 import type { ViewTransaction } from './finance'
 import { shiftMonth, toCents } from './finance'
 import { BUDGET } from './budget'
 import { amountAt, dueDateOf, occursIn, pendingIn, settlePlanned, type PlannedEntry } from './planned'
+import { installmentAmount, planMonths, planOccursIn } from './plans'
 import { dueDateOf as receivableDueDateOf, occursIn as receivableOccursIn, settle, type Receivable } from './receivables'
 
 /**
@@ -35,6 +36,13 @@ export interface ForecastSources {
   declared: number
   /** Parcelas de cartão já compradas. Não é declaração, é fato. */
   committed: number
+  /**
+   * Planos de compra (`wallet.plans`), tratados como o declarado: entram ANTES do piso da
+   * rubrica, então uma viagem planejada de R$ 800 numa categoria com rubrica de R$ 500 projeta
+   * 800, não 1.300. Origem própria porque é a única parcela da previsão que não vem de
+   * arquivo — sem separá-la, o total deixaria de ser conferível.
+   */
+  plan: number
   /** Rubricas de `budget.config.ts`, já como PISO — só o que elas acrescentam ao acima. */
   rubric: number
   /** O que as cobranças abatem, negativo. */
@@ -199,6 +207,12 @@ interface Input {
   planned: PlannedEntry[]
   /** Cobranças já filtradas pelo recorte. O que elas abatem também é previsão. */
   receivables: Receivable[]
+  /**
+   * Planos de compra a considerar, JÁ filtrados por quem chama — decididos sempre, em estudo
+   * só quando a tela está simulando. A decisão de o que entra é de quem chama de propósito:
+   * assim a mesma função serve à previsão real e à simulação, e não existe um segundo cálculo.
+   */
+  plans?: Plan[]
   /** Meses a prever, em ordem. */
   targets: string[]
 }
@@ -218,7 +232,7 @@ interface Input {
  */
 function expenseByCategory(input: Input, month: string, committedByCat: Map<string, Map<string, number>>): { byCategory: Map<string, number>; sources: ForecastSources } {
   const out = new Map<string, number>()
-  const sources: ForecastSources = { declared: 0, committed: 0, rubric: 0, offset: 0 }
+  const sources: ForecastSources = { declared: 0, committed: 0, plan: 0, rubric: 0, offset: 0 }
   const add = (categoryId: string, value: number) => {
     if (value === 0) return
     out.set(categoryId, (out.get(categoryId) ?? 0) + value)
@@ -234,6 +248,15 @@ function expenseByCategory(input: Input, month: string, committedByCat: Map<stri
     const value = amountAt(entry, month)
     add(entry.categoryId, value)
     sources.declared += value
+  }
+
+  // ANTES da rubrica, e é essa posição que faz a regra do piso valer para o plano também:
+  // com o plano já somado na categoria, a rubrica só acrescenta o que faltar para o piso.
+  for (const plan of input.plans ?? []) {
+    if (!planOccursIn(plan, month)) continue
+    const value = installmentAmount(plan)
+    add(plan.categoryId, value)
+    sources.plan += value
   }
 
   for (const rubrica of BUDGET.byCategory ?? []) {
@@ -308,11 +331,12 @@ export function buildCategoryForecast(input: Input): Record<string, Record<strin
  * De onde vem um item previsto. Não é enum de domínio — nada disto é serializado —, então a
  * lista mora aqui, ao lado de quem a produz, e não em `data/types.ts`.
  */
-export type ForecastOrigin = 'declared' | 'committed' | 'rubric' | 'offset'
+export type ForecastOrigin = 'declared' | 'committed' | 'plan' | 'rubric' | 'offset'
 
 export const forecastOrigins: EnumOption<ForecastOrigin>[] = [
   { value: 'committed', label: 'Contratado', icon: CreditCard, tone: 'neutral' },
   { value: 'declared', label: 'Declarado', icon: CalendarClock, tone: 'neutral' },
+  { value: 'plan', label: 'Plano', icon: ShoppingBag, tone: 'neutral' },
   { value: 'rubric', label: 'Rubrica', icon: Target, tone: 'muted' },
   { value: 'offset', label: 'Abatido', icon: Undo2, tone: 'positive' },
 ]
@@ -386,6 +410,25 @@ export function forecastItems(input: Omit<Input, 'targets'>, month: string, pend
       categoryId: entry.categoryId,
       amount: entry.kind === 'income' ? value : -value,
       origin: 'declared',
+    })
+  }
+
+  // Plano entra também no mês EM CURSO, ao contrário da rubrica: uma rubrica ali é teto sendo
+  // consumido, um plano é uma compra que ainda vai acontecer.
+  for (const plan of input.plans ?? []) {
+    if (!planOccursIn(plan, month)) continue
+    const value = installmentAmount(plan)
+    bump(plan.categoryId, value)
+    const total = plan.installments ?? 1
+    const current = planMonths(plan).indexOf(month) + 1
+    items.push({
+      key: `plan-${plan.id}-${month}`,
+      date: null,
+      label: plan.label,
+      categoryId: plan.categoryId,
+      amount: -value,
+      origin: 'plan',
+      installment: total > 1 ? { current, total } : undefined,
     })
   }
 

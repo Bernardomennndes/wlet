@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { BrowserRouter } from 'react-router'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { FiltersProvider } from './filters'
+import { PlansProvider } from './plans'
 import { ThemeProvider } from './theme'
 
 /**
@@ -14,7 +15,9 @@ export function Provider({ children }: { children: ReactNode }) {
     <BrowserRouter>
       <ThemeProvider>
         <FiltersProvider>
-          <TooltipProvider>{children}</TooltipProvider>
+          <PlansProvider>
+            <TooltipProvider>{children}</TooltipProvider>
+          </PlansProvider>
         </FiltersProvider>
       </ThemeProvider>
     </BrowserRouter>

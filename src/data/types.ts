@@ -213,6 +213,90 @@ export interface IncomeMonth {
   total: number
 }
 
+/**
+ * Em que pé está uma intenção de compra.
+ *
+ * O estado é o que separa um PLANO de tudo o mais que este app projeta: uma conta tem credor,
+ * uma rubrica tem histórico, uma parcela é fato consumado — um plano é uma decisão que ainda
+ * pode não acontecer. `discarded` existe para você não jogar fora a pesquisa de preço ao mudar
+ * de ideia, e para poder mudar de volta.
+ */
+export type PlanStatus = 'considering' | 'decided' | 'discarded'
+
+export const planStatuses: EnumOption<PlanStatus>[] = [
+  { value: 'considering', label: 'Em estudo', icon: Clock, tone: 'neutral' },
+  { value: 'decided', label: 'Decidido', icon: CircleCheck, tone: 'positive' },
+  { value: 'discarded', label: 'Descartado', icon: CircleMinus, tone: 'muted' },
+]
+
+/**
+ * Uma intenção de compra, com o mês em que você pretende fazê-la.
+ *
+ * `categoryId` liga o plano à MESMA taxonomia do resto do app, e não é enfeite: é o que
+ * permite ao plano levantar o piso da rubrica daquela categoria em vez de se somar a ela.
+ *
+ * `installments` é o que torna a simulação interessante — uma compra grande quase sempre é
+ * parcelada, e é o parcelamento que espalha o impacto pelos meses.
+ */
+export interface Plan {
+  id: string
+  label: string
+  categoryId: string
+  /** Valor TOTAL, não o da parcela. */
+  amount: number
+  status: PlanStatus
+  /** Mês da compra (AAAA-MM). Com parcelamento, é a primeira parcela. */
+  month: string
+  installments?: number
+  groupId?: string
+  note?: string
+}
+
+/**
+ * Um agrupamento de planos — uma viagem, uma reforma.
+ *
+ * A janela é RÓTULO, não regra: quem decide em que mês cada custo cai é o próprio plano. Um
+ * grupo que espalhasse os itens sozinho teria de inventar a distribuição, e passagem, diária
+ * e alimentação não caem no mesmo mês nem na mesma proporção.
+ */
+export interface PlanGroup {
+  id: string
+  label: string
+  from?: string
+  to?: string
+  note?: string
+}
+
+/**
+ * Uma viagem realizada, declarada por você.
+ *
+ * Ela NÃO é um plano: plano é intenção futura e alimenta a previsão; viagem é fato passado e
+ * o gasto dela já está nos extratos. Somá-la à previsão contaria o mesmo dinheiro duas vezes.
+ *
+ * Por que declarar em vez de detectar: passagem e hospedagem são compradas meses antes, e o
+ * gasto no destino se confunde com o do dia a dia. Uma heurística de "estabelecimentos novos
+ * agrupados" foi tentada e marcou dezoito janelas — a maioria eram MUDANÇAS de cidade, que
+ * produzem exatamente o mesmo padrão. A data você sabe; o custo é o que o app calcula.
+ */
+export interface Trip {
+  id: string
+  /** O destino, como você o chama. */
+  label: string
+  /** Primeiro e último dia, inclusive (AAAA-MM-DD). */
+  from: string
+  to: string
+  note?: string
+}
+
+/** Uma viagem com o que ela custou, calculado pelo ingest a partir dos lançamentos. */
+export interface TripCost extends Trip {
+  days: number
+  /** Gasto no destino, já sem as contas fixas que caem independentemente da viagem. */
+  spent: number
+  perDay: number
+  transactions: number
+}
+
 export interface DatasetMeta {
   generatedAt: string
   sourceFiles: { path: string; account: string; transactions: number; skippedAsDuplicate: boolean }[]

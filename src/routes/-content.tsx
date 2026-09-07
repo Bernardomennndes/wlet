@@ -18,6 +18,7 @@ import { formatBRL, formatMonthLong, formatMonthShort, formatPercent, plural } f
 import { plannedInScope } from '@/lib/planned'
 import { receivablesInScope } from '@/lib/receivables'
 import { useFilters } from '@/providers/use-filters'
+import { usePlans } from '@/providers/use-plans'
 import type { FlowPoint } from './-components/monthly-flow-chart'
 import { BudgetCard } from './-components/budget-card'
 import { GoalsCard } from './-components/goals-card'
@@ -31,6 +32,7 @@ import { OVERVIEW_METRICS } from './-metric-definitions'
 export function OverviewPageContent() {
   useDocumentTitle('Visão geral')
   const { transactions, history, months, scope } = useFilters()
+  const { decided: decidedPlans } = usePlans()
   const [params, setParams] = useSearchParams()
 
   // O mês aberto vive na URL: o estado sobrevive a recarga e o link é compartilhável.
@@ -74,9 +76,12 @@ export function OverviewPageContent() {
         history,
         planned: plannedInScope(scope),
         receivables: scopedReceivables,
+        // Só os DECIDIDOS. Os em estudo pertencem à simulação da tela de Previsão: entrar aqui
+        // faria a Visão geral mostrar gasto especulativo como se fosse projeção.
+        plans: decidedPlans,
         targets: months.filter((m) => m > lastMonthWithData()),
       }),
-    [history, scope, scopedReceivables, months],
+    [history, scope, scopedReceivables, months, decidedPlans],
   )
 
   // O último mês com dados quase sempre está em curso: a fatura ainda não fechou, e as

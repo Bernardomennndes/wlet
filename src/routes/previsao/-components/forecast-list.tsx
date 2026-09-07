@@ -95,6 +95,7 @@ function ForecastItem({ row }: { row: ForecastRow }) {
             {formatBRL(row.sources.declared)}
           </DataListField>
           <DataListField label="Contratado">{formatBRL(row.sources.committed)}</DataListField>
+          {row.sources.plan === 0 ? null : <DataListField label="Planos">{formatBRL(row.sources.plan)}</DataListField>}
           <DataListField label="Rubricas">{formatBRL(row.sources.rubric)}</DataListField>
           {row.sources.offset === 0 ? null : <DataListField label="Abatido">{formatBRL(row.sources.offset)}</DataListField>}
         </DataListItemFields>

@@ -1,4 +1,4 @@
-import { ArrowLeftRight, CalendarClock, HandCoins, Landmark, LayoutDashboard, List, PieChart, Receipt, TrendingUp, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, CalendarClock, HandCoins, Landmark, LayoutDashboard, List, PieChart, Receipt, Target, TrendingUp, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -21,6 +21,7 @@ export const NAV: NavItem[] = [
   { to: '/pagamentos', label: 'Pagamentos', icon: Receipt },
   { to: '/cobrancas', label: 'Cobranças', icon: HandCoins },
   { to: '/previsao', label: 'Previsão', icon: CalendarClock },
+  { to: '/planos', label: 'Planos', icon: Target },
 ]
 
 /** O item de navegação que governa uma URL. `/` casa só com ela mesma. */
