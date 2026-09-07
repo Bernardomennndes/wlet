@@ -42,6 +42,14 @@ export function PlanosPageContent() {
   // A agenda sai da lista INTEIRA e por isso se refaz a cada edição: acrescentar um plano,
   // trocar a forma de pagamento ou mudar a situação recompõe as colunas na hora.
   const schedule = useMemo(() => planScheduleByMonth(items), [items])
+  // O cartão da agenda olha o que é AGENDÁVEL, não a lista inteira: com tudo descartado a
+  // mensagem de vazio diria "nenhum plano tem mês", que seria falso — eles têm, você é que
+  // desistiu deles.
+  const schedulable = items.filter((p) => p.status !== 'discarded')
+  // Sem NADA agendado o gráfico ainda é desenhado, sobre uma janela de calendário vazia: um
+  // cartão que some parece defeito, e a grade dá à pessoa o lugar onde a coluna vai nascer
+  // quando ela marcar a data. O porquê não se perde — vai para o hint do headline.
+  const chartMonths = schedule.length > 0 ? schedule : Array.from({ length: 6 }, (_, i) => ({ month: shiftMonth(nextMonth, i), decided: 0, considering: 0 }))
   const scheduleTotal = schedule.reduce((sum, m) => sum + m.decided + m.considering, 0)
 
   const exportPlans = () => {
@@ -106,7 +114,7 @@ export function PlanosPageContent() {
         <KpiCard label="Cai em" definition={PLANOS_METRICS.nextMonth} value={formatBRL(dueNext)} hint={formatMonthShort(nextMonth)} />
       </KpiCardGrid>
 
-      {schedule.length > 0 ? (
+      {schedulable.length > 0 ? (
         <Card>
           <CardHeader>
             <CardTitle>Quanto sai por mês</CardTitle>
@@ -117,7 +125,7 @@ export function PlanosPageContent() {
           </CardHeader>
           <CardContent>
             <PlanScheduleChart
-              data={schedule}
+              data={chartMonths}
               /* O número que ancora um gráfico é `KpiHeadline`, como o "Resultado no período"
                  da Visão geral: não é markup à mão (§1 da regra de KPI), não é `HeroKpiCard`
                  (que é um Card e aninharia dois) nem `KpiCard` solto fora do grid. */
@@ -126,7 +134,7 @@ export function PlanosPageContent() {
                   label="Total na agenda"
                   definition={PLANOS_METRICS.schedule}
                   value={formatBRL(scheduleTotal)}
-                  hint={`Diluído em ${schedule.length} ${plural(schedule.length, 'mês', 'meses')}`}
+                  hint={schedule.length === 0 ? 'Nenhum plano tem mês — marque uma data e a coluna nasce aqui' : `Diluído em ${schedule.length} ${plural(schedule.length, 'mês', 'meses')}`}
                 />
               }
             />
