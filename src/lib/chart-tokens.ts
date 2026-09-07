@@ -47,3 +47,17 @@ export function categoryColor(categoryId: string): string {
   const slot = CATEGORY_SLOT[categoryId]
   return slot === undefined ? OTHER_VAR : SERIES_VARS[slot]
 }
+
+/**
+ * A cor de cada classe de ativo, FIXA — o mesmo papel que `categoryColor` faz para categoria.
+ *
+ * Ela mora aqui, e não ao lado do componente que a desenha primeiro, por duas razões: quatro
+ * peças da tela de Patrimônio a leem (tiles, faixa de papéis, treemap e a pilha do gráfico de
+ * evolução), e exportar constante ao lado de componente derruba o fast refresh do arquivo —
+ * o mesmo motivo que mandou `splitVolume` para `expense-segments.ts`.
+ */
+export const ASSET_CLASS_COLOR: Record<'fixed-income' | 'equity' | 'cash', string> = {
+  'fixed-income': 'var(--series-1)',
+  equity: 'var(--series-5)',
+  cash: 'var(--series-3)',
+}

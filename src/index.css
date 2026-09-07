@@ -109,6 +109,27 @@
   --status-good-text: #006300;
   --status-warning: #fab219;
   --status-critical: #d03b3b;
+
+  /* ── Superfície de destaque (cartão-herói de Patrimônio) ─────────────────────
+     NÃO é uma cor de série: é uma SUPERFÍCIE, e por isso tem tokens próprios em vez de
+     pegar emprestado um `--series-*`. A regra de dataviz reserva a paleta categórica para
+     identidade de série; um cartão inteiro pintado com `--series-2` faria o olho procurar
+     qual série ele representa. A superfície é a `--primary` da aplicação, e por isso ela
+     inverte com o tema: preta no claro, branca no escuro. Dentro do herói o desenho é
+     monocromático — a marca principal é a cor de texto do primary, e o benchmark é a única
+     cor de contraste. Derivar os overlays de `--primary-foreground` é o que faz a inversão
+     funcionar: com branco fixo, o tema escuro desenharia hachura branca sobre fundo branco. */
+  --hero: var(--primary);
+  --hero-foreground: var(--primary-foreground);
+  --hero-muted: color-mix(in oklab, var(--primary-foreground) 72%, transparent);
+  --hero-line: var(--primary-foreground);
+  --hero-area: color-mix(in oklab, var(--primary-foreground) 30%, transparent);
+  --hero-grid: color-mix(in oklab, var(--primary-foreground) 22%, transparent);
+  --hero-chip: color-mix(in oklab, var(--primary-foreground) 16%, transparent);
+  /* O benchmark é a ÚNICA cor do herói que não deriva do primary, e é a única que precisa
+     mudar por tema: ele tem de se distinguir do fundo E da linha da carteira ao mesmo tempo.
+     Sobre a superfície preta do tema claro, o amarelo quente resolve. */
+  --hero-benchmark: #ffc94a;
 }
 
 .dark {
@@ -168,6 +189,13 @@
   --status-good-text: #4cc94c;
   --status-warning: #fab219;
   --status-critical: #e66767;
+
+  /* No escuro o herói escurece e dessatura um pouco: o mesmo laranja do claro sobre um
+     fundo quase preto vibra e o texto branco perde contraste de leitura. */
+  /* Os demais `--hero-*` NÃO se repetem aqui: eles saem de `--primary-foreground` por
+     `color-mix`, e esse já inverte sozinho no escuro. Só o benchmark precisa de valor
+     próprio — a superfície aqui é branca, e o amarelo do claro sumiria nela. */
+  --hero-benchmark: #c2410c;
 }
 
 @layer base {
