@@ -6,7 +6,7 @@
  * Uso: `pnpm ingest`
  */
 import { createHash } from 'node:crypto'
-import { mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { extname, join, relative } from 'node:path'
 import { ACCOUNT_PROFILES, SELF_NAME_PATTERNS, type AccountProfile } from './accounts.config.ts'
 import { BUDGET } from './budget.config.ts'
@@ -14,10 +14,12 @@ import { GOALS } from './goals.config.ts'
 import { PLANNED_ENTRIES } from './planned.config.ts'
 import { RECEIVABLES } from './receivables.config.ts'
 import { parseOfx, parseXpInvoiceCsv, type ParsedFile, type RawTransaction } from './parsers.ts'
+import { readBrokerageLedger, type BrokerageLedger } from './brokerage.ts'
+import { buildInvestments } from './investments.ts'
 import { matchPlanned, matchReceivables, ruleProblems } from './matching.ts'
 import { RULES, cleanDescription, deriveMerchant, normalizeForRules } from './rules.ts'
 import { CATEGORY_MAP } from '../src/data/categories.ts'
-import type { Account, DatasetMeta, MatchRule, PlannedEntry, Transaction, Transfer, TransferKind } from '../src/data/types.ts'
+import type { Account, DatasetMeta, PlannedEntry, Transaction, Transfer, TransferKind } from '../src/data/types.ts'
 
 const ROOT = new URL('..', import.meta.url).pathname
 const DOCS_DIR = join(ROOT, 'docs')
@@ -144,11 +146,16 @@ function buildTransaction(raw: RawTransaction, file: ParsedFile, profile: Accoun
   const cat = categorize(normalized, raw.amount)
   const merchant = cat.merchant ?? deriveMerchant(description)
   const date = raw.installment ? addMonths(raw.postedDate, raw.installment.current - 1) : raw.postedDate
+  const invoice = file.kind === 'invoice' && file.invoiceDueDate ? { dueDate: file.invoiceDueDate, month: file.invoiceDueDate.slice(0, 7) } : null
+  // A FATURA entra na identidade. Uma compra parcelada aparece uma vez por fatura, e as cinco
+  // aparições de `Loja Exemplo` em maio a setembro são cinco linhas legítimas — sem a fatura na
+  // chave, elas colidiam num id só. O `ordinal` distingue repetições DENTRO de um arquivo;
+  // ele não distingue arquivos, e é de propósito: o mesmo lançamento lido de dois extratos
+  // sobrepostos precisa colidir, para a deduplicação abaixo poder descartá-lo.
   const id = createHash('sha1')
-    .update([profile.id, raw.postedDate, raw.amount.toFixed(2), raw.description, raw.fitId ?? '', ordinal].join('|'))
+    .update([profile.id, raw.postedDate, raw.amount.toFixed(2), raw.description, raw.fitId ?? '', invoice?.month ?? '', ordinal].join('|'))
     .digest('hex')
     .slice(0, 12)
-  const invoice = file.kind === 'invoice' && file.invoiceDueDate ? { dueDate: file.invoiceDueDate, month: file.invoiceDueDate.slice(0, 7) } : null
   return {
     id,
     accountId: profile.id,
@@ -205,7 +212,7 @@ function siblingAccount(accountId: string, profiles: Map<string, AccountProfile>
   return null
 }
 
-function detectTransfers(transactions: Transaction[], profiles: Map<string, AccountProfile>): Transfer[] {
+function detectTransfers(transactions: Transaction[], profiles: Map<string, AccountProfile>, ledger: BrokerageLedger | null): Transfer[] {
   const transfers: Transfer[] = []
   const outflows = transactions.filter((t) => t.amount < 0 && transferCandidate(t)).sort((a, b) => a.postedDate.localeCompare(b.postedDate))
   const inflows = transactions.filter((t) => t.amount > 0 && transferCandidate(t))
@@ -308,6 +315,43 @@ function detectTransfers(transactions: Transaction[], profiles: Map<string, Acco
     tx.categoryId = isPayment ? 'pagamento-fatura' : 'transferencia'
   }
 
+  // Resgates que voltaram do caixa da corretora sem dizer que vieram dele.
+  //
+  // A XP devolve dinheiro para a conta corrente por dois canais, e só um se identifica: o
+  // interno vira "Transferência recebida da conta investimento" e o SPB vira uma TED nominal
+  // do próprio titular, indistinguível de um Pix que você mandou de outro banco. Foram
+  // R$ 12.400,00 em 22 saques lidos como transferência sem contraparte — neutros no fluxo,
+  // mas invisíveis como resgate, o que inflava o aporte e derrubava o rendimento para
+  // negativo. Quem desempata é o razão da corretora, que registra a saída correspondente.
+  if (ledger) {
+    const withdrawals = ledger.entries.filter((e) => e.kind === 'bank' && e.value < 0).map((e) => ({ date: e.date, amount: -e.value, used: false }))
+    for (const tx of transactions) {
+      if (tx.transferId || tx.amount <= 0 || tx.counterpartAccountId) continue
+      if (!isSelfLike(tx.rawDescription)) continue
+      // Mesmo valor ao centavo e até 4 dias de folga, a mesma janela do pareamento entre
+      // contas. Casar só por valor juntaria um resgate a um Pix seu de outro banco.
+      const hit = withdrawals.find((w) => !w.used && Math.abs(w.amount - tx.amount) < 0.01 && Math.abs(Date.parse(w.date) - Date.parse(tx.date)) <= 4 * 86_400_000)
+      if (!hit) continue
+      hit.used = true
+      const id = `tr-${tx.id}-invest`
+      transfers.push({
+        id,
+        kind: 'investment',
+        date: tx.postedDate,
+        amount: tx.amount,
+        fromAccountId: 'xp-investimentos',
+        toAccountId: tx.accountId,
+        fromTransactionId: null,
+        toTransactionId: tx.id,
+        description: `${tx.description} (resgate, pelo extrato da corretora)`,
+      })
+      tx.transferId = id
+      tx.transferKind = 'investment'
+      tx.counterpartAccountId = 'xp-investimentos'
+      tx.categoryId = 'transferencia'
+    }
+  }
+
   // Sobras: parecem transferência própria, mas sem contraparte encontrada.
   for (const tx of transactions) {
     if (tx.transferId) continue
@@ -327,17 +371,6 @@ function detectTransfers(transactions: Transaction[], profiles: Map<string, Acco
 // ---------------------------------------------------------------------------
 // 5. Cobranças: quem te deve, e qual entrada quitou
 // ---------------------------------------------------------------------------
-
-interface ReceivableMatch {
-  receivableId: string
-  /** Meses da janela que já poderiam ter sido pagos, dado o que os extratos cobrem. */
-  months: string[]
-  /** Meses em que alguma entrada da contraparte apareceu. */
-  matched: string[]
-  received: number
-  /** Quem de fato pagou — pode não ser quem deve. */
-  payers: Set<string>
-}
 
 function main() {
   const files = pickBestFormat(walk(DOCS_DIR))
@@ -380,7 +413,26 @@ function main() {
     }
   }
 
-  const transfers = detectTransfers(transactions, profiles)
+  // Extratos com períodos SOBREPOSTOS trazem o mesmo lançamento duas vezes — o de 01/04 a
+  // 30/06 e o de 01/06 a 30/08 repetem junho inteiro. Como o id não conhece o arquivo, o
+  // repetido colide com o original e é descartado aqui. Repetição dentro de UM arquivo
+  // sobrevive: ali o `ordinal` já deu ids diferentes.
+  const seenTransactionIds = new Set<string>()
+  const duplicated: Transaction[] = []
+  const unique: Transaction[] = []
+  for (const tx of transactions) {
+    if (seenTransactionIds.has(tx.id)) duplicated.push(tx)
+    else {
+      seenTransactionIds.add(tx.id)
+      unique.push(tx)
+    }
+  }
+  transactions.length = 0
+  transactions.push(...unique)
+
+  const investmentsDir = join(ROOT, 'docs', 'investimentos')
+  const brokerage = existsSync(investmentsDir) ? readBrokerageLedger(investmentsDir) : null
+  const transfers = detectTransfers(transactions, profiles, brokerage)
   const receivableMatches = matchReceivables(transactions, RECEIVABLES)
   const plannedMatches = matchPlanned(transactions, PLANNED_ENTRIES)
   transactions.sort((a, b) => b.date.localeCompare(a.date) || b.postedDate.localeCompare(a.postedDate) || a.id.localeCompare(b.id))
@@ -505,8 +557,24 @@ function main() {
   writeFileSync(join(OUT_DIR, 'budget.json'), JSON.stringify(BUDGET, null, 2))
   writeFileSync(join(OUT_DIR, 'receivables.json'), JSON.stringify(RECEIVABLES, null, 2))
 
+  // ---- Investimentos: a carteira reconstruída a partir dos relatórios da B3 e do razão da
+  // corretora. O aporte NÃO sai daqui: sai do extrato da corretora, que é o único que vê as
+  // duas pontas. Derivá-lo das transações desta base — como já foi feito — superestimava em
+  // R$ 12.400,00, porque nem todo resgate se declara resgate no extrato bancário.
+  const investments = existsSync(investmentsDir) ? buildInvestments(investmentsDir) : null
+  writeFileSync(
+    join(OUT_DIR, 'investments.json'),
+    JSON.stringify(investments ? { snapshot: investments.snapshot, series: investments.series, income: investments.income } : { snapshot: null, series: [], income: [] }, null, 2),
+  )
+
   // Relatório
   console.log(`Arquivos lidos: ${byDocument.size} (ignorados como duplicados: ${skipped.length})`)
+  if (duplicated.length) {
+    const porConta = new Map<string, number>()
+    for (const tx of duplicated) porConta.set(tx.accountId, (porConta.get(tx.accountId) ?? 0) + 1)
+    console.log(`Lançamentos repetidos descartados: ${duplicated.length} (períodos sobrepostos entre arquivos)`)
+    for (const [conta, n] of porConta) console.log(`  · ${conta.padEnd(38)} ${n}`)
+  }
   for (const s of skipped) console.log(`  · duplicado: ${relative(ROOT, s)}`)
   console.log(`Contas: ${accounts.length}`)
   for (const a of accounts) console.log(`  · ${a.id.padEnd(18)} ${String(a.transactionCount).padStart(4)} transações  ${a.coverage ? `${a.coverage.from} → ${a.coverage.to}` : '(virtual)'}`)
@@ -570,6 +638,20 @@ function main() {
   if (receivableProblems.length) {
     console.warn(`⚠️  Problemas nas cobranças: ${receivableProblems.length}`)
     for (const problem of receivableProblems) console.warn(`  · ${problem}`)
+  }
+  if (investments) {
+    const last = investments.series.at(-1)
+    console.log(
+      `Investimentos: posição de ${investments.snapshot.asOf} — ${investments.snapshot.holdings.length} papéis, ${investments.snapshot.total.toFixed(2)} + caixa ${investments.snapshot.cash.toFixed(2)}`,
+    )
+    if (investments.ledger) console.log(`  · razão da corretora: ${investments.ledger.entries.length} lançamentos em ${investments.ledger.source.length} arquivos, saldo conferido`)
+    if (last)
+      console.log(
+        `  · aportado líquido ${last.contributed.toFixed(2)} | patrimônio ${last.total.toFixed(2)} | rendimento ${(last.total - last.contributed).toFixed(2)} | série de ${investments.series.length} meses`,
+      )
+    for (const p of investments.problems) console.warn(`  ⚠️  ${p}`)
+  } else {
+    console.log('Investimentos: nenhum relatório em docs/investimentos/')
   }
   console.log(`Metas: ${GOALS.length} (scripts/goals.config.ts)`)
   for (const g of GOALS) {

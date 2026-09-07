@@ -6,7 +6,7 @@
  * Este script preenche essa lacuna com dados inventados, gerados por código em vez de
  * versionados como JSON: o que entra no repositório é a receita, não a massa.
  *
- * `pnpm setup` roda isto quando `src/generated/` está vazio. Com extratos reais em `docs/`,
+ * `pnpm run setup` roda isto quando `src/generated/` está vazio. Com extratos reais em `docs/`,
  * `pnpm ingest` sobrescreve tudo — e é ele quem manda.
  *
  * Nada aqui descreve pessoa, empresa ou conta real.
@@ -346,6 +346,9 @@ writeFileSync(
 writeFileSync(join(OUT_DIR, 'goals.json'), JSON.stringify(GOALS, null, 2))
 writeFileSync(join(OUT_DIR, 'budget.json'), JSON.stringify(BUDGET, null, 2))
 writeFileSync(join(OUT_DIR, 'receivables.json'), JSON.stringify(RECEIVABLES, null, 2))
+// Sem carteira fictícia: a tela de Patrimônio já desenha a ausência, com a instrução de
+// exportar os relatórios da B3. Inventar uma carteira ensinaria o número errado.
+writeFileSync(join(OUT_DIR, 'investments.json'), JSON.stringify({ snapshot: null, series: [], income: [] }, null, 2))
 
 console.log(`Dataset fictício gerado em src/generated/: ${transactions.length} lançamentos, ${transfers.length} transferências, ${months.length} meses (${months[0]} a ${months[months.length - 1]}).`)
 console.log('Nada aqui é dado real. Coloque seus extratos em docs/ e rode `pnpm ingest` para substituir.')
