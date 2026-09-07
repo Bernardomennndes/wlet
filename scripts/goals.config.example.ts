@@ -1,7 +1,7 @@
 import type { Goal } from '../src/data/types.ts'
 
 /**
- * MODELO — copie para `goals.config.ts` (ignorado pelo git). `pnpm setup` faz isso.
+ * MODELO — copie para `goals.config.ts` (ignorado pelo git). `pnpm run setup` faz isso.
  *
  * Metas de poupança: quanto se quer juntar, até quando, e quanto já está guardado.
  *

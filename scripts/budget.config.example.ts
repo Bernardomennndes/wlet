@@ -1,7 +1,7 @@
 import type { Budget } from '../src/data/types.ts'
 
 /**
- * MODELO — copie para `budget.config.ts` (ignorado pelo git). `pnpm setup` faz isso.
+ * MODELO — copie para `budget.config.ts` (ignorado pelo git). `pnpm run setup` faz isso.
  *
  * Teto de gastos do mês. Vale para o mês corrente no recorte selecionado, e é comparado com
  * as saídas medidas — transferência entre contas próprias não conta, porque não é gasto.

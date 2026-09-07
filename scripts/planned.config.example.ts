@@ -1,7 +1,7 @@
 import type { PlannedEntry } from '../src/data/types.ts'
 
 /**
- * MODELO — copie para `planned.config.ts` (ignorado pelo git). `pnpm setup` faz isso.
+ * MODELO — copie para `planned.config.ts` (ignorado pelo git). `pnpm run setup` faz isso.
  *
  * Lançamentos previstos: o que se espera receber e pagar nos meses que ainda não têm
  * extrato. É daqui que sai a previsão nos gráficos — nada é extrapolado do histórico.

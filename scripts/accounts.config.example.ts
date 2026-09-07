@@ -2,7 +2,7 @@ import type { AccountType, Entity } from '../src/data/types.ts'
 
 /**
  * MODELO — copie para `accounts.config.ts` (que é ignorado pelo git) e troque pelos seus
- * dados. `pnpm setup` faz essa cópia para você.
+ * dados. `pnpm run setup` faz essa cópia para você.
  *
  * Registro de contas conhecidas. A identificação é feita pelos metadados do próprio arquivo
  * (código do banco + tipo de conta + trecho do caminho). Uma conta que não esteja aqui é

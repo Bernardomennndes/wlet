@@ -1,7 +1,7 @@
 import type { Receivable } from '../src/data/types.ts'
 
 /**
- * MODELO — copie para `receivables.config.ts` (ignorado pelo git). `pnpm setup` faz isso.
+ * MODELO — copie para `receivables.config.ts` (ignorado pelo git). `pnpm run setup` faz isso.
  *
  * Cobranças: o que alguém te deve, e a despesa que o recebimento abate.
  *

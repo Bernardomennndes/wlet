@@ -1,7 +1,7 @@
 import type { Rule } from './rules.ts'
 
 /**
- * MODELO — copie para `rules.config.ts` (ignorado pelo git). `pnpm setup` faz isso.
+ * MODELO — copie para `rules.config.ts` (ignorado pelo git). `pnpm run setup` faz isso.
  *
  * Aqui ficam as SUAS regras de categorização: o comércio do seu bairro, os seus clientes,
  * a sua cidade. Elas não são versionadas porque a lista de onde alguém compra pão descreve
