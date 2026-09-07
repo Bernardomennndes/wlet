@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { X } from 'lucide-react'
 import { Controller, useForm, useWatch, type Control } from 'react-hook-form'
 import { z } from 'zod'
-import { AppSelect } from '@/components/ui/app-select'
+import { AppCombobox } from '@/components/ui/app-combobox'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field'
@@ -17,8 +17,10 @@ import { paymentModes, planStatuses, type PaymentMode, type Plan, type PlanStatu
 import { formatBRL } from '@/lib/format'
 import type { PlanGroup } from '@/data/types'
 
-const CATEGORY_ITEMS = CATEGORIES.filter((c) => c.kind === 'expense').map((c) => ({ value: c.id, label: c.label }))
-const STATUS_ITEMS = planStatuses.map((s) => ({ value: s.value, label: s.label }))
+// A descrição do catálogo entra como texto secundário — e, com ela, na busca: procurar
+// "padaria" passa a encontrar "Mercado". O ícone da situação sai da lista de enum do domínio.
+const CATEGORY_ITEMS = CATEGORIES.filter((c) => c.kind === 'expense').map((c) => ({ value: c.id, label: c.label, description: c.description }))
+const STATUS_ITEMS = planStatuses.map((s) => ({ value: s.value, label: s.label, icon: s.icon }))
 
 // Os valores do schema saem das listas de enum do domínio, nunca de um `z.enum` redigitado:
 // um estado novo em `planStatuses` tem de ser erro de compilação aqui, não uma opção que o
@@ -215,7 +217,7 @@ function PlanForm({
         render={({ field, fieldState }) => (
           <Field>
             <FieldLabel htmlFor="plano-categoria">Categoria</FieldLabel>
-            <AppSelect id="plano-categoria" value={field.value} onValueChange={field.onChange} items={CATEGORY_ITEMS} />
+            <AppCombobox id="plano-categoria" aria-label="Categoria" value={field.value} onValueChange={field.onChange} items={CATEGORY_ITEMS} />
             <FieldError errors={[fieldState.error]} />
           </Field>
         )}
@@ -229,7 +231,7 @@ function PlanForm({
         render={({ field }) => (
           <Field>
             <FieldLabel htmlFor="plano-grupo">Grupo</FieldLabel>
-            <AppSelect id="plano-grupo" value={field.value} onValueChange={field.onChange} items={groupItems} />
+            <AppCombobox id="plano-grupo" aria-label="Grupo" value={field.value} onValueChange={field.onChange} items={groupItems} emptyValue="" />
           </Field>
         )}
       />
@@ -240,7 +242,7 @@ function PlanForm({
         render={({ field }) => (
           <Field>
             <FieldLabel htmlFor="plano-status">Situação</FieldLabel>
-            <AppSelect id="plano-status" value={field.value} onValueChange={field.onChange} items={STATUS_ITEMS} />
+            <AppCombobox id="plano-status" aria-label="Situação" value={field.value} onValueChange={field.onChange} items={STATUS_ITEMS} />
           </Field>
         )}
       />

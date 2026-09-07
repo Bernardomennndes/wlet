@@ -104,7 +104,7 @@ src/generated/*.json     saída gerada, NÃO versionada
 src/data/                vocabulário de domínio (tipos, listas de enum, catálogo de categorias)
 src/lib/finance.ts       recortes, agregações mensais, por categoria, recorrências
 src/lib/receivables.ts   cobranças: vencimento, conciliação e situação por mês
-src/components/ui/       componentes shadcn (estilo base-mira, Base UI) + AppSelect, AppCombobox, MonthPicker e BarProgress compostos sobre eles
+src/components/ui/       componentes shadcn (estilo base-mira, Base UI) + AppCombobox, MonthPicker, MoneyInput e BarProgress compostos sobre eles
 src/components/enum-badge.tsx  o badge de enum, e a tradução de `tone` em cor num lugar só
 src/components/*-badge.tsx  badges de domínio (entidade, categoria, tipo de conta, tipo de transferência, fluxo, status)
 src/components/breadcrumbs.tsx  trilha de navegação, derivada da URL

@@ -1,7 +1,7 @@
 import { ArrowLeftRight, RotateCcw, SearchX } from 'lucide-react'
 import { CategoryBadge } from '@/components/category-badge'
 import { EntityBadge } from '@/components/entity-badge'
-import { AppSelect } from '@/components/ui/app-select'
+import { AppCombobox } from '@/components/ui/app-combobox'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -14,7 +14,7 @@ import { formatDate, formatSigned } from '@/lib/format'
 import { useFilters } from '@/providers/use-filters'
 import { cn } from '@/lib/utils'
 
-const CATEGORY_ITEMS = CATEGORIES.map((c) => ({ value: c.id, label: c.label }))
+const CATEGORY_ITEMS = CATEGORIES.map((c) => ({ value: c.id, label: c.label, description: c.description }))
 
 /**
  * O rodapé é montado SEMPRE, esteja onde estiver: some-lo quando tudo cabe faz a altura
@@ -134,7 +134,7 @@ export function TransactionTable({ rows, compact = false, paging: external, scro
                 ) : null}
                 <TableCell>
                   <ButtonGroup>
-                    <AppSelect
+                    <AppCombobox
                       aria-label={`Categoria de ${tx.merchant}`}
                       value={current}
                       onValueChange={(next) => setOverride(tx.id, next === tx.categoryId ? null : next)}

@@ -5,13 +5,13 @@ import { useSearchParams } from 'react-router'
 import { Download } from 'lucide-react'
 import { TransactionTable } from '@/components/transaction-table'
 import { AppCombobox } from '@/components/ui/app-combobox'
-import { AppSelect } from '@/components/ui/app-select'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { CATEGORIES } from '@/data/categories'
+import { entityKinds } from '@/data/types'
 import { type Flow, ACCOUNTS, accountInScope, flowKinds, sum } from '@/lib/finance'
 import { formatBRL, formatMonthShort, plural } from '@/lib/format'
 import { useFilters } from '@/providers/use-filters'
@@ -19,8 +19,8 @@ import { useFilters } from '@/providers/use-filters'
 const ALL = 'all'
 /** Chaves de URL que pertencem a esta tela — as únicas que "Limpar filtros" apaga. */
 const FILTER_KEYS = ['q', 'conta', 'categoria', 'fluxo', 'mes']
-const CATEGORY_ITEMS = [{ value: ALL, label: 'Todas as categorias' }, ...CATEGORIES.map((c) => ({ value: c.id, label: c.label }))]
-const FLOW_ITEMS = [{ value: ALL, label: 'Todos os lançamentos' }, ...flowKinds.map((o) => ({ value: o.value, label: `Só ${o.labelPlural!.toLowerCase()}` }))]
+const CATEGORY_ITEMS = [{ value: ALL, label: 'Todas as categorias' }, ...CATEGORIES.map((c) => ({ value: c.id, label: c.label, description: c.description }))]
+const FLOW_ITEMS = [{ value: ALL, label: 'Todos os lançamentos' }, ...flowKinds.map((o) => ({ value: o.value, label: `Só ${o.labelPlural!.toLowerCase()}`, icon: o.icon }))]
 
 export function TransacoesPageContent() {
   useDocumentTitle('Transações')
@@ -50,7 +50,16 @@ export function TransacoesPageContent() {
   }
 
   const accountItems = useMemo(
-    () => [{ value: ALL, label: 'Todas as contas' }, ...ACCOUNTS.filter((a) => a.type !== 'investment' && accountInScope(a.id, scope)).map((a) => ({ value: a.id, label: a.name }))],
+    () => [
+      { value: ALL, label: 'Todas as contas' },
+      // A entidade vem da lista de enum, não do valor cru: é ela que decide a grafia curta,
+      // e um rótulo montado aqui divergiria do badge que a mesma linha desenha.
+      ...ACCOUNTS.filter((a) => a.type !== 'investment' && accountInScope(a.id, scope)).map((a) => ({
+        value: a.id,
+        label: a.name,
+        description: entityKinds.find((e) => e.value === a.entity)?.shortLabel,
+      })),
+    ],
     [scope],
   )
   const monthItems = useMemo(() => [{ value: ALL, label: 'Todos os meses' }, ...months.map((m) => ({ value: m, label: formatMonthShort(m) }))], [months])
@@ -123,25 +132,25 @@ export function TransacoesPageContent() {
                 <FieldLabel htmlFor="filtro-conta" className="sr-only">
                   Conta
                 </FieldLabel>
-                <AppSelect id="filtro-conta" value={accountValue} onValueChange={(v) => set('conta', v)} items={accountItems} />
+                <AppCombobox id="filtro-conta" aria-label="Conta" value={accountValue} onValueChange={(v) => set('conta', v)} items={accountItems} emptyValue={ALL} className="w-52" />
               </Field>
               <Field orientation="horizontal" className="w-auto">
                 <FieldLabel htmlFor="filtro-categoria" className="sr-only">
                   Categoria
                 </FieldLabel>
-                <AppCombobox id="filtro-categoria" aria-label="Categoria" value={category} onValueChange={(v) => set('categoria', v)} items={CATEGORY_ITEMS} className="w-56" />
+                <AppCombobox id="filtro-categoria" aria-label="Categoria" value={category} onValueChange={(v) => set('categoria', v)} items={CATEGORY_ITEMS} emptyValue={ALL} className="w-56" />
               </Field>
               <Field orientation="horizontal" className="w-auto">
                 <FieldLabel htmlFor="filtro-tipo" className="sr-only">
                   Tipo
                 </FieldLabel>
-                <AppSelect id="filtro-tipo" value={flow} onValueChange={(v) => set('fluxo', v)} items={FLOW_ITEMS} />
+                <AppCombobox id="filtro-tipo" aria-label="Tipo" value={flow} onValueChange={(v) => set('fluxo', v)} items={FLOW_ITEMS} emptyValue={ALL} className="w-52" />
               </Field>
               <Field orientation="horizontal" className="w-auto">
                 <FieldLabel htmlFor="filtro-mes" className="sr-only">
                   Mês
                 </FieldLabel>
-                <AppCombobox id="filtro-mes" aria-label="Mês" value={monthValue} onValueChange={(v) => set('mes', v)} items={monthItems} className="w-40" />
+                <AppCombobox id="filtro-mes" aria-label="Mês" value={monthValue} onValueChange={(v) => set('mes', v)} items={monthItems} emptyValue={ALL} className="w-40" />
               </Field>
               {hasFilters ? (
                 <Button variant="link" size="sm" onClick={clearFilters}>
