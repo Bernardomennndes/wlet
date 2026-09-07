@@ -26,6 +26,7 @@ Outros scripts: `pnpm ingest`, `pnpm cdi` (baixa o CDI do Banco Central, para va
 | `scripts/planned.config.ts` | salário e recebíveis previstos |
 | `scripts/receivables.config.ts` | quem te deve dinheiro |
 | `scripts/goals.config.ts`, `scripts/budget.config.ts` | metas, teto de gastos e rubricas |
+| `scripts/trips.config.ts` | as viagens que você fez, com destino e datas |
 
 Cada `*.config.ts` tem um `*.config.example.ts` versionado, com a mesma forma e dados
 fictícios — é dele que o `pnpm run setup` parte. O `src/generated/` de um clone novo é escrito
@@ -41,7 +42,7 @@ gerador, não a massa de dados.
 
 Regras de leitura:
 
-- O mesmo documento em vários formatos (OFX, CSV, PDF, TXT) usa só o mais rico: OFX, depois CSV. PDF e TXT são ignorados.
+- O mesmo documento em vários formatos usa só o mais rico: OFX, depois CSV, depois PDF. TXT é ignorado. PDF só é lido para fatura do Nubank, porque o banco não publica outro formato antes de 2024 — e só entra se a soma dos lançamentos fechar com o total impresso na própria fatura.
 - Downloads repetidos (`arquivo (1).ofx`) ou dois arquivos cobrindo o mesmo período da mesma conta: fica o que tiver mais transações.
 - A conta é identificada pelos metadados do próprio arquivo (código do banco, número da conta, extrato × fatura). Contas conhecidas estão em `scripts/accounts.config.ts`; uma conta nova é criada automaticamente com nome genérico e um aviso no terminal.
 
@@ -82,6 +83,10 @@ scripts/setup.ts         prepara um clone novo (configs + dataset fictício)
 scripts/matching.ts      casa regra declarada com o extrato (usado pelo ingest E pelo seed)
 scripts/checks/          testes de `pnpm check`
 scripts/xlsx.ts          leitor mínimo de xlsx (B3 e extrato da corretora), sem dependência
+scripts/pdf.ts           extrator de texto de PDF (faturas Nubank anteriores a 2024), sem dependência
+scripts/trips.config.ts     as viagens realizadas; o ingest calcula o custo de cada uma
+src/lib/plans.ts         planos de compra: catálogo no navegador, com envelope versionado
+src/routes/planos/       a tela de planos: grupos, situação e parcelamento
 scripts/brokerage.ts     o razão de caixa da corretora: aporte líquido, resgate, taxa e saldo
 scripts/cdi.ts           o cache do CDI (leitura pura, sem rede)
 scripts/fetch-cdi.ts     baixa o CDI diário do Banco Central para docs/investimentos/
