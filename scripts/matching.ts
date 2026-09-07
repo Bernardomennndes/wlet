@@ -5,7 +5,6 @@
  * fictício nasce sem `plannedId` nem `receivableId`, e um clone novo abre a tela de Pagamentos
  * dizendo que nove meses de aluguel estão vencidos — num conjunto que paga o aluguel todo mês.
  */
-import { CATEGORY_MAP } from '../src/data/categories.ts'
 import type { MatchRule, PlannedEntry, Receivable, Transaction } from '../src/data/types.ts'
 import { normalizeForRules } from './rules.ts'
 
