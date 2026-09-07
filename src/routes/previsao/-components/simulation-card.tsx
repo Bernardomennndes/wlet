@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Plan, PlanGroup } from '@/data/types'
 import { formatBRL, formatMonthShort, plural } from '@/lib/format'
-import { installmentAmount, planMonths, planTotal } from '@/lib/plans'
+import { installmentAmount, planMonths, planTotal, scheduledPlans } from '@/lib/plans'
 import { cn } from '@/lib/utils'
 
 /**
@@ -17,8 +17,24 @@ import { cn } from '@/lib/utils'
  * valor já está na lista — e sim "em que mês isso pesa". Uma compra em 10× de R$ 5.000 e uma
  * à vista de R$ 500 têm o mesmo peso no primeiro mês.
  */
-export function SimulationCard({ groups, considering, simulated, onToggle }: { groups: PlanGroup[]; considering: Plan[]; simulated: Set<string>; onToggle: (ids: string[], on: boolean) => void }) {
-  if (considering.length === 0) return null
+export function SimulationCard({
+  groups,
+  considering: all,
+  simulated,
+  onToggle,
+}: {
+  groups: PlanGroup[]
+  considering: Plan[]
+  simulated: Set<string>
+  onToggle: (ids: string[], on: boolean) => void
+}) {
+  if (all.length === 0) return null
+
+  // Só o que tem mês pode ser simulado: ligar um plano sem data acenderia o botão e não
+  // moveria número nenhum, porque não há mês em que ele pese. Eles não somem da vista — a
+  // contagem abaixo os declara, senão a lista pareceria ter perdido itens.
+  const considering = scheduledPlans(all)
+  const undated = all.length - considering.length
 
   // Um bloco por grupo, e os avulsos no fim. Grupo sem item em estudo não aparece: o card é
   // sobre o que dá para ligar, e um grupo já todo decidido não tem o que oferecer aqui.
@@ -39,8 +55,8 @@ export function SimulationCard({ groups, considering, simulated, onToggle }: { g
       <CardHeader>
         <CardTitle>Simular</CardTitle>
         <CardDescription>
-          {considering.length} {plural(considering.length, 'plano', 'planos')} em estudo. Ligue os que quiser testar — eles entram nos meses abaixo e a previsão se recompõe. A escolha fica na URL,
-          então dá para compartilhar o cenário.
+          {considering.length} {plural(considering.length, 'plano', 'planos')} em estudo com data. Ligue os que quiser testar — eles entram nos meses abaixo e a previsão se recompõe. A escolha fica na
+          URL, então dá para compartilhar o cenário.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -90,6 +106,13 @@ export function SimulationCard({ groups, considering, simulated, onToggle }: { g
             </div>
           )
         })}
+
+        {undated > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {undated} {plural(undated, 'plano', 'planos')} em estudo {plural(undated, 'está', 'estão')} sem mês e {plural(undated, 'fica', 'ficam')} de fora: marque uma data no plano para poder
+            simular.
+          </p>
+        )}
 
         {active.length === 0 ? (
           <p className="text-xs text-muted-foreground">Nada ligado: os meses abaixo mostram a previsão sem simulação.</p>

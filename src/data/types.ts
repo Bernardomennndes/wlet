@@ -264,11 +264,23 @@ export interface Plan {
    * você ainda não pesquisou.
    */
   financed?: { total: number; installments: number }
-  /** Qual forma está escolhida. Só ela entra na previsão. */
-  payment: PaymentMode
+  /**
+   * Qual forma está escolhida. Só ela entra na previsão.
+   *
+   * AUSENTE é um estado legítimo — "ainda não decidi como pago" —, e não o mesmo que à vista:
+   * um plano recém-anotado não tomou essa decisão, e nascer marcado como à vista afirmaria por
+   * ele. Quando falta, o cálculo usa o preço à vista, que é o único que sempre existe.
+   */
+  payment?: PaymentMode
   status: PlanStatus
-  /** Mês da compra (AAAA-MM). Parcelado, é o mês da primeira parcela. */
-  month: string
+  /**
+   * Mês da compra (AAAA-MM). Parcelado, é o mês da primeira parcela.
+   *
+   * AUSENTE é um desejo sem data, e um desejo sem data não entra na previsão: não há mês em
+   * que ele pese. É por isso que `planMonths` devolve lista VAZIA em vez de chutar o mês que
+   * vem — o chute apareceria no gráfico como compromisso, que é o que ele não é.
+   */
+  month?: string
   groupId?: string
   note?: string
 }

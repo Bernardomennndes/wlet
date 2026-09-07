@@ -1,10 +1,12 @@
 import { useRef, type RefObject } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { X } from 'lucide-react'
 import { Controller, useForm, useWatch, type Control } from 'react-hook-form'
 import { z } from 'zod'
 import { AppSelect } from '@/components/ui/app-select'
 import { Button } from '@/components/ui/button'
-import { Field, FieldError, FieldLabel } from '@/components/ui/field'
+import { ButtonGroup } from '@/components/ui/button-group'
+import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { MoneyInput } from '@/components/ui/money-input'
 import { MonthPicker } from '@/components/ui/month-picker'
@@ -33,9 +35,12 @@ const schema = z
     cash: z.number().positive('Informe o preço à vista.'),
     financedTotal: z.number().nonnegative('O preço parcelado não pode ser negativo.'),
     installments: z.number(),
-    payment: z.enum(PAYMENT_VALUES),
+    // Os dois campos abaixo aceitam VAZIO, que quer dizer "ainda não decidi". Não é o mesmo
+    // que um valor padrão: um plano recém-anotado não escolheu forma de pagamento nem data, e
+    // preencher por ele afirmaria uma decisão que não houve.
+    payment: z.union([z.enum(PAYMENT_VALUES), z.literal('')]),
     categoryId: z.string().min(1, 'Escolha uma categoria.'),
-    month: z.string().regex(/^\d{4}-\d{2}$/, 'Escolha o mês da compra.'),
+    month: z.union([z.string().regex(/^\d{4}-\d{2}$/), z.literal('')]),
     groupId: z.string(),
     status: z.enum(STATUS_VALUES),
   })
@@ -54,15 +59,15 @@ function financedOf(values: Pick<FormValues, 'financedTotal' | 'installments'>) 
   return values.financedTotal > 0 && isInstallmentCount(values.installments) ? { total: values.financedTotal, installments: values.installments } : undefined
 }
 
-function toValues(plan: Plan | null, month: string): FormValues {
+function toValues(plan: Plan | null): FormValues {
   return {
     label: plan?.label ?? '',
     cash: plan?.cash ?? 0,
     financedTotal: plan?.financed?.total ?? 0,
     installments: plan?.financed?.installments ?? 2,
-    payment: plan?.payment ?? 'cash',
+    payment: plan?.payment ?? '',
     categoryId: plan?.categoryId ?? CATEGORY_ITEMS[0]?.value ?? 'compras',
-    month: plan?.month ?? month,
+    month: plan?.month ?? '',
     groupId: plan?.groupId ?? '',
     status: plan?.status ?? 'considering',
   }
@@ -74,10 +79,11 @@ function toPlan(values: FormValues): Omit<Plan, 'id'> {
     label: values.label.trim(),
     cash: values.cash,
     financed,
-    // Escolher parcelado e depois apagar o preço deixaria um estado que não se pode desenhar.
-    payment: values.payment === 'financed' && !financed ? 'cash' : values.payment,
+    // Escolher parcelado e depois apagar o preço deixaria um estado que não se pode desenhar:
+    // ele volta a ser "não decidido", não "à vista".
+    payment: values.payment === 'financed' && !financed ? undefined : values.payment || undefined,
     categoryId: values.categoryId,
-    month: values.month,
+    month: values.month || undefined,
     groupId: values.groupId || undefined,
     status: values.status,
   }
@@ -127,7 +133,7 @@ export function PlanSheet({
       <SheetContent className="flex w-full flex-col gap-0 sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{editing ? 'Editar plano' : 'Novo plano'}</SheetTitle>
-          <SheetDescription>Guarde os dois preços — à vista e parcelado — e escolha qual vale. Só a forma escolhida entra na previsão.</SheetDescription>
+          <SheetDescription>Guarde os dois preços — à vista e parcelado. Forma de pagamento e mês são opcionais: sem mês, o plano fica de fora da previsão até você marcar um.</SheetDescription>
         </SheetHeader>
 
         {/* A chave REMONTA o formulário quando o alvo muda, e é o que dispensa um efeito de
@@ -174,7 +180,7 @@ function PlanForm({
 }) {
   const { control, register, handleSubmit, formState } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: toValues(editing, defaultMonth),
+    defaultValues: toValues(editing),
   })
 
   const groupItems = [{ value: '', label: 'Sem grupo' }, ...groups.map((g) => ({ value: g.id, label: g.label }))]
@@ -215,17 +221,7 @@ function PlanForm({
         )}
       />
 
-      <Controller
-        control={control}
-        name="month"
-        render={({ field, fieldState }) => (
-          <Field>
-            <FieldLabel htmlFor="plano-mes">Mês da compra</FieldLabel>
-            <MonthPicker id="plano-mes" value={field.value} onValueChange={field.onChange} withData={monthsWithData} aria-label="Mês da compra" />
-            <FieldError errors={[fieldState.error]} />
-          </Field>
-        )}
-      />
+      <Controller control={control} name="month" render={({ field }) => <MonthField value={field.value} onChange={field.onChange} defaultMonth={defaultMonth} monthsWithData={monthsWithData} />} />
 
       <Controller
         control={control}
@@ -316,16 +312,20 @@ function InstallmentBlock({ control }: { control: Control<FormValues> }) {
 }
 
 /**
- * O seletor da forma de pagamento.
+ * O seletor da forma de pagamento, que pode ficar SEM escolha.
+ *
+ * "Ainda não decidi" é um estado legítimo e diferente de "à vista": um plano recém-anotado não
+ * tomou essa decisão, e deixar o botão de à vista aceso afirmaria por ele. Clicar na opção já
+ * escolhida a desliga — é assim que se volta atrás.
  *
  * Ele só oferece "parcelado" quando existe preço parcelado: uma escolha que o app não
  * conseguiria desenhar não deve ser oferecível. E quando o preço é apagado depois da escolha,
- * o seletor recua para à vista — a mesma correção que `toPlan` aplica ao gravar.
+ * o seletor volta a não ter nenhuma — a mesma correção que `toPlan` aplica ao gravar.
  */
-function PaymentField({ value, onChange, control }: { value: PaymentMode; onChange: (next: PaymentMode) => void; control: Control<FormValues> }) {
+function PaymentField({ value, onChange, control }: { value: PaymentMode | ''; onChange: (next: PaymentMode | '') => void; control: Control<FormValues> }) {
   const [financedTotal, installments] = useWatch({ control, name: ['financedTotal', 'installments'] })
   const hasFinanced = financedOf({ financedTotal, installments }) !== undefined
-  const shown = value === 'financed' && !hasFinanced ? 'cash' : value
+  const shown = value === 'financed' && !hasFinanced ? '' : value
 
   return (
     <Field>
@@ -333,10 +333,11 @@ function PaymentField({ value, onChange, control }: { value: PaymentMode; onChan
       <ToggleGroup
         aria-label="Como vou pagar"
         variant="outline"
-        value={[shown]}
+        value={shown === '' ? [] : [shown]}
         onValueChange={(next) => {
           const picked = next[0]
-          if (picked === 'cash' || (picked === 'financed' && hasFinanced)) onChange(picked)
+          if (picked === undefined) onChange('')
+          else if (picked === 'cash' || (picked === 'financed' && hasFinanced)) onChange(picked)
         }}
       >
         {paymentModes.map((mode) => (
@@ -345,6 +346,41 @@ function PaymentField({ value, onChange, control }: { value: PaymentMode; onChan
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
+      <FieldDescription>{shown === '' ? 'Opcional. Sem escolha, a previsão usa o preço à vista.' : 'Clique de novo para desmarcar.'}</FieldDescription>
+    </Field>
+  )
+}
+
+/**
+ * O mês da compra, que pode não existir.
+ *
+ * Sem mês o plano é um DESEJO: ele fica na lista, soma nos totais e não entra na previsão,
+ * porque não há mês em que pese. Por isso a ausência é o estado inicial e precisa ser
+ * reversível nos dois sentidos — daí o par definir/limpar, o mesmo idioma do período de um
+ * grupo.
+ */
+function MonthField({ value, onChange, defaultMonth, monthsWithData }: { value: string; onChange: (next: string) => void; defaultMonth: string; monthsWithData: string[] }) {
+  if (value === '') {
+    return (
+      <Field>
+        <FieldLabel>Mês da compra</FieldLabel>
+        <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => onChange(defaultMonth)}>
+          Definir mês
+        </Button>
+        <FieldDescription>Opcional. Sem mês, o plano fica fora da previsão.</FieldDescription>
+      </Field>
+    )
+  }
+
+  return (
+    <Field>
+      <FieldLabel htmlFor="plano-mes">Mês da compra</FieldLabel>
+      <ButtonGroup>
+        <MonthPicker id="plano-mes" value={value} onValueChange={onChange} withData={monthsWithData} aria-label="Mês da compra" />
+        <Button type="button" variant="outline" size="icon" aria-label="Limpar o mês da compra" onClick={() => onChange('')}>
+          <X />
+        </Button>
+      </ButtonGroup>
     </Field>
   )
 }

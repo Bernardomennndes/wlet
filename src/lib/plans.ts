@@ -25,6 +25,11 @@ export const PLANS_KEY = 'wallet.plans'
  * pagamento, para a diferença entre elas responder "quanto economizo à vista". Um envelope da
  * versão 1 é convertido em vez de descartado — sem a versão, os campos antigos seriam lidos
  * como ausentes e a lista inteira apareceria vazia.
+ *
+ * **Tornar `month` e `payment` opcionais NÃO pediu uma versão 3**, e a regra que isso ilustra
+ * vale para a próxima mudança: versão se paga quando o gravado deixa de ser legível pela forma
+ * nova. Aqui todo plano da versão 2 continua válido — ele só tem preenchido o que agora pode
+ * faltar. Uma versão cuja migração é a identidade acrescenta um ramo que só pode apodrecer.
  */
 export const PLANS_VERSION = 2
 
@@ -82,8 +87,11 @@ export function parsePlans(raw: unknown): PlansData {
     const id = text(p.id)
     const label = text(p.label)
     const categoryId = text(p.categoryId)
+    // O mês DEGRADA para ausente em vez de invalidar o plano. Agora que "sem mês" é um
+    // estado que se pode representar e desenhar, uma data torta vira ele — e não a perda de um
+    // plano que tem nome, preço e categoria.
     const at = month(p.month)
-    if (!id || !label || !categoryId || !at) continue
+    if (!id || !label || !categoryId) continue
     if (!CATEGORY_MAP[categoryId]) continue
 
     // Parcelamento fora de 2..99 é engano de digitação, não intenção.
@@ -92,7 +100,7 @@ export function parsePlans(raw: unknown): PlansData {
 
     let cash: number | undefined
     let financed: Plan['financed']
-    let payment: PaymentMode
+    let payment: PaymentMode | undefined
     if (legacy) {
       // Versão 1: um preço só. Parcelado vira o preço financiado — sem desconto conhecido, o
       // à vista recebe o MESMO valor, que é a verdade disponível: ninguém pesquisou o outro.
@@ -110,9 +118,10 @@ export function parsePlans(raw: unknown): PlansData {
       financed = total !== undefined && count !== undefined ? { total, installments: count } : undefined
       if (cash === undefined && financed) cash = financed.total
       if (cash === undefined) continue
-      // Escolha "parcelado" sem preço parcelado cai para à vista: um estado que não se pode
-      // desenhar não deve sobreviver à leitura.
-      payment = p.payment === 'financed' && financed ? 'financed' : 'cash'
+      // Escolha "parcelado" sem preço parcelado NÃO cai mais para à vista: cai para ausente.
+      // Enquanto ausente não existia, à vista era a única alternativa representável; agora que
+      // existe, afirmar à vista seria inventar uma decisão que a pessoa não tomou.
+      payment = p.payment === 'financed' && financed ? 'financed' : p.payment === 'cash' ? 'cash' : undefined
     }
 
     const status = STATUSES.has(p.status as PlanStatus) ? (p.status as PlanStatus) : 'considering'
@@ -181,8 +190,13 @@ export function savingOf(plan: Plan): number | null {
  *
  * À vista é um mês só. Parcelado espalha — e é isso que faz a simulação responder "cabe?" em
  * vez de só "custa quanto?".
+ *
+ * **Sem mês, nenhum mês.** É AQUI que um desejo sem data fica de fora da previsão, e é por isso
+ * que `forecast.ts` não precisou de nenhuma guarda: ele já pergunta `planOccursIn`, que sobre
+ * uma lista vazia responde não para todo mês.
  */
 export function planMonths(plan: Plan): string[] {
+  if (!plan.month) return []
   const out: string[] = []
   const [y, m] = plan.month.split('-').map(Number)
   for (let i = 0; i < planInstallments(plan); i++) {
@@ -205,4 +219,15 @@ export function planOccursIn(plan: Plan, month: string): boolean {
  */
 export function decidedPlans(items: Plan[]): Plan[] {
   return items.filter((p) => p.status === 'decided')
+}
+
+/**
+ * Os planos que têm data, e portanto lugar na linha do tempo.
+ *
+ * Existe para a lacuna não ser silenciosa: o KPI "Decidido" soma TODO decidido, e um decidido
+ * sem mês não aparece em previsão nenhuma. Sem esta separação, o total do cartão e o do
+ * gráfico divergiriam e nada na tela explicaria por quê.
+ */
+export function scheduledPlans(items: Plan[]): Plan[] {
+  return items.filter((p) => p.month !== undefined)
 }

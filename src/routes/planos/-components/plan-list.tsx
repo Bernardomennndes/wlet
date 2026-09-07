@@ -1,5 +1,6 @@
 import { Pencil, Trash2 } from 'lucide-react'
 import { CategoryBadge } from '@/components/category-badge'
+import { NotInformed } from '@/components/not-informed'
 import { DataList, DataListItem, DataListItemHeader } from '@/components/data-list/data-list'
 import { EnumBadge } from '@/components/enum-badge'
 import { Button } from '@/components/ui/button'
@@ -75,9 +76,14 @@ export function PlanList({
                     </DataListItemHeader>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <EnumBadge option={planStatuses.find((s) => s.value === plan.status)} value={plan.status} />
-                      <EnumBadge option={paymentModes.find((m) => m.value === plan.payment)} value={plan.payment} />
+                      {/* Forma de pagamento ainda não decidida não vira badge: `enum-badges.md`
+                          diz que enum sem valor não renderiza a badge, e um "Não definido"
+                          ali competiria com a situação, que é o estado que importa na lista. */}
+                      {plan.payment && <EnumBadge option={paymentModes.find((m) => m.value === plan.payment)} value={plan.payment} />}
                       <CategoryBadge value={plan.categoryId} />
-                      <span>{formatMonthShort(plan.month)}</span>
+                      {/* O mês, ao contrário, PRECISA aparecer quando falta: é ele que decide
+                          se o plano está na previsão, e um espaço em branco não diria isso. */}
+                      {plan.month ? <span>{formatMonthShort(plan.month)}</span> : <NotInformed>Não definido</NotInformed>}
                       {planInstallments(plan) > 1 && (
                         <span className="tabular-nums">
                           {planInstallments(plan)}× de {formatBRL(installmentAmount(plan))}

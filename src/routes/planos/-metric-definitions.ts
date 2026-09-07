@@ -6,10 +6,10 @@ export const PLANOS_METRICS: Record<'decided' | 'considering' | 'nextMonth', Met
     title: 'Decidido',
     whatItIs: 'A soma dos planos que você já resolveu fazer.',
     howItIsCalculated:
-      'Soma do valor TOTAL — não o da parcela — de todo plano com situação "Decidido". Estes são os únicos que entram na previsão de verdade: eles aparecem na tela de Previsão e na Visão geral como uma origem própria, ao lado do declarado, do contratado e das rubricas.',
+      'Soma do valor TOTAL — não o da parcela — de todo plano com situação "Decidido", TENHA ELE MÊS OU NÃO. Só os que têm mês chegam à previsão, onde aparecem como origem própria ao lado do declarado, do contratado e das rubricas; um plano sem mês não tem onde pesar e fica de fora até você marcar uma data. Quando existe algum nessa situação, a legenda do cartão diz quantos são — senão este total e o do gráfico divergiriam sem explicação.',
     whatItIsFor:
       'É o compromisso que você assumiu consigo mesmo. Se este número cresce sem a previsão apertar, é sinal de que os planos estão espalhados em meses distantes — o que é bom; se aperta, a folga de algum mês está sendo consumida.',
-    formula: 'Σ valor total dos planos decididos',
+    formula: 'Σ valor total dos planos decididos (com mês ou sem)',
   },
   considering: {
     title: 'Em estudo',

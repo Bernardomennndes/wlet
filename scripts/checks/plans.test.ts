@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { decidedPlans, emptyPlans, installmentAmount, parsePlans, planInstallments, planMonths, planOccursIn, planTotal, savingOf, PLANS_VERSION } from '../../src/lib/plans.ts'
+import { decidedPlans, emptyPlans, installmentAmount, parsePlans, planInstallments, planMonths, planOccursIn, planTotal, savingOf, scheduledPlans, PLANS_VERSION } from '../../src/lib/plans.ts'
 import type { Plan } from '../../src/data/types.ts'
 
 /**
@@ -63,23 +63,42 @@ describe('parsePlans: o que não é confiável não entra', () => {
     assert.equal(p.payment, 'financed')
   })
 
-  it('descarta categoria desconhecida e mês fora do formato', () => {
+  it('descarta categoria desconhecida — sem ela o plano não teria onde entrar', () => {
     assert.equal(parsePlans(envelope([plano({ categoryId: 'nao-existe' })])).items.length, 0)
-    for (const month of ['2026-13', '26-11', '2026-11-03', '']) assert.equal(parsePlans(envelope([plano({ month })])).items.length, 0, month)
+  })
+
+  it('mês ausente ou torto DEGRADA para sem mês, em vez de derrubar o plano', () => {
+    // Agora que "sem mês" é um estado representável, uma data inválida vira ele: o plano tem
+    // nome, preço e categoria, e perdê-lo inteiro por causa da data seria pior.
+    for (const month of ['2026-13', '26-11', '2026-11-03', '', undefined]) {
+      const items = parsePlans(envelope([plano({ month })])).items
+      assert.equal(items.length, 1, String(month))
+      assert.equal(items[0].month, undefined, String(month))
+    }
+    assert.equal(parsePlans(envelope([plano({ month: '2026-11' })])).items[0].month, '2026-11')
   })
 
   it('parcelamento fora de 2..99 invalida o bloco parcelado inteiro', () => {
     for (const n of [1, 0, -3, 100, 2.5, '6']) {
       const p = parsePlans(envelope([plano({ financed: { total: 900, installments: n as number }, payment: 'financed' })])).items[0]
       assert.equal(p.financed, undefined, String(n))
-      // E a escolha cai para à vista: um estado que não se pode desenhar não sobrevive à leitura.
-      assert.equal(p.payment, 'cash', String(n))
+      // E a escolha cai para NÃO DECIDIDA: um estado que não se pode desenhar não sobrevive à
+      // leitura, e afirmar "à vista" inventaria uma decisão que ninguém tomou.
+      assert.equal(p.payment, undefined, String(n))
     }
     assert.deepEqual(parsePlans(envelope([plano({ financed: { total: 900, installments: 6 } })])).items[0].financed, { total: 900, installments: 6 })
   })
 
-  it('escolher parcelado sem preço parcelado cai para à vista', () => {
-    assert.equal(parsePlans(envelope([plano({ payment: 'financed' })])).items[0].payment, 'cash')
+  it('escolher parcelado sem preço parcelado cai para não decidido', () => {
+    assert.equal(parsePlans(envelope([plano({ payment: 'financed' })])).items[0].payment, undefined)
+  })
+
+  it('forma de pagamento ausente continua ausente — não vira à vista', () => {
+    const p = parsePlans(envelope([plano({ payment: undefined })])).items[0]
+    assert.equal(p.payment, undefined)
+    // Mas o cálculo não trava: sem escolha, vale o preço à vista, o único que sempre existe.
+    assert.equal(planTotal(p), 3000)
+    assert.equal(planInstallments(p), 1)
   })
 
   it('status desconhecido cai para em estudo, e grupo inexistente solta o item', () => {
@@ -134,6 +153,30 @@ describe('as duas formas de pagamento', () => {
     assert.equal(planOccursIn(p, '2026-10'), false)
     assert.equal(planOccursIn(p, '2027-01'), true)
     assert.equal(planOccursIn(p, '2027-02'), false)
+  })
+})
+
+describe('um plano sem mês é desejo, não compromisso', () => {
+  const semData = plano({ month: undefined, financed: { total: 900, installments: 3 }, payment: 'financed' })
+
+  it('não ocupa mês nenhum, e é isso que o mantém fora da previsão', () => {
+    // `forecast.ts` não tem guarda para isso: ele pergunta `planOccursIn`, que sobre uma lista
+    // vazia responde não para TODO mês. O corte acontece aqui.
+    assert.deepEqual(planMonths(semData), [])
+    for (const mes of ['2026-10', '2026-11', '2027-01']) assert.equal(planOccursIn(semData, mes), false, mes)
+  })
+
+  it('continua somando: ele está na lista e nos totais, só não na linha do tempo', () => {
+    assert.equal(planTotal(semData), 900)
+    assert.equal(installmentAmount(semData), 300)
+  })
+
+  it('scheduledPlans separa quem tem data de quem não tem', () => {
+    const lista = [plano({ id: 'a', month: '2026-11' }), semData, plano({ id: 'c', month: undefined })]
+    assert.deepEqual(
+      scheduledPlans(lista).map((p) => p.id),
+      ['a'],
+    )
   })
 })
 
