@@ -1,13 +1,15 @@
-import { useCallback, useMemo, Suspense } from 'react'
-import { Database, Moon, Sun, Wallet } from 'lucide-react'
+import { Moon, Sun } from 'lucide-react'
+import { Suspense, useCallback, useMemo } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
+import { HidingSquaresIcon } from '@/components/hiding-squares-icon'
+import { NAV } from '@/components/layout/nav'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup, ButtonGroupText } from '@/components/ui/button-group'
 import { MonthPicker } from '@/components/ui/month-picker'
+import { Separator } from '@/components/ui/separator'
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -20,15 +22,12 @@ import {
   SidebarRail,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
-import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { entityKinds } from '@/data/types'
-import { META } from '@/lib/finance'
-import { NAV } from '@/components/layout/nav'
+import type { Scope } from '@/lib/finance'
 import { useFilters } from '@/providers/use-filters'
 import { useTheme } from '@/providers/use-theme'
-import type { Scope } from '@/lib/finance'
 
 // 'Consolidado' é sentinela de recorte, não valor de domínio; PF e PJ saem da lista de
 // enum, a mesma que o EntityBadge lê — as duas grafias passam a ter uma fonte só.
@@ -48,13 +47,10 @@ function sidebarDefaultOpen(): boolean {
   }
 }
 
-const INGEST_HINT = 'Rode pnpm ingest depois de adicionar extratos ou faturas em docs/.'
-
 export function AppShell() {
   const { scope, setScope, period, setPeriod, monthsWithData } = useFilters()
   const { theme, toggleTheme } = useTheme()
   const { pathname } = useLocation()
-  const generatedAt = new Date(META.generatedAt).toLocaleDateString('pt-BR')
 
   // O ToggleGroup do Base UI recebe o valor em array: sem memo, a prop nasce nova a cada render.
   const scopeValue = useMemo(() => [scope], [scope])
@@ -74,14 +70,16 @@ export function AppShell() {
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" render={<NavLink to="/" />}>
-                <Button size="icon-lg" render={<span />} nativeButton={false} className="shrink-0">
-                  <Wallet />
-                </Button>
+                {/* Sem o `Button` de fundo: a marca é o próprio padrão, não um glifo dentro de
+                    um quadrado cheio. O `!` é obrigatório e não é preguiça — o
+                    `SidebarMenuButton` traz `[&_svg]:size-4` como DESCENDENTE e sem escape de
+                    `:not([class*='size-'])`, então uma classe de tamanho aqui perde por
+                    especificidade e o ícone voltaria a 16px em silêncio. */}
+                <HidingSquaresIcon className="size-8! shrink-0" />
                 {/* `grid flex-1` + `truncate`: no modo ícone o bloco encolhe até zero
                     em vez de vazar para fora da faixa de 48px. */}
                 <div className="grid flex-1 text-left leading-tight">
-                  <span className="truncate font-semibold">Wallet</span>
-                  <span className="truncate text-[11px] text-muted-foreground">Controle financeiro PF + PJ</span>
+                  <span className="truncate font-semibold font-mono text-lg">WLET</span>
                 </div>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -105,19 +103,6 @@ export function AppShell() {
             </SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
-
-        <SidebarFooter>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              {/* Nota informativa, não um controle: `role="note"` com foco para que o
-                  tooltip abra também pelo teclado quando a barra está em ícones. */}
-              <SidebarMenuButton size="sm" tooltip={`${INGEST_HINT} Última geração em ${generatedAt}.`} render={<span role="note" tabIndex={0} />}>
-                <Database />
-                <span className="truncate text-muted-foreground">Dados de {generatedAt}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarFooter>
 
         <SidebarRail aria-label="Alternar barra lateral" title="Alternar barra lateral" />
       </Sidebar>
