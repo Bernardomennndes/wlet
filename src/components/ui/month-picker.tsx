@@ -12,6 +12,8 @@ interface Props {
   value: string
   onValueChange: (month: string) => void
   'aria-label': string
+  /** Liga o gatilho ao `FieldLabel`: sem ele o rótulo aponta para um id que não existe. */
+  id?: string
   /** Meses que têm lançamentos: ganham um ponto, para saber onde os dados estão. */
   withData?: readonly string[]
   className?: string
@@ -23,7 +25,7 @@ interface Props {
  * dados não têm. Aqui a grade é de 12 meses com um passo de ano, então qualquer mês de
  * qualquer ano é alcançável.
  */
-export function MonthPicker({ value, onValueChange, withData, className, ...aria }: Props) {
+export function MonthPicker({ value, onValueChange, withData, className, id, ...aria }: Props) {
   const [open, setOpen] = useState(false)
   const selectedYear = Number(value.slice(0, 4))
   const [year, setYear] = useState(selectedYear)
@@ -41,7 +43,7 @@ export function MonthPicker({ value, onValueChange, withData, className, ...aria
     >
       <PopoverTrigger
         render={
-          <Button variant="outline" aria-label={aria['aria-label']} className={cn('font-medium tabular-nums', className)}>
+          <Button id={id} variant="outline" aria-label={aria['aria-label']} className={cn('font-medium tabular-nums', className)}>
             {formatMonthShort(value)}
             <ChevronDown data-icon="inline-end" className="text-muted-foreground" />
           </Button>
