@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { basename } from 'node:path'
 import type { AccountType } from '../src/data/types.ts'
+import { readPdfLines } from './pdf.ts'
 import { SELF_NAME_PATTERNS } from './accounts.config.ts'
 
 export interface RawTransaction {
@@ -156,5 +157,95 @@ export function parseXpInvoiceCsv(path: string): ParsedFile {
     balance: null,
     invoiceDueDate: due,
     transactions,
+  }
+}
+
+const MESES: Record<string, number> = { JAN: 1, FEV: 2, MAR: 3, ABR: 4, MAI: 5, JUN: 6, JUL: 7, AGO: 8, SET: 9, OUT: 10, NOV: 11, DEZ: 12 }
+
+/**
+ * Fatura do Nubank em PDF.
+ *
+ * Existe porque o Nubank não publica OFX nem CSV para faturas anteriores a 2024 — são três
+ * anos de histórico que só existem neste formato. É a ÚNICA fonte deste projeto que não é
+ * texto estruturado, e por isso ela se confere: `problem` traz a divergência entre a soma dos
+ * lançamentos e o total que a própria fatura declara. Quem chama decide o que fazer com isso;
+ * o ingest recusa o arquivo que não fecha.
+ *
+ * A linha é `DD MMM  Descrição  1.234,56`, com a parcela no sufixo (` - 8/10`). O ANO não
+ * está na linha: vem do vencimento, e um mês MAIOR que o do vencimento é do ano anterior —
+ * a fatura de janeiro lista compras de dezembro.
+ */
+export function parseNubankInvoicePdf(path: string): ParsedFile & { problem: string | null } {
+  const due = basename(path).match(/(\d{4})-(\d{2})-(\d{2})/)
+  const dueYear = due ? Number(due[1]) : new Date().getFullYear()
+  const dueMonth = due ? Number(due[2]) : 12
+
+  const lines = readPdfLines(path).map((l) => l.text)
+  const transactions: RawTransaction[] = []
+  for (const line of lines) {
+    const m = /^(\d{2})\s+([A-Z]{3})\s+(.+?)\s+([\d.]+,\d{2})$/i.exec(line)
+    if (!m) continue
+    const month = MESES[m[2].toUpperCase()]
+    if (!month) continue
+    const year = month > dueMonth ? dueYear - 1 : dueYear
+    const value = parseBrlNumber(m[4])
+    if (Number.isNaN(value)) continue
+
+    let description = m[3].trim()
+    const inst = /^(.*?)\s+-\s+(\d+)\/(\d+)$/.exec(description)
+    const installment = inst && Number(inst[3]) > 1 ? { current: Number(inst[2]), total: Number(inst[3]) } : null
+    if (inst) description = inst[1].trim()
+
+    // Entram POSITIVO: quitação da fatura anterior, estorno, e crédito.
+    //
+    // "Crédito de Confiança" é o provisório que o Nubank lança enquanto uma compra é
+    // contestada, e a "Reversão do Crédito de Confiança" o desfaz — essa reversão é DÉBITO e
+    // fica de fora daqui. Tratar os quatro passos do ciclo como compra inflava a fatura de
+    // novembro/2021 em 2 × 21,40, que foi exatamente a diferença que a trava acusou.
+    const isCredit = /^(pagamento em|estorno de|cr[ée]dito de)\b/i.test(description) && !/^revers/i.test(description)
+    transactions.push({
+      postedDate: `${year}-${String(month).padStart(2, '0')}-${m[1]}`,
+      amount: isCredit ? value : -value,
+      fitId: null,
+      description,
+      installment,
+    })
+  }
+
+  // A trava, e ela é sobre a MESMA grandeza que o parser produz.
+  //
+  // A primeira versão comparava com o "Total a pagar" e passou em dezembro/2023 por
+  // coincidência: aquela fatura tinha um pagamento só, igual à fatura anterior, e os termos se
+  // cancelaram. A identidade real é `anterior + compras + outros − pagamentos = total a pagar`,
+  // e em abril/2022 — três pagamentos no meio do ciclo — a comparação errada acusou R$ 980
+  // de diferença numa leitura que estava certa.
+  //
+  // "Total de compras" mais "Outros lançamentos" é o que corresponde exatamente à soma das
+  // linhas de gasto, sem depender de pagamento nem de saldo anterior.
+  const value = (re: RegExp) => {
+    const line = lines.find((l) => re.test(l))
+    const m = line ? /([\d.]+,\d{2})/.exec(line.replace(/^.*?(?=[\d.]+,\d{2})/, '')) : null
+    return m ? parseBrlNumber(m[1]) : null
+  }
+  const purchases = value(/Total de compras/i)
+  const others = value(/Outros lan[çc]amentos/i) ?? 0
+  const spent = transactions.filter((t) => t.amount < 0).reduce((sum, t) => sum - t.amount, 0)
+  let problem: string | null = null
+  if (purchases === null) problem = 'sem "Total de compras" na fatura — não foi possível conferir a soma'
+  else if (Math.abs(purchases + others - spent) > 0.02) problem = `a soma dos lançamentos (${spent.toFixed(2)}) não bate com o declarado (${(purchases + others).toFixed(2)})`
+
+  return {
+    path,
+    canonicalName: canonicalName(path),
+    bankCode: '260',
+    bankName: 'Nu Pagamentos S.A.',
+    externalId: null,
+    accountType: 'credit-card',
+    kind: 'invoice',
+    period: null,
+    balance: null,
+    invoiceDueDate: due ? `${due[1]}-${due[2]}-${due[3]}` : null,
+    transactions,
+    problem,
   }
 }
