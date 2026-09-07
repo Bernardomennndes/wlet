@@ -1,7 +1,20 @@
 import type { MetricDefinition } from '@/components/kpi'
 
 /** As definições dos KPIs de Planos, lidas do cálculo real de `src/lib/plans.ts`. */
-export const PLANOS_METRICS: Record<'decided' | 'considering' | 'nextMonth', MetricDefinition> = {
+export const PLANOS_METRICS: Record<'decided' | 'considering' | 'nextMonth' | 'schedule', MetricDefinition> = {
+  schedule: {
+    title: 'Total na agenda',
+    whatItIs: 'Tudo o que esta lista desembolsaria, do primeiro mês em que alguma coisa cai até o último.',
+    howItIsCalculated:
+      'Soma das PARCELAS de cada plano em cada mês que ele ocupa — o que equivale ao valor total de todo plano que tem mês, decidido ou em estudo. Descartado fica de fora, e plano sem mês também: ele não tem coluna onde cair, e escolher uma por ele seria inventar a agenda que o gráfico existe para mostrar. Por isso este número pode ser MENOR que "Decidido" + "Em estudo": a diferença é exatamente o que ainda não tem data.',
+    whatItIsFor:
+      'Dimensiona o compromisso inteiro da lista e, junto do gráfico, mostra em quantos meses ele está diluído. O mesmo total espalhado em oito meses ou concentrado em dois pesa de formas muito diferentes na folga de cada mês.',
+    formula: 'Σ (valor ÷ parcelas) de cada plano com mês, em cada mês que ele ocupa',
+    example: {
+      scenario: 'Um monitor de R$ 3.000 à vista em outubro e uma cadeira de R$ 2.700 em 3× a partir de novembro:',
+      calculation: ['out: 3.000', 'nov: 900', 'dez: 900', 'jan: 900', '= R$ 5.700 em 4 meses'],
+    },
+  },
   decided: {
     title: 'Decidido',
     whatItIs: 'A soma dos planos que você já resolveu fazer.',

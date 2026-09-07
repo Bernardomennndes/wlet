@@ -1,6 +1,19 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { decidedPlans, emptyPlans, installmentAmount, parsePlans, planInstallments, planMonths, planOccursIn, planTotal, savingOf, scheduledPlans, PLANS_VERSION } from '../../src/lib/plans.ts'
+import {
+  decidedPlans,
+  emptyPlans,
+  installmentAmount,
+  parsePlans,
+  planInstallments,
+  planMonths,
+  planOccursIn,
+  planScheduleByMonth,
+  planTotal,
+  savingOf,
+  scheduledPlans,
+  PLANS_VERSION,
+} from '../../src/lib/plans.ts'
 import type { Plan } from '../../src/data/types.ts'
 
 /**
@@ -177,6 +190,53 @@ describe('um plano sem mês é desejo, não compromisso', () => {
       scheduledPlans(lista).map((p) => p.id),
       ['a'],
     )
+  })
+})
+
+describe('a agenda que o gráfico desenha', () => {
+  const agenda = () =>
+    planScheduleByMonth([
+      plano({ id: 'a', cash: 3000, month: '2026-10', status: 'decided' }),
+      plano({ id: 'b', cash: 2700, financed: { total: 2700, installments: 3 }, payment: 'financed', month: '2026-11', status: 'decided' }),
+      plano({ id: 'c', cash: 1200, month: '2027-01', status: 'considering' }),
+      plano({ id: 'd', cash: 9999, month: '2026-12', status: 'discarded' }),
+      plano({ id: 'e', cash: 5000, month: undefined, status: 'decided' }),
+    ])
+
+  it('o eixo é de CALENDÁRIO: mês sem plano aparece zerado, não some', () => {
+    // Sem o preenchimento, a série pularia meses e a folga entre uma compra e a seguinte —
+    // que é o que se quer enxergar — desapareceria do desenho.
+    const meses = agenda().map((m) => m.month)
+    assert.deepEqual(meses, ['2026-10', '2026-11', '2026-12', '2027-01'])
+  })
+
+  it('separa decidido de em estudo, e a parcelada se espalha', () => {
+    assert.deepEqual(agenda(), [
+      { month: '2026-10', decided: 3000, considering: 0 },
+      { month: '2026-11', decided: 900, considering: 0 },
+      { month: '2026-12', decided: 900, considering: 0 },
+      { month: '2027-01', decided: 900, considering: 1200 },
+    ])
+  })
+
+  it('descartado e sem mês ficam de fora', () => {
+    // O descartado custaria 9.999 em 2026-12, onde a agenda mostra só os 900 da parcelada.
+    const dezembro = agenda().find((m) => m.month === '2026-12')
+    assert.equal(dezembro?.decided, 900)
+    // E o total da agenda NÃO é o total da lista: a diferença é o que ainda não tem data.
+    const total = agenda().reduce((sum, m) => sum + m.decided + m.considering, 0)
+    assert.equal(total, 3000 + 2700 + 1200)
+  })
+
+  it('lista sem nada agendável devolve vazio, não um mês solitário', () => {
+    assert.deepEqual(planScheduleByMonth([]), [])
+    assert.deepEqual(planScheduleByMonth([plano({ month: undefined })]), [])
+    assert.deepEqual(planScheduleByMonth([plano({ status: 'discarded' })]), [])
+  })
+
+  it('atravessa a virada de ano sem pular dezembro', () => {
+    const meses = planScheduleByMonth([plano({ cash: 400, financed: { total: 400, installments: 4 }, payment: 'financed', month: '2026-11' })]).map((m) => m.month)
+    assert.deepEqual(meses, ['2026-11', '2026-12', '2027-01', '2027-02'])
   })
 })
 

@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Download, FolderPlus, Plus, Upload, Target } from 'lucide-react'
 import { Breadcrumbs } from '@/components/breadcrumbs'
-import { KpiCard, KpiCardGrid } from '@/components/kpi'
+import { KpiCard, KpiCardGrid, KpiHeadline } from '@/components/kpi'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -9,12 +9,13 @@ import { useDocumentTitle } from '@/hooks/use-document-title'
 import type { Plan } from '@/data/types'
 import { shiftMonth } from '@/lib/finance'
 import { formatBRL, formatMonthShort, plural } from '@/lib/format'
-import { installmentAmount, parsePlans, planOccursIn, planTotal, scheduledPlans } from '@/lib/plans'
+import { installmentAmount, parsePlans, planOccursIn, planScheduleByMonth, planTotal, scheduledPlans } from '@/lib/plans'
 import { useFilters } from '@/providers/use-filters'
 import { usePlans } from '@/providers/use-plans'
 import { PLANOS_METRICS } from './-metric-definitions'
 import { PlanList } from './-components/plan-list'
 import { GroupDialog } from './-components/group-dialog'
+import { PlanScheduleChart } from './-components/plan-schedule-chart'
 import { PlanSheet } from './-components/plan-sheet'
 
 export function PlanosPageContent() {
@@ -38,6 +39,10 @@ export function PlanosPageContent() {
   // contagem existe para essa lacuna não ser silenciosa: sem ela, o total do cartão e o do
   // gráfico divergiriam e nada na tela explicaria por quê.
   const undated = decided.length - scheduledPlans(decided).length
+  // A agenda sai da lista INTEIRA e por isso se refaz a cada edição: acrescentar um plano,
+  // trocar a forma de pagamento ou mudar a situação recompõe as colunas na hora.
+  const schedule = useMemo(() => planScheduleByMonth(items), [items])
+  const scheduleTotal = schedule.reduce((sum, m) => sum + m.decided + m.considering, 0)
 
   const exportPlans = () => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
@@ -100,6 +105,34 @@ export function PlanosPageContent() {
         <KpiCard label="Em estudo" definition={PLANOS_METRICS.considering} value={formatBRL(totalConsidering)} hint="Fora da previsão até você decidir" />
         <KpiCard label="Cai em" definition={PLANOS_METRICS.nextMonth} value={formatBRL(dueNext)} hint={formatMonthShort(nextMonth)} />
       </KpiCardGrid>
+
+      {schedule.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Quanto sai por mês</CardTitle>
+            <CardDescription>
+              O desembolso que esta lista produz, do primeiro mês ao último. O parcelado se espalha; o à vista pesa num mês só. A coluna cheia é o que você já decidiu — a de contorno tracejado ainda é
+              hipótese, e só entra na previsão se você decidir.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PlanScheduleChart
+              data={schedule}
+              /* O número que ancora um gráfico é `KpiHeadline`, como o "Resultado no período"
+                 da Visão geral: não é markup à mão (§1 da regra de KPI), não é `HeroKpiCard`
+                 (que é um Card e aninharia dois) nem `KpiCard` solto fora do grid. */
+              headline={
+                <KpiHeadline
+                  label="Total na agenda"
+                  definition={PLANOS_METRICS.schedule}
+                  value={formatBRL(scheduleTotal)}
+                  hint={`Diluído em ${schedule.length} ${plural(schedule.length, 'mês', 'meses')}`}
+                />
+              }
+            />
+          </CardContent>
+        </Card>
+      ) : null}
 
       {items.length === 0 && groups.length === 0 ? (
         <Empty className="border">

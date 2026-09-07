@@ -198,10 +198,63 @@ export function savingOf(plan: Plan): number | null {
 export function planMonths(plan: Plan): string[] {
   if (!plan.month) return []
   const out: string[] = []
-  const [y, m] = plan.month.split('-').map(Number)
-  for (let i = 0; i < planInstallments(plan); i++) {
-    const d = new Date(Date.UTC(y, m - 1 + i, 1))
-    out.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`)
+  for (let i = 0; i < planInstallments(plan); i++) out.push(addMonths(plan.month, i))
+  return out
+}
+
+/**
+ * Aritmética de mês, num lugar só dentro deste módulo.
+ *
+ * `finance.ts` tem um `shiftMonth` idêntico e ele NÃO é importado aqui de propósito: aquele
+ * arquivo carrega `@/generated/*.json` no topo, e `plans.ts` é lido pelos testes, que passariam
+ * a depender de um dataset gerado para exercitar aritmética de calendário.
+ */
+function addMonths(month: string, by: number): string {
+  const [y, m] = month.split('-').map(Number)
+  const total = y * 12 + (m - 1) + by
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}`
+}
+
+export interface PlanScheduleMonth {
+  month: string
+  /** O que já entra na previsão. */
+  decided: number
+  /** O que ainda é hipótese. */
+  considering: number
+}
+
+/**
+ * O desembolso mês a mês que os planos produzem, do primeiro ao último — a agenda da lista.
+ *
+ * **O eixo é de CALENDÁRIO, não dos meses que têm plano.** Sem o preenchimento de zeros a
+ * série pularia de outubro para janeiro e os dois meses sem nada sumiriam, em vez de aparecerem
+ * vazios; e é justamente a folga entre uma compra e a seguinte que se quer enxergar. É a mesma
+ * regra do eixo de proventos do Patrimônio: mês vazio é dado.
+ *
+ * Descartado fica de fora — é a situação que significa "não vou fazer" — e sem mês também: um
+ * plano sem data não tem coluna onde cair, e escolher uma por ele seria inventar a agenda que
+ * este gráfico existe para mostrar.
+ */
+export function planScheduleByMonth(items: Plan[]): PlanScheduleMonth[] {
+  const live = items.filter((p) => p.status !== 'discarded' && p.month !== undefined)
+  const totals = new Map<string, { decided: number; considering: number }>()
+
+  for (const plan of live) {
+    const value = installmentAmount(plan)
+    for (const month of planMonths(plan)) {
+      const bucket = totals.get(month) ?? { decided: 0, considering: 0 }
+      if (plan.status === 'decided') bucket.decided += value
+      else bucket.considering += value
+      totals.set(month, bucket)
+    }
+  }
+  if (totals.size === 0) return []
+
+  const months = [...totals.keys()].sort()
+  const out: PlanScheduleMonth[] = []
+  for (let month = months[0]; month <= months[months.length - 1]; month = addMonths(month, 1)) {
+    const bucket = totals.get(month) ?? { decided: 0, considering: 0 }
+    out.push({ month, ...bucket })
   }
   return out
 }
