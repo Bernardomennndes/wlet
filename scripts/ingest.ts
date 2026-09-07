@@ -13,13 +13,14 @@ import { BUDGET } from './budget.config.ts'
 import { GOALS } from './goals.config.ts'
 import { PLANNED_ENTRIES } from './planned.config.ts'
 import { RECEIVABLES } from './receivables.config.ts'
-import { parseOfx, parseXpInvoiceCsv, type ParsedFile, type RawTransaction } from './parsers.ts'
+import { TRIPS, TRIP_EXCLUDED_CATEGORIES } from './trips.config.ts'
+import { parseNubankInvoicePdf, parseOfx, parseXpInvoiceCsv, type ParsedFile, type RawTransaction } from './parsers.ts'
 import { readBrokerageLedger, type BrokerageLedger } from './brokerage.ts'
 import { buildInvestments } from './investments.ts'
 import { matchPlanned, matchReceivables, ruleProblems } from './matching.ts'
 import { RULES, cleanDescription, deriveMerchant, normalizeForRules } from './rules.ts'
 import { CATEGORY_MAP } from '../src/data/categories.ts'
-import type { Account, DatasetMeta, PlannedEntry, Transaction, Transfer, TransferKind } from '../src/data/types.ts'
+import type { Account, DatasetMeta, PlannedEntry, Transaction, Transfer, TransferKind, TripCost } from '../src/data/types.ts'
 
 const ROOT = new URL('..', import.meta.url).pathname
 const DOCS_DIR = join(ROOT, 'docs')
@@ -40,14 +41,19 @@ function walk(dir: string): string[] {
 }
 
 /**
- * Quando o mesmo documento existe em vários formatos (OFX, CSV, PDF, TXT),
- * fica só o mais rico: OFX > CSV. PDF e TXT são ignorados.
+ * Quando o mesmo documento existe em vários formatos, fica só o mais rico: OFX > CSV > PDF.
+ * TXT continua ignorado.
+ *
+ * PDF entrou por último e é ÚLTIMO recurso de propósito: ele é layout, não dado, e o leitor
+ * reconstrói a linha por posição. Ele existe porque o Nubank não publica OFX nem CSV para
+ * faturas anteriores a 2024 — três anos de histórico que só existem assim. Onde há OFX, o PDF
+ * nem é lido.
  */
 function pickBestFormat(files: string[]): string[] {
   const groups = new Map<string, string[]>()
   for (const file of files) {
     const ext = extname(file).toLowerCase()
-    if (!['.ofx', '.csv'].includes(ext)) continue
+    if (!['.ofx', '.csv', '.pdf'].includes(ext)) continue
     const dir = file.slice(0, file.lastIndexOf('/'))
     const stem = file
       .slice(dir.length + 1)
@@ -60,15 +66,33 @@ function pickBestFormat(files: string[]): string[] {
   const chosen: string[] = []
   for (const group of groups.values()) {
     const ofx = group.filter((f) => f.toLowerCase().endsWith('.ofx'))
-    chosen.push(...(ofx.length > 0 ? ofx : group))
+    if (ofx.length > 0) {
+      chosen.push(...ofx)
+      continue
+    }
+    const csv = group.filter((f) => f.toLowerCase().endsWith('.csv'))
+    chosen.push(...(csv.length > 0 ? csv : group))
   }
   return chosen.sort()
 }
+
+/** Faturas em PDF que não fecharam a conferência, para o relatório do terminal. */
+const pdfProblems: string[] = []
 
 function parseFile(path: string): ParsedFile | null {
   const ext = extname(path).toLowerCase()
   if (ext === '.ofx') return parseOfx(path)
   if (ext === '.csv' && /fatura\/xp\//i.test(path)) return parseXpInvoiceCsv(path)
+  if (ext === '.pdf' && /fatura\/nubank\//i.test(path)) {
+    const parsed = parseNubankInvoicePdf(path)
+    // Fatura que não fecha é RECUSADA, não importada com aviso. Dado de PDF que não confere
+    // com o total impresso é dado errado, e errado em silêncio é pior que ausente.
+    if (parsed.problem) {
+      pdfProblems.push(`${relative(ROOT, path)}: ${parsed.problem}`)
+      return null
+    }
+    return parsed
+  }
   return null
 }
 
@@ -557,6 +581,20 @@ function main() {
   writeFileSync(join(OUT_DIR, 'budget.json'), JSON.stringify(BUDGET, null, 2))
   writeFileSync(join(OUT_DIR, 'receivables.json'), JSON.stringify(RECEIVABLES, null, 2))
 
+  // ---- Viagens: a data você declara, o custo o app calcula.
+  //
+  // As contas fixas saem da soma. Sem isso, um fim de semana fora que cai no dia do aluguel
+  // herda R$ 1.500 e vira a viagem mais cara do ano — medido num fim de semana no litoral, que saía a
+  // R$ 1.900 quando o gasto real no destino foi R$ 950.
+  const excluded = new Set([...TRIP_EXCLUDED_CATEGORIES, 'transferencia', 'pagamento-fatura', 'investimentos'])
+  const trips: TripCost[] = TRIPS.map((trip) => {
+    const inWindow = transactions.filter((tx) => tx.amount < 0 && tx.date >= trip.from && tx.date <= trip.to && !excluded.has(tx.categoryId))
+    const spent = Math.round(inWindow.reduce((sum, tx) => sum - tx.amount, 0) * 100) / 100
+    const days = Math.round((Date.parse(trip.to) - Date.parse(trip.from)) / 86_400_000) + 1
+    return { ...trip, days, spent, perDay: Math.round((spent / days) * 100) / 100, transactions: inWindow.length }
+  }).sort((a, b) => a.from.localeCompare(b.from))
+  writeFileSync(join(OUT_DIR, 'trips.json'), JSON.stringify(trips, null, 2))
+
   // ---- Investimentos: a carteira reconstruída a partir dos relatórios da B3 e do razão da
   // corretora. O aporte NÃO sai daqui: sai do extrato da corretora, que é o único que vê as
   // duas pontas. Derivá-lo das transações desta base — como já foi feito — superestimava em
@@ -576,6 +614,10 @@ function main() {
     for (const [conta, n] of porConta) console.log(`  · ${conta.padEnd(38)} ${n}`)
   }
   for (const s of skipped) console.log(`  · duplicado: ${relative(ROOT, s)}`)
+  if (pdfProblems.length) {
+    console.log(`Faturas em PDF recusadas (a soma não fecha com o total impresso): ${pdfProblems.length}`)
+    for (const p of pdfProblems) console.log(`  ⚠️  ${p}`)
+  }
   console.log(`Contas: ${accounts.length}`)
   for (const a of accounts) console.log(`  · ${a.id.padEnd(18)} ${String(a.transactionCount).padStart(4)} transações  ${a.coverage ? `${a.coverage.from} → ${a.coverage.to}` : '(virtual)'}`)
   console.log(`Transações: ${transactions.length}  |  Transferências: ${transfers.length}`)
@@ -586,6 +628,13 @@ function main() {
   console.log(`Sem categoria específica: ${uncategorized.length}`)
   for (const t of uncategorized) console.log(`  · ${t.date} ${t.accountId.padEnd(14)} ${t.amount.toFixed(2).padStart(10)}  ${t.description}`)
   console.log(`Lançamentos previstos: ${planned.length} (scripts/planned.config.ts)`)
+  if (trips.length) {
+    const gastas = trips.filter((t) => t.spent > 0)
+    const diarias = gastas.map((t) => t.perDay).sort((a, b) => a - b)
+    console.log(`Viagens: ${trips.length} declaradas, ${gastas.length} com gasto registrado`)
+    for (const t of trips) console.log(`  · ${t.from} → ${t.to}  ${t.label.padEnd(26)} ${t.days}d  ${t.spent.toFixed(2).padStart(9)}  ${t.perDay.toFixed(2).padStart(7)}/dia`)
+    if (diarias.length) console.log(`  diária mediana: ${diarias[Math.floor(diarias.length / 2)].toFixed(2)}`)
+  }
   for (const e of planned) {
     const when =
       e.recurrence === 'installments'

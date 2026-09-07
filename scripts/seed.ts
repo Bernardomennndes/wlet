@@ -348,6 +348,7 @@ writeFileSync(join(OUT_DIR, 'budget.json'), JSON.stringify(BUDGET, null, 2))
 writeFileSync(join(OUT_DIR, 'receivables.json'), JSON.stringify(RECEIVABLES, null, 2))
 // Sem carteira fictícia: a tela de Patrimônio já desenha a ausência, com a instrução de
 // exportar os relatórios da B3. Inventar uma carteira ensinaria o número errado.
+writeFileSync(join(OUT_DIR, 'trips.json'), JSON.stringify([], null, 2))
 writeFileSync(join(OUT_DIR, 'investments.json'), JSON.stringify({ snapshot: null, series: [], income: [] }, null, 2))
 
 console.log(`Dataset fictício gerado em src/generated/: ${transactions.length} lançamentos, ${transfers.length} transferências, ${months.length} meses (${months[0]} a ${months[months.length - 1]}).`)
