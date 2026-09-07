@@ -19,54 +19,40 @@ import { cn } from '@/lib/utils'
  * "hiding" continua acontecendo, só que por tamanho — onde o ruído é baixo o quadrado encolhe
  * até desaparecer, em vez de sumir num degrau.
  */
-const ICON: HidingSquaresOptions = { grid: 7, noiseScale: 0.45, threshold: 0, seed: 3950, gap: 0.12 }
+const ICON: HidingSquaresOptions = { grid: 9, noiseScale: 0.45, threshold: 0, seed: 3950, gap: 0.12 }
 
 /** A silhueta da marca: 6 lados, um vértice para cima. */
 const SIDES = 6
 
 /**
- * Amplitude e período da respiração do `noiseScale`.
+ * Quanto tempo leva para o campo de ruído avançar UMA unidade no eixo do tempo.
  *
- * 0,22 foi a primeira tentativa e move a tinta só 3,3 pontos percentuais ao longo do ciclo —
- * invisível. 0,35 move 8,4 pp, que se percebe sem chamar atenção. O período longo é
- * deliberado: é uma marca permanente no cabeçalho, não um indicador de carga.
+ * Este número substituiu uma oscilação em seno, e a troca não foi estética. Com o seno, o
+ * padrão parava duas vezes por ciclo: medida a mudança por quadro, ela caía de 0,92 para
+ * 0,005 nos picos — 177× mais lento, o instante de pausa que se via a olho. Avançar `time`
+ * linearmente dá velocidade constante e nunca refaz o caminho.
+ *
+ * Seis segundos por unidade é calmo de propósito: é uma marca permanente no cabeçalho, não um
+ * indicador de carga.
  */
-const AMPLITUDE = 0.35
-const PERIOD_MS = 9_000
+const DRIFT_MS = 6_000
 
 /**
- * Espessura do contorno e o recuo que ele exige.
+ * A silhueta, calculada uma vez no módulo: ela não depende de nada que mude entre quadros.
  *
- * O `stroke` do SVG é CENTRADO no caminho: metade dele cai para fora da forma. Sem recuar ao
- * menos meia espessura, a ponta de cima e a de baixo do hexágono — que tocam y=0 e y=24 —
- * teriam o traço cortado pelo `viewBox`. O recuo é um pouco maior que a metade para o traço
- * não encostar na borda da caixa.
+ * Sem recuo. O `inset` existia porque o `stroke` do SVG é centrado no caminho e metade dele
+ * caía fora do `viewBox` nas pontas do hexágono; sem contorno não há o que recuar, e a forma
+ * volta a ocupar a caixa inteira.
  */
-const STROKE = 1.2
-const SHAPE_INSET = STROKE / 2 + 0.2
-
-/**
- * A silhueta, calculada uma vez no módulo: ela não depende de nada que mude entre quadros, e
- * o MESMO caminho serve ao recorte e ao contorno — é o que garante que a borda desenhada caia
- * exatamente onde o padrão é cortado.
- */
-const SHAPE = polygonPoints(SIDES, { inset: SHAPE_INSET })
-
-/**
- * O traço que corre pela borda, em porcentagem do perímetro.
- *
- * `pathLength={100}` renormaliza o comprimento do caminho para 100 unidades, então o traço e
- * o vão são lidos como porcentagem e não dependem da geometria. Sem isso, eu teria de calcular
- * o perímetro do hexágono — e recalculá-lo a cada vez que a forma ou o recuo mudassem.
- */
-const DASH = 22
+const SHAPE = polygonPoints(SIDES)
 
 /**
  * A marca da aplicação, no cabeçalho da barra lateral: a grade de "hiding squares", respirando.
  *
- * O que anima é o `noiseScale` — o campo de ruído é reamostrado numa escala que oscila, então
- * os quadrados crescem e somem em ondas. Nenhuma outra propriedade se move: a posição de cada
- * célula é fixa, e é isso que faz o efeito ler como um padrão vivo em vez de partículas.
+ * O que anima é a posição no eixo do TEMPO do campo de ruído: ele é reamostrado numa fatia que
+ * avança sempre para a frente, então os quadrados crescem e somem em ondas. Nenhuma outra
+ * propriedade se move — a posição de cada célula é fixa, e é isso que faz o efeito ler como um
+ * padrão vivo em vez de partículas.
  *
  * **A animação escreve atributos direto no DOM, não em estado.** São 36 nós reavaliados a cada
  * quadro; com `useState` isso seria um re-render do ícone 60 vezes por segundo, para sempre,
@@ -87,15 +73,12 @@ const DASH = 22
  * ruidoso os cantos cortados eram indistinguíveis dos buracos do próprio ruído. O hexágono
  * tem duas pontas e quatro diagonais longas.
  *
- * **Mas nem o hexágono se lia só pelo recorte, e o contorno é o que conserta isso.** Medido:
- * nas células que a borda atravessa, a força média do ruído é ~50% — elas já estão meio
- * apagadas antes de o recorte chegar, e recortar só tira massa, nunca cria a aresta. Subir a
- * densidade não resolveu (grade 7, 8 e 9 com limiares menores deram 50%, 54% e 56%). Com o
- * traço, a silhueta deixa de depender do ruído: a linha desenha a forma e o padrão vira
- * preenchimento.
- *
- * A borda anima do MESMO relógio que o padrão — um `phase` só, duas leituras. Um segundo
- * laço poderia derivar do primeiro e os dois sairiam de sincronia sem nada acusar.
+ * **A silhueta é deliberadamente fraca, e isso é uma escolha, não um descuido.** Houve um
+ * contorno aqui — uma linha desenhando o hexágono, com um traço correndo por ela — e ele
+ * resolvia a legibilidade da forma: medido, nas células que a borda atravessa a força do ruído
+ * é ~50%, então o recorte sozinho nunca cria a aresta, só tira massa. O contorno foi removido
+ * a pedido: o que fica é a marca lendo como uma nuvem de pontos com o canto cortado, e a forma
+ * se insinua em vez de se afirmar.
  */
 export function HidingSquaresIcon({ className, ...props }: ComponentProps<'svg'>) {
   // `useId` porque o `id` do clipPath é global no documento: dois ícones montados ao mesmo
@@ -103,7 +86,6 @@ export function HidingSquaresIcon({ className, ...props }: ComponentProps<'svg'>
   // porque o valor do React carrega pontuação, e `url(#...)` só aceita um fragmento válido.
   const clipId = `hiding-squares-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
   const rects = useRef<(SVGRectElement | null)[]>([])
-  const dash = useRef<SVGPolygonElement | null>(null)
   const base = hidingSquares(ICON)
 
   useEffect(() => {
@@ -111,8 +93,7 @@ export function HidingSquaresIcon({ className, ...props }: ComponentProps<'svg'>
     let frame = 0
     const started = performance.now()
     const tick = (now: number) => {
-      const phase = ((now - started) / PERIOD_MS) * Math.PI * 2
-      const squares = hidingSquares({ ...ICON, noiseScale: ICON.noiseScale + AMPLITUDE * Math.sin(phase) })
+      const squares = hidingSquares({ ...ICON, time: (now - started) / DRIFT_MS })
       for (let i = 0; i < squares.length; i++) {
         const node = rects.current[i]
         if (!node) continue
@@ -122,9 +103,6 @@ export function HidingSquaresIcon({ className, ...props }: ComponentProps<'svg'>
         node.setAttribute('width', size.toFixed(3))
         node.setAttribute('height', size.toFixed(3))
       }
-      // A borda corre uma volta por período. O deslocamento é negativo para o traço andar no
-      // sentido em que o polígono foi desenhado, que é o que lê como "avançando".
-      dash.current?.setAttribute('stroke-dashoffset', (-((now - started) / PERIOD_MS) * 100).toFixed(2))
       frame = requestAnimationFrame(tick)
     }
     frame = requestAnimationFrame(tick)
@@ -155,21 +133,6 @@ export function HidingSquaresIcon({ className, ...props }: ComponentProps<'svg'>
           />
         ))}
       </g>
-      {/* O contorno fica FORA do grupo recortado: ele é a própria forma, e recortá-lo comeria
-          metade da espessura. Duas linhas sobre o mesmo caminho — a fraca dá a silhueta
-          inteira o tempo todo, a forte é o trecho que corre. */}
-      <polygon points={SHAPE} fill="none" stroke="currentColor" strokeWidth={STROKE * 0.6} opacity={0.3} strokeLinejoin="round" />
-      <polygon
-        ref={dash}
-        points={SHAPE}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={STROKE}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        pathLength={100}
-        strokeDasharray={`${DASH} ${100 - DASH}`}
-      />
     </svg>
   )
 }
