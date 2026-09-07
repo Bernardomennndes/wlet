@@ -1,19 +1,25 @@
-import { useEffect, useId, useRef, type ComponentProps } from 'react'
-import { hidingSquares, polygonPoints, type HidingSquaresOptions } from '@/lib/hiding-squares'
+import { type ComponentProps, useEffect, useId, useRef } from 'react'
+import { type HidingSquaresOptions, hidingSquares, polygonPoints } from '@/lib/hiding-squares'
 import { cn } from '@/lib/utils'
 
 /**
  * O padrão base do ícone, calibrado por MEDIÇÃO e não a olho.
  *
- * A semente veio da configuração da referência; o resto foi ajustado contra dois números.
- * **Massa de tinta:** com `grid: 6` e o limiar original de 0,35 o ícone cobria 16% da caixa e
- * ficava lavado ao lado dos ícones do lucide, que são traços cheios — a 16px ele lia como
- * chuvisco. Com `grid: 5`, limiar 0,18 e menos respiro, sobe para 29,7% e ganha um degradê
- * diagonal que lê como glifo. **Grade pequena** porque a 16px cada célula tem ~3px: as 23
- * células do gerador original virariam menos de um pixel cada, e o antialiasing dissolveria
- * tudo numa mancha cinza uniforme.
+ * A referência é a MASSA DE TINTA dentro do hexágono: 21% da caixa. Abaixo disso a marca fica
+ * lavada ao lado do texto do cabeçalho; foi assim que a primeira versão (grade 6, limiar 0,35)
+ * saiu, com 16%, lendo como chuvisco.
+ *
+ * **Subir a grade não aumenta o detalhe, e isso é geometria.** O hexágono de ponta tem largura
+ * 20,78 e o recuo do traço tira mais 1,6 — sobram ~19,2 de 24. Com 7 células de 3,43, o centro
+ * da primeira cai em x=1,71, fora da borda que está em 2,4: as colunas das pontas ficam vazias
+ * em toda linha, e o miolo útil continua com cinco. O que a grade 7 muda é o tamanho do
+ * quadrado, não quantos aparecem — medido, a tinta caiu de 21,2% para 15,3% com o mesmo limiar.
+ *
+ * Daí o limiar ZERO: sem corte, nenhuma célula é apagada de saída e a tinta volta a 21,1%. O
+ * "hiding" continua acontecendo, só que por tamanho — onde o ruído é baixo o quadrado encolhe
+ * até desaparecer, em vez de sumir num degrau.
  */
-const ICON: HidingSquaresOptions = { grid: 5, noiseScale: 0.55, threshold: 0.18, seed: 3950, gap: 0.12 }
+const ICON: HidingSquaresOptions = { grid: 7, noiseScale: 0.45, threshold: 0, seed: 3950, gap: 0.12 }
 
 /** A silhueta da marca: 6 lados, um vértice para cima. */
 const SIDES = 6
@@ -22,8 +28,8 @@ const SIDES = 6
  * Amplitude e período da respiração do `noiseScale`.
  *
  * 0,22 foi a primeira tentativa e move a tinta só 3,3 pontos percentuais ao longo do ciclo —
- * invisível num ícone de 16px. 0,35 move 8,3 pp, que se percebe sem chamar atenção. O período
- * longo é deliberado: é um ícone permanente numa barra lateral, não um indicador de carga.
+ * invisível. 0,35 move 8,4 pp, que se percebe sem chamar atenção. O período longo é
+ * deliberado: é uma marca permanente no cabeçalho, não um indicador de carga.
  */
 const AMPLITUDE = 0.35
 const PERIOD_MS = 9_000
