@@ -30,6 +30,11 @@ function blank(month: string): Omit<Plan, 'id'> {
  * A ESCOLHA é o que a previsão usa. Trocar de à vista para parcelado no seletor recompõe os
  * meses: o mesmo plano deixa de pesar tudo num mês e passa a pesar um pouco em vários.
  *
+ * Os campos do parcelamento estão SEMPRE na tela. Eram opcionais atrás de um botão, e o botão
+ * cobrava um clique para responder a pergunta que se faz em toda compra grande — "quanto fica
+ * parcelado?". Deixar em branco continua significando que a loja não parcela; a diferença é
+ * que agora isso se diz não preenchendo, em vez de não abrindo.
+ *
  * Existe um botão de confirmar, ao contrário do resto da tela: alternar situação ou apagar
  * grava na hora, mas COMPOR um objeto novo precisa de um momento em que ele fica pronto.
  */
@@ -51,6 +56,13 @@ export function PlanSheet({
   onSubmit: (plan: Omit<Plan, 'id'>) => void
 }) {
   const [draft, setDraft] = useState<Omit<Plan, 'id'>>(() => editing ?? blank(defaultMonth))
+  // Os campos do parcelamento vivem em estado CRU, separados do plano.
+  //
+  // Eles estão sempre na tela, e `financed` é DERIVADO deles — some quando não há preço ou
+  // quando as vezes não fazem sentido. Guardá-los dentro do plano faria o campo se apagar
+  // sozinho no meio da digitação: zerar o total anularia `financed`, e com ele o número de
+  // parcelas que a pessoa acabou de escolher.
+  const [raw, setRaw] = useState(() => editing?.financed ?? { total: 0, installments: 2 })
   const [key, setKey] = useState(editing?.id ?? 'novo')
 
   // Estado derivado por render, não por efeito — o padrão que a regra de componentes exige.
@@ -58,17 +70,15 @@ export function PlanSheet({
   if (target !== key) {
     setKey(target)
     setDraft(editing ?? blank(defaultMonth))
+    setRaw(editing?.financed ?? { total: 0, installments: 2 })
   }
 
-  const financed = draft.financed
+  const financed = raw.total > 0 && Number.isInteger(raw.installments) && raw.installments > 1 && raw.installments <= 99 ? raw : undefined
+  // Escolher parcelado e depois apagar o preço deixaria um estado que não se pode desenhar.
+  const payment = draft.payment === 'financed' && !financed ? 'cash' : draft.payment
   const saving = financed ? financed.total - draft.cash : null
-  const valid = draft.label.trim() !== '' && draft.cash > 0 && (draft.payment === 'cash' || (financed !== undefined && financed.total > 0))
+  const valid = draft.label.trim() !== '' && draft.cash > 0
   const groupItems = [{ value: '', label: 'Sem grupo' }, ...groups.map((g) => ({ value: g.id, label: g.label }))]
-
-  const setFinanced = (patch: Partial<NonNullable<Plan['financed']>>) => {
-    const next = { total: financed?.total ?? draft.cash, installments: financed?.installments ?? 2, ...patch }
-    setDraft({ ...draft, financed: next })
-  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -89,53 +99,37 @@ export function PlanSheet({
             <Input id="plano-avista" type="number" min={0} step="0.01" value={draft.cash || ''} onChange={(e) => setDraft({ ...draft, cash: Number(e.target.value) })} placeholder="0,00" />
           </Field>
 
-          {financed ? (
-            <div className="flex flex-col gap-3 rounded-lg border p-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium">Parcelado</span>
-                <Button variant="outline" size="xs" onClick={() => setDraft({ ...draft, financed: undefined, payment: 'cash' })}>
-                  Remover
-                </Button>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Field>
-                  <FieldLabel htmlFor="plano-total">Preço total</FieldLabel>
-                  <Input id="plano-total" type="number" min={0} step="0.01" value={financed.total || ''} onChange={(e) => setFinanced({ total: Number(e.target.value) })} placeholder="0,00" />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="plano-parcelas">Parcelas</FieldLabel>
-                  <Input
-                    id="plano-parcelas"
-                    type="number"
-                    min={2}
-                    max={99}
-                    step={1}
-                    value={financed.installments}
-                    onChange={(e) => {
-                      const n = Number(e.target.value)
-                      setFinanced({ installments: Number.isInteger(n) && n > 1 && n <= 99 ? n : 2 })
-                    }}
-                  />
-                </Field>
-              </div>
-              <p className="text-xs text-muted-foreground tabular-nums">
-                {financed.installments}× de {formatBRL(financed.total / financed.installments)}
-                {saving !== null && saving > 0 && <span className="ml-2 text-[var(--status-good-text)]">à vista economiza {formatBRL(saving)}</span>}
-                {saving !== null && saving < 0 && <span className="ml-2 text-[var(--status-critical)]">parcelado sai {formatBRL(-saving)} mais barato</span>}
-              </p>
+          <div className="flex flex-col gap-3 rounded-lg border p-3">
+            <span className="text-xs font-medium">Parcelado</span>
+            <div className="grid grid-cols-2 gap-3">
+              <Field>
+                <FieldLabel htmlFor="plano-total">Preço total</FieldLabel>
+                <Input id="plano-total" type="number" min={0} step="0.01" value={raw.total || ''} onChange={(e) => setRaw({ ...raw, total: Number(e.target.value) })} placeholder="0,00" />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="plano-parcelas">Parcelas</FieldLabel>
+                <Input id="plano-parcelas" type="number" min={2} max={99} step={1} value={raw.installments} onChange={(e) => setRaw({ ...raw, installments: Number(e.target.value) })} />
+              </Field>
             </div>
-          ) : (
-            <Button variant="outline" size="sm" className="self-start" onClick={() => setFinanced({})}>
-              Acrescentar preço parcelado
-            </Button>
-          )}
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {financed ? (
+                <>
+                  {financed.installments}× de {formatBRL(financed.total / financed.installments)}
+                  {saving !== null && saving > 0 && <span className="ml-2 text-[var(--status-good-text)]">à vista economiza {formatBRL(saving)}</span>}
+                  {saving !== null && saving < 0 && <span className="ml-2 text-[var(--status-critical)]">parcelado sai {formatBRL(-saving)} mais barato</span>}
+                </>
+              ) : (
+                'Deixe em branco se a loja não parcela.'
+              )}
+            </p>
+          </div>
 
           <Field>
             <FieldLabel>Como vou pagar</FieldLabel>
             {/* O seletor só oferece parcelado quando existe preço parcelado: uma escolha que o
                 app não conseguiria desenhar não deve ser oferecível. */}
             <ToggleGroup
-              value={[draft.payment]}
+              value={[payment]}
               onValueChange={(next) => {
                 const picked = next[0]
                 if (picked === 'cash' || (picked === 'financed' && financed)) setDraft({ ...draft, payment: picked })
@@ -174,7 +168,7 @@ export function PlanSheet({
           <Button
             disabled={!valid}
             onClick={() => {
-              onSubmit({ ...draft, label: draft.label.trim() })
+              onSubmit({ ...draft, label: draft.label.trim(), financed, payment })
               onOpenChange(false)
             }}
           >
