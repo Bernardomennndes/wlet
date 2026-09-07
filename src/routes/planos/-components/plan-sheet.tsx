@@ -88,7 +88,7 @@ export function PlanSheet({
           <SheetDescription>Guarde os dois preços — à vista e parcelado — e escolha qual vale. Só a forma escolhida entra na previsão.</SheetDescription>
         </SheetHeader>
 
-        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-2">
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-2">
           <Field>
             <FieldLabel htmlFor="plano-rotulo">O que é</FieldLabel>
             <Input id="plano-rotulo" value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} placeholder="Monitor, passagem para o Chile…" />

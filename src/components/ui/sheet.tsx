@@ -1,9 +1,8 @@
-import * as React from 'react'
 import { Dialog as SheetPrimitive } from '@base-ui/react/dialog'
 import { cn } from 'cn'
-
-import { Button } from '@/components/ui/button'
 import { XIcon } from 'lucide-react'
+import * as React from 'react'
+import { Button } from '@/components/ui/button'
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
@@ -81,4 +80,4 @@ function SheetDescription({ className, ...props }: SheetPrimitive.Description.Pr
   return <SheetPrimitive.Description data-slot="sheet-description" className={cn('text-xs/relaxed text-muted-foreground', className)} {...props} />
 }
 
-export { Sheet, SheetTrigger, SheetClose, SheetContent, SheetHeader, SheetFooter, SheetTitle, SheetDescription }
+export { Sheet, SheetClose, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger }
