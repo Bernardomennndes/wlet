@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "setup": "tsx scripts/setup.ts",
+    "cdi": "tsx scripts/fetch-cdi.ts",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "check": "tsx --test scripts/checks/*.test.ts",
