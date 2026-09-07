@@ -6,6 +6,7 @@ import { AppSelect } from '@/components/ui/app-select'
 import { Button } from '@/components/ui/button'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { MoneyInput } from '@/components/ui/money-input'
 import { MonthPicker } from '@/components/ui/month-picker'
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -192,9 +193,7 @@ function PlanForm({
         render={({ field, fieldState }) => (
           <Field>
             <FieldLabel htmlFor="plano-avista">Preço à vista</FieldLabel>
-            {/* Zero se escreve como campo VAZIO: um "0" impresso pareceria um preço já
-                informado, e é justamente o valor que a validação recusa. */}
-            <Input id="plano-avista" type="number" min={0} step="0.01" placeholder="0,00" value={field.value || ''} onChange={(e) => field.onChange(Number(e.target.value))} onBlur={field.onBlur} />
+            <MoneyInput id="plano-avista" value={field.value} onValueChange={field.onChange} onBlur={field.onBlur} aria-invalid={!!fieldState.error} />
             <FieldError errors={[fieldState.error]} />
           </Field>
         )}
@@ -274,7 +273,7 @@ function InstallmentBlock({ control }: { control: Control<FormValues> }) {
           render={({ field, fieldState }) => (
             <Field>
               <FieldLabel htmlFor="plano-total">Preço total</FieldLabel>
-              <Input id="plano-total" type="number" min={0} step="0.01" placeholder="0,00" value={field.value || ''} onChange={(e) => field.onChange(Number(e.target.value))} onBlur={field.onBlur} />
+              <MoneyInput id="plano-total" value={field.value} onValueChange={field.onChange} onBlur={field.onBlur} aria-invalid={!!fieldState.error} />
               <FieldError errors={[fieldState.error]} />
             </Field>
           )}
@@ -285,7 +284,17 @@ function InstallmentBlock({ control }: { control: Control<FormValues> }) {
           render={({ field, fieldState }) => (
             <Field>
               <FieldLabel htmlFor="plano-parcelas">Parcelas</FieldLabel>
-              <Input id="plano-parcelas" type="number" min={2} max={99} step={1} value={field.value || ''} onChange={(e) => field.onChange(Number(e.target.value))} onBlur={field.onBlur} />
+              <Input
+                id="plano-parcelas"
+                type="number"
+                min={2}
+                max={99}
+                step={1}
+                value={field.value || ''}
+                onChange={(e) => field.onChange(Number(e.target.value))}
+                onBlur={field.onBlur}
+                aria-invalid={!!fieldState.error}
+              />
               <FieldError errors={[fieldState.error]} />
             </Field>
           )}
