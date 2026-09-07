@@ -14,6 +14,7 @@ import { useFilters } from '@/providers/use-filters'
 import { usePlans } from '@/providers/use-plans'
 import { PLANOS_METRICS } from './-metric-definitions'
 import { PlanList } from './-components/plan-list'
+import { GroupDialog } from './-components/group-dialog'
 import { PlanSheet } from './-components/plan-sheet'
 
 export function PlanosPageContent() {
@@ -23,6 +24,7 @@ export function PlanosPageContent() {
   const { groups, items, decided, addPlan, updatePlan, removePlan, addGroup, removeGroup, data, replaceAll } = usePlans()
 
   const [open, setOpen] = useState(false)
+  const [groupOpen, setGroupOpen] = useState(false)
   const [editing, setEditing] = useState<Plan | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
@@ -69,13 +71,7 @@ export function PlanosPageContent() {
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                const label = window.prompt('Nome do grupo (uma viagem, uma reforma):')?.trim()
-                if (label) addGroup({ label })
-              }}
-            >
+            <Button variant="outline" onClick={() => setGroupOpen(true)}>
               <FolderPlus data-icon="inline-start" /> Novo grupo
             </Button>
             <Button
@@ -159,6 +155,8 @@ export function PlanosPageContent() {
           />
         </CardContent>
       </Card>
+
+      <GroupDialog open={groupOpen} onOpenChange={setGroupOpen} defaultMonth={nextMonth} monthsWithData={monthsWithData} onSubmit={addGroup} />
 
       <PlanSheet
         open={open}
