@@ -90,16 +90,24 @@ export function PrevisaoPageContent() {
   // regras de `planned.config.ts`, e o resultado era um terceiro número para o mesmo mês:
   // moradia lia 1.500 aqui e 750 lá, porque o abatimento da cobrança — igualmente declarado —
   // ficava de fora. Previsão é uma só; o que muda é o quanto dela se explica.
-  const { items: allPlans, decided } = usePlans()
+  const { items: allPlans, groups, decided } = usePlans()
   const [params, setParams] = useSearchParams()
 
   // Quais planos EM ESTUDO estão ligados. Vive na URL, como recorte, período e mês — a
   // simulação passa a ser compartilhável, e recarregar a página não desfaz o que se montou.
   const simulated = useMemo(() => new Set((params.get('simular') ?? '').split(',').filter(Boolean)), [params])
-  const toggleSimulated = (id: string) => {
+  // Recebe um CONJUNTO, não um id, e escreve uma vez só.
+  //
+  // Ligar um grupo com cinco itens chamando um alternador de id cinco vezes não funcionaria:
+  // cada chamada parte do mesmo `params` do render, então as quatro primeiras seriam
+  // sobrescritas pela última e só um item entraria. Aplicar o conjunto inteiro de uma vez é o
+  // que torna o botão de grupo correto, não só conveniente.
+  const toggleSimulated = (ids: string[], on: boolean) => {
     const next = new Set(simulated)
-    if (next.has(id)) next.delete(id)
-    else next.add(id)
+    for (const id of ids) {
+      if (on) next.add(id)
+      else next.delete(id)
+    }
     const q = new URLSearchParams(params)
     if (next.size) q.set('simular', [...next].join(','))
     else q.delete('simular')
@@ -211,7 +219,7 @@ export function PrevisaoPageContent() {
         </CardContent>
       </Card>
 
-      <SimulationCard considering={considering} simulated={simulated} onToggle={toggleSimulated} />
+      <SimulationCard groups={groups} considering={considering} simulated={simulated} onToggle={toggleSimulated} />
 
       <Card>
         <CardHeader>

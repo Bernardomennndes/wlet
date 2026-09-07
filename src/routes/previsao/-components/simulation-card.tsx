@@ -1,7 +1,7 @@
 import { CategoryBadge } from '@/components/category-badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import type { Plan } from '@/data/types'
+import type { Plan, PlanGroup } from '@/data/types'
 import { formatBRL, formatMonthShort, plural } from '@/lib/format'
 import { installmentAmount, planMonths } from '@/lib/plans'
 import { cn } from '@/lib/utils'
@@ -17,8 +17,15 @@ import { cn } from '@/lib/utils'
  * valor já está na lista — e sim "em que mês isso pesa". Uma compra em 10× de R$ 5.000 e uma
  * à vista de R$ 500 têm o mesmo peso no primeiro mês.
  */
-export function SimulationCard({ considering, simulated, onToggle }: { considering: Plan[]; simulated: Set<string>; onToggle: (id: string) => void }) {
+export function SimulationCard({ groups, considering, simulated, onToggle }: { groups: PlanGroup[]; considering: Plan[]; simulated: Set<string>; onToggle: (ids: string[], on: boolean) => void }) {
   if (considering.length === 0) return null
+
+  // Um bloco por grupo, e os avulsos no fim. Grupo sem item em estudo não aparece: o card é
+  // sobre o que dá para ligar, e um grupo já todo decidido não tem o que oferecer aqui.
+  const blocks: { group: PlanGroup | null; plans: Plan[] }[] = [
+    ...groups.map((group) => ({ group, plans: considering.filter((p) => p.groupId === group.id) })),
+    { group: null, plans: considering.filter((p) => !p.groupId) },
+  ].filter((block) => block.plans.length > 0)
 
   const active = considering.filter((p) => simulated.has(p.id))
   const byMonth = new Map<string, number>()
@@ -36,27 +43,53 @@ export function SimulationCard({ considering, simulated, onToggle }: { consideri
           então dá para compartilhar o cenário.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <ul className="flex flex-wrap gap-2" aria-label="Planos em estudo">
-          {considering.map((plan) => {
-            const on = simulated.has(plan.id)
-            return (
-              <li key={plan.id}>
-                <Button
-                  size="sm"
-                  variant={on ? 'default' : 'outline'}
-                  aria-pressed={on}
-                  onClick={() => onToggle(plan.id)}
-                  className={cn(!on && 'border-dashed')}
-                  title={`${plan.label} — ${formatBRL(plan.amount)}${plan.installments ? ` em ${plan.installments}×` : ' à vista'}`}
-                >
-                  {plan.label}
-                  <span className="ml-1.5 tabular-nums opacity-70">{formatBRL(plan.amount)}</span>
-                </Button>
-              </li>
-            )
-          })}
-        </ul>
+      <CardContent className="flex flex-col gap-4">
+        {blocks.map((block) => {
+          const ids = block.plans.map((p) => p.id)
+          const on = ids.filter((id) => simulated.has(id)).length
+          const allOn = on === ids.length
+          return (
+            <div key={block.group?.id ?? 'avulsos'} className="flex flex-col gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {block.group ? (
+                  // O botão do grupo liga TODOS de uma vez, e desliga só quando já estão
+                  // todos ligados — parcialmente ligado, o clique completa em vez de zerar,
+                  // que é o que a pessoa quer dizer ao clicar num grupo meio marcado.
+                  <Button size="sm" variant={allOn ? 'default' : 'outline'} aria-pressed={allOn} onClick={() => onToggle(ids, !allOn)} className={cn(!allOn && 'border-dashed')}>
+                    {block.group.label}
+                    <span className="ml-1.5 tabular-nums opacity-70">
+                      {on}/{ids.length}
+                    </span>
+                  </Button>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Avulsos</span>
+                )}
+                <span className="text-xs text-muted-foreground tabular-nums">{formatBRL(block.plans.reduce((s, p) => s + p.amount, 0))}</span>
+              </div>
+
+              <ul className="flex flex-wrap gap-2 pl-1" aria-label={`Planos em estudo de ${block.group?.label ?? 'avulsos'}`}>
+                {block.plans.map((plan) => {
+                  const isOn = simulated.has(plan.id)
+                  return (
+                    <li key={plan.id}>
+                      <Button
+                        size="sm"
+                        variant={isOn ? 'default' : 'outline'}
+                        aria-pressed={isOn}
+                        onClick={() => onToggle([plan.id], !isOn)}
+                        className={cn(!isOn && 'border-dashed')}
+                        title={`${plan.label} — ${formatBRL(plan.amount)}${plan.installments ? ` em ${plan.installments}×` : ' à vista'}`}
+                      >
+                        {plan.label}
+                        <span className="ml-1.5 tabular-nums opacity-70">{formatBRL(plan.amount)}</span>
+                      </Button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )
+        })}
 
         {active.length === 0 ? (
           <p className="text-xs text-muted-foreground">Nada ligado: os meses abaixo mostram a previsão sem simulação.</p>
