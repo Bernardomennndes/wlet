@@ -1,31 +1,37 @@
 import { useState } from 'react'
+import { AppSelect } from '@/components/ui/app-select'
 import { Button } from '@/components/ui/button'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { AppSelect } from '@/components/ui/app-select'
 import { MonthPicker } from '@/components/ui/month-picker'
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { CATEGORIES } from '@/data/categories'
-import { planStatuses, type Plan, type PlanGroup } from '@/data/types'
+import { paymentModes, planStatuses, type Plan } from '@/data/types'
 import { formatBRL } from '@/lib/format'
+import { cn } from '@/lib/utils'
+import type { PlanGroup } from '@/data/types'
 
 const CATEGORY_ITEMS = CATEGORIES.filter((c) => c.kind === 'expense').map((c) => ({ value: c.id, label: c.label }))
 const STATUS_ITEMS = planStatuses.map((s) => ({ value: s.value, label: s.label }))
 
-/** Um plano em branco, com o mês corrente já preenchido — o caso mais comum. */
 function blank(month: string): Omit<Plan, 'id'> {
-  return { label: '', categoryId: CATEGORY_ITEMS[0]?.value ?? 'compras', amount: 0, status: 'considering', month }
+  return { label: '', categoryId: CATEGORY_ITEMS[0]?.value ?? 'compras', cash: 0, payment: 'cash', status: 'considering', month }
 }
 
 /**
- * O formulário de um plano.
+ * O formulário de um plano, com as DUAS formas de pagamento.
  *
- * Ao contrário do resto da tela, aqui existe um botão de confirmar — não por precaução, mas
- * porque um plano só é um plano depois de ter rótulo, valor e mês. Alternar status ou apagar
- * grava na hora; COMPOR um objeto novo precisa de um momento em que ele fica pronto.
+ * Guardar os dois preços é o que transforma "acho que à vista compensa" num número: a loja
+ * cobra R$ 3.000 à vista e R$ 3.400 em 10×, e a diferença de R$ 400 fica escrita em vez de
+ * estimada. Os dois ficam guardados mesmo com só um escolhido — apagar o não escolhido jogaria
+ * fora a pesquisa de preço já feita, e é ela que permite mudar de ideia depois.
  *
- * O parcelamento aceita 1 como "à vista" e o campo mostra o valor da parcela ao lado: sem
- * isso a pessoa digita o total e vê um impacto mensal que não esperava.
+ * A ESCOLHA é o que a previsão usa. Trocar de à vista para parcelado no seletor recompõe os
+ * meses: o mesmo plano deixa de pesar tudo num mês e passa a pesar um pouco em vários.
+ *
+ * Existe um botão de confirmar, ao contrário do resto da tela: alternar situação ou apagar
+ * grava na hora, mas COMPOR um objeto novo precisa de um momento em que ele fica pronto.
  */
 export function PlanSheet({
   open,
@@ -47,56 +53,100 @@ export function PlanSheet({
   const [draft, setDraft] = useState<Omit<Plan, 'id'>>(() => editing ?? blank(defaultMonth))
   const [key, setKey] = useState(editing?.id ?? 'novo')
 
-  // Troca de alvo (abrir para outro item) recarrega o rascunho. Estado derivado por render,
-  // não por efeito — é o padrão que a regra de componentes exige.
+  // Estado derivado por render, não por efeito — o padrão que a regra de componentes exige.
   const target = editing?.id ?? 'novo'
   if (target !== key) {
     setKey(target)
     setDraft(editing ?? blank(defaultMonth))
   }
 
-  const parcels = draft.installments ?? 1
-  const valid = draft.label.trim() !== '' && draft.amount > 0
-
+  const financed = draft.financed
+  const saving = financed ? financed.total - draft.cash : null
+  const valid = draft.label.trim() !== '' && draft.cash > 0 && (draft.payment === 'cash' || (financed !== undefined && financed.total > 0))
   const groupItems = [{ value: '', label: 'Sem grupo' }, ...groups.map((g) => ({ value: g.id, label: g.label }))]
+
+  const setFinanced = (patch: Partial<NonNullable<Plan['financed']>>) => {
+    const next = { total: financed?.total ?? draft.cash, installments: financed?.installments ?? 2, ...patch }
+    setDraft({ ...draft, financed: next })
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="flex w-full flex-col gap-0 sm:max-w-md">
         <SheetHeader>
           <SheetTitle>{editing ? 'Editar plano' : 'Novo plano'}</SheetTitle>
-          <SheetDescription>Uma intenção de compra. Ela só entra na previsão quando você marcar como decidida.</SheetDescription>
+          <SheetDescription>Guarde os dois preços — à vista e parcelado — e escolha qual vale. Só a forma escolhida entra na previsão.</SheetDescription>
         </SheetHeader>
 
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-2">
           <Field>
             <FieldLabel htmlFor="plano-rotulo">O que é</FieldLabel>
-            <Input id="plano-rotulo" value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} placeholder="Notebook, passagem para o Chile…" />
+            <Input id="plano-rotulo" value={draft.label} onChange={(e) => setDraft({ ...draft, label: e.target.value })} placeholder="Monitor, passagem para o Chile…" />
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="plano-valor">Valor total</FieldLabel>
-            <Input id="plano-valor" type="number" min={0} step="0.01" value={draft.amount || ''} onChange={(e) => setDraft({ ...draft, amount: Number(e.target.value) })} placeholder="0,00" />
+            <FieldLabel htmlFor="plano-avista">Preço à vista</FieldLabel>
+            <Input id="plano-avista" type="number" min={0} step="0.01" value={draft.cash || ''} onChange={(e) => setDraft({ ...draft, cash: Number(e.target.value) })} placeholder="0,00" />
           </Field>
 
-          <Field>
-            <FieldLabel htmlFor="plano-parcelas">Parcelas</FieldLabel>
-            <div className="flex items-center gap-3">
-              <Input
-                id="plano-parcelas"
-                type="number"
-                min={1}
-                max={99}
-                step={1}
-                className="w-24"
-                value={parcels}
-                onChange={(e) => {
-                  const n = Number(e.target.value)
-                  setDraft({ ...draft, installments: Number.isInteger(n) && n > 1 && n <= 99 ? n : undefined })
-                }}
-              />
-              <span className="text-xs text-muted-foreground">{parcels > 1 ? `${parcels}× de ${formatBRL(draft.amount / parcels)}` : 'à vista'}</span>
+          {financed ? (
+            <div className="flex flex-col gap-3 rounded-lg border p-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium">Parcelado</span>
+                <Button variant="outline" size="xs" onClick={() => setDraft({ ...draft, financed: undefined, payment: 'cash' })}>
+                  Remover
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Field>
+                  <FieldLabel htmlFor="plano-total">Preço total</FieldLabel>
+                  <Input id="plano-total" type="number" min={0} step="0.01" value={financed.total || ''} onChange={(e) => setFinanced({ total: Number(e.target.value) })} placeholder="0,00" />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="plano-parcelas">Parcelas</FieldLabel>
+                  <Input
+                    id="plano-parcelas"
+                    type="number"
+                    min={2}
+                    max={99}
+                    step={1}
+                    value={financed.installments}
+                    onChange={(e) => {
+                      const n = Number(e.target.value)
+                      setFinanced({ installments: Number.isInteger(n) && n > 1 && n <= 99 ? n : 2 })
+                    }}
+                  />
+                </Field>
+              </div>
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {financed.installments}× de {formatBRL(financed.total / financed.installments)}
+                {saving !== null && saving > 0 && <span className="ml-2 text-[var(--status-good-text)]">à vista economiza {formatBRL(saving)}</span>}
+                {saving !== null && saving < 0 && <span className="ml-2 text-[var(--status-critical)]">parcelado sai {formatBRL(-saving)} mais barato</span>}
+              </p>
             </div>
+          ) : (
+            <Button variant="outline" size="sm" className="self-start" onClick={() => setFinanced({})}>
+              Acrescentar preço parcelado
+            </Button>
+          )}
+
+          <Field>
+            <FieldLabel>Como vou pagar</FieldLabel>
+            {/* O seletor só oferece parcelado quando existe preço parcelado: uma escolha que o
+                app não conseguiria desenhar não deve ser oferecível. */}
+            <ToggleGroup
+              value={[draft.payment]}
+              onValueChange={(next) => {
+                const picked = next[0]
+                if (picked === 'cash' || (picked === 'financed' && financed)) setDraft({ ...draft, payment: picked })
+              }}
+            >
+              {paymentModes.map((mode) => (
+                <ToggleGroupItem key={mode.value} value={mode.value} disabled={mode.value === 'financed' && !financed} className={cn('flex-1')}>
+                  {mode.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
           </Field>
 
           <Field>
@@ -105,8 +155,8 @@ export function PlanSheet({
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="plano-mes">Quando</FieldLabel>
-            <MonthPicker value={draft.month} onValueChange={(v) => setDraft({ ...draft, month: v })} withData={monthsWithData} aria-label="Mês do plano" />
+            <FieldLabel htmlFor="plano-mes">Mês da compra</FieldLabel>
+            <MonthPicker value={draft.month} onValueChange={(v) => setDraft({ ...draft, month: v })} withData={monthsWithData} aria-label="Mês da compra" />
           </Field>
 
           <Field>

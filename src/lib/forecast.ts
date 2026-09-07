@@ -4,7 +4,7 @@ import type { ViewTransaction } from './finance'
 import { shiftMonth, toCents } from './finance'
 import { BUDGET } from './budget'
 import { amountAt, dueDateOf, occursIn, pendingIn, settlePlanned, type PlannedEntry } from './planned'
-import { installmentAmount, planMonths, planOccursIn } from './plans'
+import { installmentAmount, planInstallments, planMonths, planOccursIn } from './plans'
 import { dueDateOf as receivableDueDateOf, occursIn as receivableOccursIn, settle, type Receivable } from './receivables'
 
 /**
@@ -419,7 +419,7 @@ export function forecastItems(input: Omit<Input, 'targets'>, month: string, pend
     if (!planOccursIn(plan, month)) continue
     const value = installmentAmount(plan)
     bump(plan.categoryId, value)
-    const total = plan.installments ?? 1
+    const total = planInstallments(plan)
     const current = planMonths(plan).indexOf(month) + 1
     items.push({
       key: `plan-${plan.id}-${month}`,

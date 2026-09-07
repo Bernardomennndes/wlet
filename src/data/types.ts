@@ -2,6 +2,7 @@ import {
   ArrowDownLeft,
   ArrowLeftRight,
   ArrowUpRight,
+  Banknote,
   Building2,
   CircleCheck,
   CircleMinus,
@@ -230,24 +231,44 @@ export const planStatuses: EnumOption<PlanStatus>[] = [
 ]
 
 /**
- * Uma intenção de compra, com o mês em que você pretende fazê-la.
+ * Como você vai pagar. É a escolha que a previsão usa.
+ *
+ * As DUAS formas ficam guardadas mesmo quando só uma está escolhida: é a diferença entre elas
+ * que responde "quanto eu economizo à vista", e apagar a não escolhida jogaria fora a pesquisa
+ * de preço que você já fez.
+ */
+export type PaymentMode = 'cash' | 'financed'
+
+export const paymentModes: EnumOption<PaymentMode>[] = [
+  { value: 'cash', label: 'À vista', icon: Banknote, tone: 'positive' },
+  { value: 'financed', label: 'Parcelado', icon: CreditCard, tone: 'neutral' },
+]
+
+/**
+ * Uma intenção de compra, com o mês em que você pretende fazê-la e as formas de pagar.
  *
  * `categoryId` liga o plano à MESMA taxonomia do resto do app, e não é enfeite: é o que
  * permite ao plano levantar o piso da rubrica daquela categoria em vez de se somar a ela.
  *
- * `installments` é o que torna a simulação interessante — uma compra grande quase sempre é
+ * O parcelamento é o que torna a simulação interessante — uma compra grande quase sempre é
  * parcelada, e é o parcelamento que espalha o impacto pelos meses.
  */
 export interface Plan {
   id: string
   label: string
   categoryId: string
-  /** Valor TOTAL, não o da parcela. */
-  amount: number
+  /** Preço à vista, em geral com desconto. Sempre presente: é o preço de referência. */
+  cash: number
+  /**
+   * Preço TOTAL parcelado e em quantas vezes. Ausente quando a loja não parcela — ou quando
+   * você ainda não pesquisou.
+   */
+  financed?: { total: number; installments: number }
+  /** Qual forma está escolhida. Só ela entra na previsão. */
+  payment: PaymentMode
   status: PlanStatus
-  /** Mês da compra (AAAA-MM). Com parcelamento, é a primeira parcela. */
+  /** Mês da compra (AAAA-MM). Parcelado, é o mês da primeira parcela. */
   month: string
-  installments?: number
   groupId?: string
   note?: string
 }

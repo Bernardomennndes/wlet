@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Plan, PlanGroup } from '@/data/types'
 import { formatBRL, formatMonthShort, plural } from '@/lib/format'
-import { installmentAmount, planMonths } from '@/lib/plans'
+import { installmentAmount, planMonths, planTotal } from '@/lib/plans'
 import { cn } from '@/lib/utils'
 
 /**
@@ -64,7 +64,7 @@ export function SimulationCard({ groups, considering, simulated, onToggle }: { g
                 ) : (
                   <span className="text-xs text-muted-foreground">Avulsos</span>
                 )}
-                <span className="text-xs text-muted-foreground tabular-nums">{formatBRL(block.plans.reduce((s, p) => s + p.amount, 0))}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">{formatBRL(block.plans.reduce((s, p) => s + planTotal(p), 0))}</span>
               </div>
 
               <ul className="flex flex-wrap gap-2 pl-1" aria-label={`Planos em estudo de ${block.group?.label ?? 'avulsos'}`}>
@@ -78,10 +78,10 @@ export function SimulationCard({ groups, considering, simulated, onToggle }: { g
                         aria-pressed={isOn}
                         onClick={() => onToggle([plan.id], !isOn)}
                         className={cn(!isOn && 'border-dashed')}
-                        title={`${plan.label} — ${formatBRL(plan.amount)}${plan.installments ? ` em ${plan.installments}×` : ' à vista'}`}
+                        title={`${plan.label} — ${formatBRL(planTotal(plan))}${plan.payment === 'financed' && plan.financed ? ` em ${plan.financed.installments}×` : ' à vista'}`}
                       >
                         {plan.label}
-                        <span className="ml-1.5 tabular-nums opacity-70">{formatBRL(plan.amount)}</span>
+                        <span className="ml-1.5 tabular-nums opacity-70">{formatBRL(planTotal(plan))}</span>
                       </Button>
                     </li>
                   )
@@ -96,7 +96,7 @@ export function SimulationCard({ groups, considering, simulated, onToggle }: { g
         ) : (
           <div className="rounded-lg border">
             <p className="border-b px-3 py-2 text-xs text-muted-foreground">
-              O que a simulação acrescenta, mês a mês — {formatBRL(active.reduce((s, p) => s + p.amount, 0))} em {active.length} {plural(active.length, 'plano', 'planos')}
+              O que a simulação acrescenta, mês a mês — {formatBRL(active.reduce((s, p) => s + planTotal(p), 0))} em {active.length} {plural(active.length, 'plano', 'planos')}
             </p>
             <ul className="divide-y">
               {months.map(([month, value]) => (

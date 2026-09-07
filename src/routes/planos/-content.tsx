@@ -9,7 +9,7 @@ import { useDocumentTitle } from '@/hooks/use-document-title'
 import type { Plan } from '@/data/types'
 import { shiftMonth } from '@/lib/finance'
 import { formatBRL, formatMonthShort, plural } from '@/lib/format'
-import { installmentAmount, parsePlans, planOccursIn } from '@/lib/plans'
+import { installmentAmount, parsePlans, planOccursIn, planTotal } from '@/lib/plans'
 import { useFilters } from '@/providers/use-filters'
 import { usePlans } from '@/providers/use-plans'
 import { PLANOS_METRICS } from './-metric-definitions'
@@ -31,8 +31,8 @@ export function PlanosPageContent() {
   const lastMonth = monthsWithData.at(-1) ?? new Date().toISOString().slice(0, 7)
   const nextMonth = shiftMonth(lastMonth, 1)
 
-  const totalDecided = decided.reduce((s, p) => s + p.amount, 0)
-  const totalConsidering = items.filter((p) => p.status === 'considering').reduce((s, p) => s + p.amount, 0)
+  const totalDecided = decided.reduce((s, p) => s + planTotal(p), 0)
+  const totalConsidering = items.filter((p) => p.status === 'considering').reduce((s, p) => s + planTotal(p), 0)
   const dueNext = decided.filter((p) => planOccursIn(p, nextMonth)).reduce((s, p) => s + installmentAmount(p), 0)
 
   const exportPlans = () => {

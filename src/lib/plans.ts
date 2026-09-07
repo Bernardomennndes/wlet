@@ -1,5 +1,5 @@
 import { CATEGORY_MAP } from '@/data/categories'
-import type { Plan, PlanGroup, PlanStatus } from '@/data/types'
+import type { PaymentMode, Plan, PlanGroup, PlanStatus } from '@/data/types'
 
 /**
  * Os planos: o catálogo de intenções de compra, guardado no navegador.
@@ -20,10 +20,13 @@ export const PLANS_KEY = 'wallet.plans'
  *
  * Dado em `localStorage` não tem migração se nascer sem versão: quando a forma mudar, o que
  * está gravado vira lixo silencioso — e o app leria campos que não existem sem nenhum erro.
- * Com a versão, um envelope antigo é reconhecível e pode ser convertido ou descartado com
- * aviso, em vez de corromper a leitura.
+ *
+ * Ela já se pagou. A versão 1 tinha `amount` e `installments`; a 2 guarda as DUAS formas de
+ * pagamento, para a diferença entre elas responder "quanto economizo à vista". Um envelope da
+ * versão 1 é convertido em vez de descartado — sem a versão, os campos antigos seriam lidos
+ * como ausentes e a lista inteira apareceria vazia.
  */
-export const PLANS_VERSION = 1
+export const PLANS_VERSION = 2
 
 export interface PlansData {
   version: number
@@ -59,8 +62,9 @@ function month(value: unknown): string | undefined {
  */
 export function parsePlans(raw: unknown): PlansData {
   if (!raw || typeof raw !== 'object') return emptyPlans()
-  const envelope = raw as Partial<PlansData>
-  if (envelope.version !== PLANS_VERSION) return emptyPlans()
+  const envelope = raw as { version?: number; groups?: unknown; items?: unknown }
+  if (envelope.version !== PLANS_VERSION && envelope.version !== 1) return emptyPlans()
+  const legacy = envelope.version === 1
 
   const groups: PlanGroup[] = []
   for (const value of Array.isArray(envelope.groups) ? envelope.groups : []) {
@@ -74,20 +78,46 @@ export function parsePlans(raw: unknown): PlansData {
   const known = new Set(groups.map((g) => g.id))
   const items: Plan[] = []
   for (const value of Array.isArray(envelope.items) ? envelope.items : []) {
-    const p = value as Partial<Plan>
+    const p = value as Partial<Plan> & { amount?: unknown; installments?: unknown }
     const id = text(p.id)
     const label = text(p.label)
     const categoryId = text(p.categoryId)
     const at = month(p.month)
     if (!id || !label || !categoryId || !at) continue
     if (!CATEGORY_MAP[categoryId]) continue
-    if (typeof p.amount !== 'number' || !Number.isFinite(p.amount) || p.amount <= 0) continue
+
+    // Parcelamento fora de 2..99 é engano de digitação, não intenção.
+    const times = (n: unknown) => (typeof n === 'number' && Number.isInteger(n) && n > 1 && n <= 99 ? n : undefined)
+    const price = (n: unknown) => (typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : undefined)
+
+    let cash: number | undefined
+    let financed: Plan['financed']
+    let payment: PaymentMode
+    if (legacy) {
+      // Versão 1: um preço só. Parcelado vira o preço financiado — sem desconto conhecido, o
+      // à vista recebe o MESMO valor, que é a verdade disponível: ninguém pesquisou o outro.
+      const amount = price(p.amount)
+      if (amount === undefined) continue
+      const count = times(p.installments)
+      cash = amount
+      financed = count ? { total: amount, installments: count } : undefined
+      payment = count ? 'financed' : 'cash'
+    } else {
+      cash = price(p.cash)
+      const f = p.financed as Partial<NonNullable<Plan['financed']>> | undefined
+      const total = price(f?.total)
+      const count = times(f?.installments)
+      financed = total !== undefined && count !== undefined ? { total, installments: count } : undefined
+      if (cash === undefined && financed) cash = financed.total
+      if (cash === undefined) continue
+      // Escolha "parcelado" sem preço parcelado cai para à vista: um estado que não se pode
+      // desenhar não deve sobreviver à leitura.
+      payment = p.payment === 'financed' && financed ? 'financed' : 'cash'
+    }
+
     const status = STATUSES.has(p.status as PlanStatus) ? (p.status as PlanStatus) : 'considering'
-    // Parcelamento fora de 1..99 é engano de digitação, não intenção: cai para à vista.
-    const installments = typeof p.installments === 'number' && Number.isInteger(p.installments) && p.installments > 1 && p.installments <= 99 ? p.installments : undefined
-    // Grupo que não existe mais deixa o item solto, em vez de sumir com ele.
     const groupId = text(p.groupId)
-    items.push({ id, label, categoryId, amount: p.amount, status, month: at, installments, groupId: groupId && known.has(groupId) ? groupId : undefined, note: text(p.note) })
+    items.push({ id, label, categoryId, cash, financed, payment, status, month: at, groupId: groupId && known.has(groupId) ? groupId : undefined, note: text(p.note) })
   }
   return { version: PLANS_VERSION, groups, items }
 }
@@ -114,9 +144,36 @@ export function planId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
 }
 
-/** O valor que cai em CADA mês: o total dividido pelas parcelas. */
+/**
+ * O total que a forma ESCOLHIDA custa. É este o número que a previsão usa.
+ *
+ * Parcelado sem `financed` cai no preço à vista em vez de virar zero: um plano marcado como
+ * parcelado a que ninguém deu preço parcelado ainda é uma compra, e sumir da previsão seria
+ * pior do que projetá-la pelo preço que se conhece.
+ */
+export function planTotal(plan: Plan): number {
+  return plan.payment === 'financed' && plan.financed ? plan.financed.total : plan.cash
+}
+
+/** Em quantas vezes a forma escolhida se divide. À vista é sempre 1. */
+export function planInstallments(plan: Plan): number {
+  return plan.payment === 'financed' && plan.financed ? plan.financed.installments : 1
+}
+
+/** O valor que cai em CADA mês. */
 export function installmentAmount(plan: Plan): number {
-  return plan.amount / (plan.installments ?? 1)
+  return planTotal(plan) / planInstallments(plan)
+}
+
+/**
+ * Quanto o à vista economiza: o total parcelado menos o à vista.
+ *
+ * `null` quando não há as duas formas — sem preço parcelado não existe comparação, e devolver
+ * zero afirmaria que os preços são iguais, que é outra coisa.
+ */
+export function savingOf(plan: Plan): number | null {
+  if (!plan.financed) return null
+  return Math.round((plan.financed.total - plan.cash) * 100) / 100
 }
 
 /**
@@ -128,7 +185,7 @@ export function installmentAmount(plan: Plan): number {
 export function planMonths(plan: Plan): string[] {
   const out: string[] = []
   const [y, m] = plan.month.split('-').map(Number)
-  for (let i = 0; i < (plan.installments ?? 1); i++) {
+  for (let i = 0; i < planInstallments(plan); i++) {
     const d = new Date(Date.UTC(y, m - 1 + i, 1))
     out.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`)
   }

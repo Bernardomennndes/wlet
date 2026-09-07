@@ -4,9 +4,9 @@ import { DataList, DataListItem, DataListItemHeader } from '@/components/data-li
 import { EnumBadge } from '@/components/enum-badge'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { planStatuses, type Plan, type PlanGroup } from '@/data/types'
+import { paymentModes, planStatuses, type Plan, type PlanGroup } from '@/data/types'
 import { formatBRL, formatMonthShort } from '@/lib/format'
-import { installmentAmount } from '@/lib/plans'
+import { installmentAmount, planInstallments, planTotal, savingOf } from '@/lib/plans'
 
 /**
  * A lista de planos, agrupada.
@@ -38,7 +38,7 @@ export function PlanList({
   return (
     <div className="flex flex-col gap-4">
       {buckets.map((bucket) => {
-        const total = bucket.plans.reduce((s, p) => s + p.amount, 0)
+        const total = bucket.plans.reduce((s, p) => s + planTotal(p), 0)
         return (
           <section key={bucket.group?.id ?? 'avulsos'} className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
@@ -71,18 +71,25 @@ export function PlanList({
                   <DataListItem key={plan.id} className="gap-1.5">
                     <DataListItemHeader>
                       <span className="truncate font-medium">{plan.label}</span>
-                      <span className="font-mono tabular-nums">{formatBRL(plan.amount)}</span>
+                      <span className="font-mono tabular-nums">{formatBRL(planTotal(plan))}</span>
                     </DataListItemHeader>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <EnumBadge option={planStatuses.find((s) => s.value === plan.status)} value={plan.status} />
+                      <EnumBadge option={paymentModes.find((m) => m.value === plan.payment)} value={plan.payment} />
                       <CategoryBadge value={plan.categoryId} />
                       <span>{formatMonthShort(plan.month)}</span>
-                      {plan.installments ? (
+                      {planInstallments(plan) > 1 && (
                         <span className="tabular-nums">
-                          {plan.installments}× de {formatBRL(installmentAmount(plan))}
+                          {planInstallments(plan)}× de {formatBRL(installmentAmount(plan))}
                         </span>
-                      ) : (
-                        <span>à vista</span>
+                      )}
+                      {/* A economia só aparece quando existem os DOIS preços: sem preço
+                          parcelado não há comparação, e um "R$ 0,00 de economia" afirmaria que
+                          os preços são iguais, que é outra coisa. */}
+                      {savingOf(plan) !== null && savingOf(plan)! > 0 && (
+                        <span className="tabular-nums text-[var(--status-good-text)]">
+                          {plan.payment === 'cash' ? 'economiza' : 'economizaria'} {formatBRL(savingOf(plan)!)}
+                        </span>
                       )}
                       <span className="ml-auto flex items-center gap-1">
                         <Tooltip>
