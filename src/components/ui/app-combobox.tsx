@@ -84,7 +84,7 @@ export function AppCombobox({ value, onValueChange, items, className, id, search
     >
       <ComboboxTrigger id={id} aria-label={aria['aria-label']} render={<Button variant="outline" className={cn('justify-between font-normal', modified && 'border-ring', className)} />}>
         <span className="flex min-w-0 items-center gap-1.5">
-          {Icon ? <Icon className="size-3.5 shrink-0 text-muted-foreground" /> : null}
+          {Icon ? <Icon className="size-3 shrink-0 text-muted-foreground" /> : null}
           <span className={cn('truncate', muted && 'text-muted-foreground')}>{selected?.label ?? 'Selecionar…'}</span>
         </span>
       </ComboboxTrigger>
@@ -96,7 +96,7 @@ export function AppCombobox({ value, onValueChange, items, className, id, search
             // `pr-6` reserva a faixa do check, que o registry posiciona em `absolute right-2`:
             // sem ela a descrição passa por baixo dele.
             <ComboboxItem key={item.value} value={item} className="pr-6">
-              {item.icon ? <item.icon className="size-3.5 shrink-0 text-muted-foreground" /> : null}
+              {item.icon ? <item.icon className="size-3 shrink-0 text-muted-foreground" /> : null}
               {/* Grade, não flex: a descrição fica na própria coluna, então as bordas direitas
                   se alinham de linha para linha, independentemente do comprimento dos nomes. */}
               <span className="grid min-w-0 flex-1 grid-cols-[1fr_auto] items-center gap-2">
