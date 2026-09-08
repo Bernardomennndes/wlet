@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import { Breadcrumbs } from '@/components/breadcrumbs'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { useSearchParams } from 'react-router'
 import { Download } from '@phosphor-icons/react'
@@ -102,8 +101,7 @@ export function TransacoesPageContent() {
 
   return (
     <div className="flex flex-col gap-4">
-      <header className="space-y-2">
-        <Breadcrumbs />
+      <header>
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Transações</h1>

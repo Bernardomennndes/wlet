@@ -1,5 +1,4 @@
 import { ArrowRight, MagnifyingGlassMinus } from '@phosphor-icons/react'
-import { Breadcrumbs } from '@/components/breadcrumbs'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { useMemo } from 'react'
 import { DataList, DataListField, DataListItem, DataListItemFields, DataListItemHeader } from '@/components/data-list/data-list'
@@ -53,8 +52,7 @@ export function TransferenciasPageContent() {
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="space-y-2">
-        <Breadcrumbs />
+      <header>
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Transferências entre contas</h1>

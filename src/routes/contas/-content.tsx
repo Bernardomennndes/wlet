@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import { Breadcrumbs } from '@/components/breadcrumbs'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { Link } from 'react-router'
 import { AccountTypeBadge } from '@/components/account-type-badge'
@@ -35,8 +34,7 @@ export function ContasPageContent() {
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="space-y-2">
-        <Breadcrumbs />
+      <header>
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Contas</h1>

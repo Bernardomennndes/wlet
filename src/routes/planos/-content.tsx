@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
 import { Download, FolderPlus, Plus, Target, Upload } from '@phosphor-icons/react'
-import { Breadcrumbs } from '@/components/breadcrumbs'
 import { KpiCard, KpiCardGrid, KpiHeadline } from '@/components/kpi'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -167,8 +166,7 @@ export function PlanosPageContent() {
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="space-y-2">
-        <Breadcrumbs />
+      <header>
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Planos</h1>

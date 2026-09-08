@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { HandCoins } from '@phosphor-icons/react'
-import { Breadcrumbs } from '@/components/breadcrumbs'
 import { CategoryBadge } from '@/components/category-badge'
 import { DataList, DataListField, DataListItem, DataListItemFields, DataListItemHeader } from '@/components/data-list/data-list'
 import { KpiCard, KpiCardGrid } from '@/components/kpi'
@@ -63,8 +62,7 @@ export function CobrancasPageContent() {
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="space-y-2">
-        <Breadcrumbs />
+      <header>
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Cobranças</h1>

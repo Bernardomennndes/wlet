@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { useSearchParams } from 'react-router'
-import { Breadcrumbs } from '@/components/breadcrumbs'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { CalendarDot } from '@phosphor-icons/react'
 import { CategoryBadge } from '@/components/category-badge'
@@ -168,8 +167,7 @@ export function PrevisaoPageContent() {
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="space-y-2">
-        <Breadcrumbs />
+      <header>
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Previsão</h1>

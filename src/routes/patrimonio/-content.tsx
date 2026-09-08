@@ -1,5 +1,4 @@
 import { TrendUp } from '@phosphor-icons/react'
-import { Breadcrumbs } from '@/components/breadcrumbs'
 import { DataList, DataListField, DataListItem, DataListItemFields, DataListItemHeader } from '@/components/data-list/data-list'
 import { KpiCard, KpiCardGrid } from '@/components/kpi'
 import { NotInformed } from '@/components/not-informed'
@@ -61,8 +60,7 @@ export function PatrimonioPageContent() {
   if (!INVESTMENTS || !last) {
     return (
       <div className="flex flex-col gap-5">
-        <header className="space-y-2">
-          <Breadcrumbs />
+        <header>
           <h1 className="text-lg font-semibold tracking-tight">Patrimônio</h1>
         </header>
         <Empty className="border">
@@ -90,8 +88,7 @@ export function PatrimonioPageContent() {
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="space-y-2">
-        <Breadcrumbs />
+      <header>
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Patrimônio</h1>

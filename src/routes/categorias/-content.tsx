@@ -1,6 +1,5 @@
 import { useCallback, useMemo } from 'react'
 import { SERIES_SWATCH } from '@/components/charts/chart-theme'
-import { Breadcrumbs } from '@/components/breadcrumbs'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { Link, useSearchParams } from 'react-router'
 import { MagnifyingGlassMinus } from '@phosphor-icons/react'
@@ -124,8 +123,7 @@ export function CategoriasPageContent() {
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="space-y-2">
-        <Breadcrumbs />
+      <header>
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Categorias</h1>

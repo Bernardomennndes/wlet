@@ -1,5 +1,4 @@
 import { Lightbulb, Repeat, TrendUp, Warning } from '@phosphor-icons/react'
-import { Breadcrumbs } from '@/components/breadcrumbs'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
@@ -215,8 +214,7 @@ export function OverviewPageContent() {
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="space-y-2">
-        <Breadcrumbs />
+      <header>
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Visão geral</h1>

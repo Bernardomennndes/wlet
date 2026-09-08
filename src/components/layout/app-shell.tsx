@@ -1,6 +1,7 @@
 import { Moon, Sun } from '@phosphor-icons/react'
 import { Suspense, useCallback, useMemo } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
+import { Breadcrumbs } from '@/components/breadcrumbs'
 import { HidingSquaresIcon } from '@/components/hiding-squares-icon'
 import { NAV } from '@/components/layout/nav'
 import { Button } from '@/components/ui/button'
@@ -142,6 +143,14 @@ export function AppShell() {
           {/* A altura aqui é layout, não restyle: a barra não tem altura fixa, então o
               divisor precisa declarar a sua para não esticar com o flex-wrap. */}
           <Separator orientation="vertical" className="mr-1 data-vertical:h-4 data-vertical:self-auto" />
+          {/* A trilha mora AQUI, e não mais acima do `<h1>` de cada página.
+              Ela é chrome de navegação, não conteúdo da tela: repetida em dez `-content.tsx`,
+              ela empurrava o título para baixo em todas e cobrava uma linha inteira do primeiro
+              scroll para dizer onde você já sabia que estava. Ao lado do botão que esconde a
+              barra lateral, ela passa a ocupar espaço que já existia — e vira o que responde
+              "onde estou" quando a barra está escondida, que é justamente quando a resposta
+              some da tela. */}
+          <Breadcrumbs />
           {/* `min-w-0 flex-1` deixa o bloco encolher abaixo da largura do conteúdo; sem
               isso o flex-wrap nunca dispara e a página rola na horizontal entre 768 e 912px. */}
           <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 py-2">
