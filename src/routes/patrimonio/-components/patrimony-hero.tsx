@@ -55,7 +55,7 @@ function ChangeChip({ label, value, amount, detail }: { label: string; value: nu
  * lugar de opacidade. Sobre um fundo cheio, uma área semitransparente vira outra cor e deixa
  * de se ligar à linha que a limita.
  */
-export function PatrimonyHero({ data, range, onRangeChange, className }: { data: PatrimonyPoint[]; range: PatrimonyRange; onRangeChange: (range: PatrimonyRange) => void; className?: string }) {
+export function PatrimonyHero({ data, range, onRangeChange, className }: { data: PatrimonyPoint[]; range?: PatrimonyRange; onRangeChange: (range: PatrimonyRange) => void; className?: string }) {
   const last = data.at(-1)
   // Duas evoluções, e a distância entre elas É a informação — a bruta inclui o aporte do
   // período, a relativa o desconta. A conta mora em `windowChange`, na lib: ela já esteve

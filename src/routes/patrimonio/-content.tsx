@@ -1,5 +1,4 @@
 import { TrendingUp } from 'lucide-react'
-import { useSearchParams } from 'react-router'
 import { Breadcrumbs } from '@/components/breadcrumbs'
 import { DataList, DataListField, DataListItem, DataListItemFields, DataListItemHeader } from '@/components/data-list/data-list'
 import { KpiCard, KpiCardGrid } from '@/components/kpi'
@@ -8,7 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { formatBRL, formatDate, formatPercent, plural } from '@/lib/format'
-import { assetClasses, INCOME, INVESTMENTS, PATRIMONY, PATRIMONY_RANGES, sliceRange, yieldOf, type PatrimonyRange } from '@/lib/investments'
+import { assetClasses, INCOME, INVESTMENTS, PATRIMONY, PATRIMONY_RANGES, yieldOf, type PatrimonyRange } from '@/lib/investments'
+import { lastMonthWithData, shiftMonth } from '@/lib/finance'
+import { useFilters } from '@/providers/use-filters'
+
+/** O maior de dois meses — o piso da janela não pode ser anterior ao primeiro ponto da série. */
+const maxMonth = (a: string, b: string) => (a > b ? a : b)
 import { cn } from '@/lib/utils'
 import { PATRIMONIO_METRICS } from './-metric-definitions'
 import { AllocationTreemap } from './-components/allocation-treemap'
@@ -19,26 +23,35 @@ import { IncomeCard } from './-components/income-card'
 import { PatrimonyChart } from './-components/patrimony-chart'
 import { PatrimonyHero } from './-components/patrimony-hero'
 
-const DEFAULT_RANGE: PatrimonyRange = '12m'
-
 export function PatrimonioPageContent() {
   useDocumentTitle('Patrimônio')
+  const { period, setPeriod } = useFilters()
 
-  const [params, setParams] = useSearchParams()
-  const raw = params.get('janela')
-  const range = PATRIMONY_RANGES.some((r) => r.value === raw) ? (raw as PatrimonyRange) : DEFAULT_RANGE
-
-  // Parte de `new URLSearchParams(params)`: `setParams({...})` trocaria a query INTEIRA e
-  // derrubaria recorte, período e tema, que são do cabeçalho e não desta tela.
-  //
-  // Sem `useCallback` de propósito: o React Compiler avisa que não consegue preservar a
-  // memoização manual aqui, e memoizar à mão contra ele é pior que deixá-lo trabalhar.
-  const setRange = (next: PatrimonyRange) => {
-    const q = new URLSearchParams(params)
-    if (next === DEFAULT_RANGE) q.delete('janela')
-    else q.set('janela', next)
-    setParams(q, { replace: true })
+  /**
+   * Os atalhos (3M, 6M, 1A, Tudo) escrevem no PERÍODO GLOBAL, não num estado desta tela.
+   *
+   * Antes eram uma janela própria em `?janela=`, e a tela ficava com dois controles de
+   * período ao mesmo tempo: o do cabeçalho, que não fazia nada aqui, e este. Um controle
+   * visível que não age ensina a desconfiar do controle em todas as outras telas.
+   *
+   * A janela dos atalhos termina no último mês COM DADOS e não no fim do período atual: eles
+   * são sobre a série de patrimônio, que é histórica, e "3M" tem de dizer os três últimos
+   * meses medidos — não três meses vazios à frente.
+   */
+  const applyRange = (value: PatrimonyRange) => {
+    const last = PATRIMONY.at(-1)?.month ?? lastMonthWithData()
+    const months = PATRIMONY_RANGES.find((r) => r.value === value)?.months ?? Number.POSITIVE_INFINITY
+    const first = PATRIMONY[0]?.month ?? last
+    setPeriod({ from: Number.isFinite(months) ? maxMonth(first, shiftMonth(last, 1 - months)) : first, to: last })
   }
+
+  /** O atalho aceso é o que DESCREVE o período atual; período escolhido à mão não acende nenhum. */
+  const activeRange = PATRIMONY_RANGES.find((r) => {
+    const last = PATRIMONY.at(-1)?.month ?? lastMonthWithData()
+    const first = PATRIMONY[0]?.month ?? last
+    const from = Number.isFinite(r.months) ? maxMonth(first, shiftMonth(last, 1 - r.months)) : first
+    return period.from === from && period.to === last
+  })?.value
 
   const last = PATRIMONY.at(-1)
   const gain = last ? yieldOf(last) : 0
@@ -70,7 +83,10 @@ export function PatrimonioPageContent() {
 
   const patrimony = INVESTMENTS.total + INVESTMENTS.cash
   const classes = assetClasses(INVESTMENTS)
-  const windowed = sliceRange(PATRIMONY, range)
+  // A série mostrada é cortada pelo PERÍODO do cabeçalho, como em toda outra tela. O corte é
+  // de EXIBIÇÃO: `PATRIMONY` continua reconstruído desde o primeiro mês, senão o rendimento
+  // acumulado passaria a depender do filtro.
+  const windowed = PATRIMONY.filter((p) => p.month >= period.from && p.month <= period.to)
 
   return (
     <div className="flex flex-col gap-5">
@@ -116,7 +132,7 @@ export function PatrimonioPageContent() {
             <AssetClassTiles classes={classes} />
           </CardContent>
         </Card>
-        <PatrimonyHero data={windowed} range={range} onRangeChange={setRange} />
+        <PatrimonyHero data={windowed} range={activeRange} onRangeChange={applyRange} />
       </div>
 
       <Card>

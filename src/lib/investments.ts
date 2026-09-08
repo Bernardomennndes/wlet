@@ -42,13 +42,6 @@ export const PATRIMONY_RANGES = [
 
 export type PatrimonyRange = (typeof PATRIMONY_RANGES)[number]['value']
 
-/** Os últimos N meses da série, com pelo menos dois pontos para haver linha. */
-export function sliceRange(series: PatrimonyPoint[], range: PatrimonyRange): PatrimonyPoint[] {
-  const months = PATRIMONY_RANGES.find((r) => r.value === range)?.months ?? Number.POSITIVE_INFINITY
-  if (!Number.isFinite(months)) return series
-  return series.slice(Math.max(0, series.length - months))
-}
-
 /**
  * As duas evoluções de uma janela, e o aporte que as separa.
  *
