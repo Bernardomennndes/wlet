@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react'
 import type { Icon as PhosphorIcon } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList, ComboboxTrigger } from '@/components/ui/combobox'
@@ -41,6 +42,15 @@ interface AppComboboxProps {
    * não `border-*` vindo do call site, porque a cor da borda é decisão do design system.
    */
   modified?: boolean
+  /**
+   * Variante e tamanho do gatilho, repassados ao `Button`.
+   *
+   * Numa linha de lista densa o seletor precisa ficar QUIETO até a linha ser apontada, e
+   * "quieto" é `ghost`. É variante e altura do design system, não `className` de borda ou de
+   * `h-*` escrita no call site — o que a §6 da regra de componentes proíbe.
+   */
+  variant?: ComponentProps<typeof Button>['variant']
+  size?: ComponentProps<typeof Button>['size']
 }
 
 /** Sem acento e sem caixa: em português, quem digita "alimentacao" está procurando "Alimentação". */
@@ -66,7 +76,7 @@ const fold = (text: string) =>
  * não por cor. Cor sozinha não é percebida por quem não a distingue nem anunciada por leitor
  * de tela (WCAG 1.4.1), e aqui ela já está tomada pelo destaque do teclado.
  */
-export function AppCombobox({ value, onValueChange, items, className, id, searchPlaceholder = 'Buscar…', emptyValue, modified, ...aria }: AppComboboxProps) {
+export function AppCombobox({ value, onValueChange, items, className, id, searchPlaceholder = 'Buscar…', emptyValue, modified, variant = 'outline', size, ...aria }: AppComboboxProps) {
   const selected = items.find((item) => item.value === value) ?? null
   const Icon = selected?.icon
   const muted = selected === null || selected.value === emptyValue
@@ -82,7 +92,7 @@ export function AppCombobox({ value, onValueChange, items, className, id, search
       // que o gatilho exibe — os dois seriam a mesma string se isso saísse de `itemToStringLabel`.
       filter={(item: SelectOption, query: string) => query.trim() === '' || fold(`${item.label} ${item.description ?? ''}`).includes(fold(query.trim()))}
     >
-      <ComboboxTrigger id={id} aria-label={aria['aria-label']} render={<Button variant="outline" className={cn('justify-between font-normal', modified && 'border-ring', className)} />}>
+      <ComboboxTrigger id={id} aria-label={aria['aria-label']} render={<Button variant={variant} size={size} className={cn('justify-between font-normal', modified && 'border-ring', className)} />}>
         <span className="flex min-w-0 items-center gap-1.5">
           {Icon ? <Icon className="size-3 shrink-0 text-muted-foreground" /> : null}
           <span className={cn('truncate', muted && 'text-muted-foreground')}>{selected?.label ?? 'Selecionar…'}</span>

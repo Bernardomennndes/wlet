@@ -70,34 +70,74 @@ const GAP = 3
 const RADIUS = 4
 
 /**
+ * Quanto uma fatia esmaece quando o realce está ligado.
+ *
+ * Ela não SOME: a coluna precisa continuar tendo a altura que tem, senão o realce mentiria
+ * sobre o tamanho do mês — que é justamente a pergunta que o gráfico responde.
+ */
+const DIMMED = 0.2
+
+/**
+ * O que a lista está apontando, para o gráfico acender.
+ *
+ * `byMonth` é quanto ESTE plano põe em cada mês — não o mês inteiro. É o que permite desenhar
+ * a parte dele dentro de uma fatia que pode ter dinheiro de outros planos junto: a fatia
+ * inteira esmaece e só a porção dele fica cheia.
+ */
+export interface PlanHighlight {
+  /** Em qual das duas séries de plano ele cai, conforme a situação. */
+  key: 'decided' | 'considering'
+  byMonth: Record<string, number>
+}
+
+/**
  * Uma fatia: retângulo isolado, SEM preenchimento e de borda TRACEJADA.
  *
  * É a estilização de previsão do app, verificada nas duas telas que já a desenham: a `VolumeBar`
  * da Previsão (`background: transparent` + `1px dashed` na cor da série) e as `<Cell>` do
- * gráfico de fluxo da Visão geral (`fill: transparent` + `stroke` + o mesmo `4 4`). Aqui vale
- * para TODAS as séries porque, ao contrário daquelas duas, este gráfico não tem um lado medido:
- * cada coluna dele é inteira de previsão.
+ * gráfico de fluxo da Visão geral (`fill: transparent` + `stroke` + o mesmo `4 4`).
  *
  * Com preenchimento e textura fora de jogo, quem carrega a identidade é a COR — que é o que a
  * §1 da `dataviz.md` reserva para isso, e é o que a Previsão faz com as cores de categoria.
+ *
+ * **Com realce ligado, a fatia ganha um segundo desenho por cima**: tudo esmaece e só a
+ * PORÇÃO do plano apontado fica cheia, ancorada na base da fatia. A proporção sai do valor —
+ * `share / value` da altura —, então ela é o tamanho real daquele dinheiro dentro do mês, e
+ * não um destaque decorativo do segmento inteiro.
  */
-function slice({ fill, stroke }: { fill?: string; stroke?: string }) {
-  return (props: { x?: number; y?: number; width?: number; height?: number }) => {
-    const { x = 0, y = 0, width = 0, height = 0 } = props
+function slice(key: keyof typeof scheduleConfig, { fill, stroke }: { fill?: string; stroke?: string }, highlight?: PlanHighlight) {
+  return (props: { x?: number; y?: number; width?: number; height?: number; payload?: PlanRow }) => {
+    const { x = 0, y = 0, width = 0, height = 0, payload } = props
     if (height <= 0.5) return <g />
     const h = Math.max(1, height - GAP)
-    return (
+    const top = y + GAP
+    const draw = (extra: { y: number; height: number; opacity?: number }) => (
       <rect
         x={x}
-        y={y + GAP}
         width={width}
-        height={h}
-        rx={Math.min(RADIUS, h / 2)}
+        rx={Math.min(RADIUS, extra.height / 2)}
         fill={fill ?? 'none'}
         stroke={stroke}
         strokeWidth={stroke ? 1 : 0}
         strokeDasharray={stroke ? PROJECTION_DASH : undefined}
+        {...extra}
       />
+    )
+
+    if (!highlight) return draw({ y: top, height: h })
+
+    const value = payload ? payload[key] : 0
+    const share = key === highlight.key && payload ? (highlight.byMonth[payload.month] ?? 0) : 0
+    if (share <= 0 || value <= 0) return draw({ y: top, height: h, opacity: DIMMED })
+
+    // O plano nunca põe mais do que a fatia tem — mas arredondamento de centavos pode passar
+    // por um fio, e uma sub-fatia mais alta que a fatia vazaria para cima dela.
+    const sub = Math.max(1, Math.min(h, (h * Math.min(share, value)) / value))
+    return (
+      <g>
+        {draw({ y: top, height: h, opacity: DIMMED })}
+        {draw({ y: top + h - sub, height: sub })}
+      </g>
     )
   }
 }
@@ -179,7 +219,7 @@ const ORDER = ['committed', 'declared', 'rubric', 'decided', 'considering'] as c
 /** O que o mês custaria: as cinco fatias somadas. */
 const total = (row: PlanRow) => row.committed + row.declared + row.rubric + row.decided + row.considering
 
-export function PlanScheduleChart({ data, height = 260, headline }: { data: PlanRow[]; height?: number; headline?: ReactNode }) {
+export function PlanScheduleChart({ data, height = 260, headline, highlight }: { data: PlanRow[]; height?: number; headline?: ReactNode; highlight?: PlanHighlight }) {
   const containerStyle = useMemo(() => ({ height }), [height])
 
   return (
@@ -225,7 +265,7 @@ export function PlanScheduleChart({ data, height = 260, headline }: { data: Plan
           {/* Uma <Bar> por série, na ORDEM declarada: o Recharts empilha na ordem dos filhos,
               então a primeira é a base — e é a primeira da legenda. */}
           {ORDER.map((key) => (
-            <Bar key={key} dataKey={key} stackId="a" maxBarSize={64} shape={slice(DRAW[key])} isAnimationActive={false} />
+            <Bar key={key} dataKey={key} stackId="a" maxBarSize={64} shape={slice(key, DRAW[key], highlight)} isAnimationActive={false} />
           ))}
         </BarChart>
       </ChartContainer>

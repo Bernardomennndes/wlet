@@ -22,6 +22,14 @@ interface Props {
    * proíbe. Quem precisa casar a altura com os vizinhos de uma linha declara aqui.
    */
   size?: ComponentProps<typeof Button>['size']
+  /**
+   * A variante do gatilho, repassada ao `Button`.
+   *
+   * Existe pela mesma razão que `size`: numa linha de lista densa o seletor precisa ficar
+   * QUIETO até a linha ser apontada, e "quieto" é `ghost` — uma decisão de variante, que a §6
+   * manda pedir ao design system em vez de escrever `border-transparent` no call site.
+   */
+  variant?: ComponentProps<typeof Button>['variant']
   /** Meses que têm lançamentos: ganham um ponto, para saber onde os dados estão. */
   withData?: readonly string[]
   /**
@@ -40,7 +48,7 @@ interface Props {
  * dados não têm. Aqui a grade é de 12 meses com um passo de ano, então qualquer mês de
  * qualquer ano é alcançável.
  */
-export function MonthPicker({ value, onValueChange, withData, className, id, min, size, ...aria }: Props) {
+export function MonthPicker({ value, onValueChange, withData, className, id, min, size, variant = 'outline', ...aria }: Props) {
   const [open, setOpen] = useState(false)
   const selectedYear = Number(value.slice(0, 4))
   const [year, setYear] = useState(selectedYear)
@@ -59,7 +67,7 @@ export function MonthPicker({ value, onValueChange, withData, className, id, min
     >
       <PopoverTrigger
         render={
-          <Button id={id} variant="outline" size={size} aria-label={aria['aria-label']} className={cn('font-medium tabular-nums', className)}>
+          <Button id={id} variant={variant} size={size} aria-label={aria['aria-label']} className={cn('font-medium tabular-nums', className)}>
             {formatMonthShort(value)}
             <CaretDown data-icon="inline-end" className="text-muted-foreground" />
           </Button>

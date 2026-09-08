@@ -9,7 +9,7 @@ import { useDocumentTitle } from '@/hooks/use-document-title'
 import type { Plan } from '@/data/types'
 import { ACCOUNT_MAP, lastMonthWithData, monthsBetween, projectionHorizon, shiftMonth } from '@/lib/finance'
 import { formatBRL, formatMonthShort, plural } from '@/lib/format'
-import { installmentAmount, parsePlans, planOccursIn, planScheduleByMonth, planTotal, scheduledPlans } from '@/lib/plans'
+import { installmentAmount, parsePlans, planMonths, planOccursIn, planScheduleByMonth, planTotal, scheduledPlans } from '@/lib/plans'
 import { useFilters } from '@/providers/use-filters'
 import { buildForecast } from '@/lib/forecast'
 import { plannedInScope } from '@/lib/planned'
@@ -18,7 +18,7 @@ import { usePlans } from '@/providers/use-plans'
 import { PLANOS_METRICS } from './-metric-definitions'
 import { PlanList } from './-components/plan-list'
 import { GroupDialog } from './-components/group-dialog'
-import { PlanScheduleChart } from './-components/plan-schedule-chart'
+import { type PlanHighlight, PlanScheduleChart } from './-components/plan-schedule-chart'
 import { PlanSheet } from './-components/plan-sheet'
 
 export function PlanosPageContent() {
@@ -30,6 +30,9 @@ export function PlanosPageContent() {
   const [open, setOpen] = useState(false)
   const [groupOpen, setGroupOpen] = useState(false)
   const [editing, setEditing] = useState<Plan | null>(null)
+  // O plano que a lista está apontando. É estado de EVENTO — nasce do cursor entrar numa
+  // linha e morre quando ele sai —, então não há efeito nenhum por trás dele.
+  const [pointed, setPointed] = useState<Plan | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
   const lastMonth = monthsWithData.at(-1) ?? new Date().toISOString().slice(0, 7)
@@ -121,6 +124,24 @@ export function PlanosPageContent() {
 
   const scheduleTotal = schedule.reduce((sum, m) => sum + m.decided + m.considering, 0)
 
+  /**
+   * O que o plano apontado põe em cada mês — a entrada do realce do gráfico.
+   *
+   * Só existe para plano que de fato CONTRIBUI: descartado não entra em série nenhuma, e sem
+   * mês `planMonths` devolve lista vazia. Nos dois casos o realce fica desligado em vez de
+   * esmaecer o gráfico inteiro sem acender nada — a própria linha já diz por quê, na célula
+   * de mês e no badge "Descartado".
+   */
+  const highlight = useMemo<PlanHighlight | undefined>(() => {
+    if (!pointed || pointed.status === 'discarded') return undefined
+    const months = planMonths(pointed)
+    if (months.length === 0) return undefined
+    const value = installmentAmount(pointed)
+    const byMonth: Record<string, number> = {}
+    for (const month of months) byMonth[month] = (byMonth[month] ?? 0) + value
+    return { key: pointed.status === 'decided' ? 'decided' : 'considering', byMonth }
+  }, [pointed])
+
   const exportPlans = () => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -187,15 +208,16 @@ export function PlanosPageContent() {
         <Card>
           <CardHeader>
             <CardTitle>Quanto sai por mês</CardTitle>
-            <CardDescription>
-              O que cada mês já tem preso, da base para o topo em ordem de certeza. A parcela de cartão já comprada é FATO e vem cheia, com a hachura de saída da Visão geral; o que a Previsão projeta
-              — conta declarada, líquida do que a cobrança abate, e rubrica de gasto — vem vazado de traço tracejado. Em cima, o que esta lista acrescenta: cheio no que você já decidiu, tracejado
-              enquanto for hipótese. Além de {formatMonthShort(projectionHorizon())} sobram só as parcelas e os planos: rubrica e conta declarada o app não projeta tão longe.
-            </CardDescription>
+            {/* UMA linha. A codificação visual está na LEGENDA, que fica logo abaixo e
+                mostra cada marca do lado do nome dela — repeti-la aqui em prosa produzia um
+                parágrafo de quatro linhas que ninguém lia, e que empurrava o gráfico para
+                fora da primeira dobra. O detalhe do número vive no ⓘ do headline. */}
+            <CardDescription>Da base ao topo, em ordem de certeza: primeiro o que o mês já tem preso, depois o que esta lista acrescenta. Aponte um plano para ver onde ele cai.</CardDescription>
           </CardHeader>
           <CardContent>
             <PlanScheduleChart
               data={chartMonths}
+              highlight={highlight}
               /* O número que ancora um gráfico é `KpiHeadline`, como o "Resultado no período"
                  da Visão geral: não é markup à mão (§1 da regra de KPI), não é `HeroKpiCard`
                  (que é um Card e aninharia dois) nem `KpiCard` solto fora do grid. */
@@ -223,21 +245,25 @@ export function PlanosPageContent() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <Card>
+        /* A tabela SANGRA até a borda do cartão: `pb-0` tira o respiro de baixo do próprio
+            `Card` e `px-0` o das laterais do `CardContent`. Recuada, ela desenhava uma segunda
+            moldura por dentro da primeira — duas arestas paralelas a dezesseis pixels uma da
+            outra, que não hierarquizam nada. Sangrando, a borda do cartão passa a ser a aresta
+            externa da grade, e as divisórias das linhas encostam nela. O respiro das pontas
+            passou para as células (`BLEED`, em `plan-list.tsx`). */
+        <Card className="pb-0">
           <CardHeader>
             <CardTitle>A lista</CardTitle>
-            <CardDescription>
-              {items.length} {plural(items.length, 'plano', 'planos')} em {groups.length + 1} {plural(groups.length + 1, 'grupo', 'grupos')}. Remover um grupo não remove os itens: eles voltam a ser
-              avulsos.
-            </CardDescription>
+            <CardDescription>A caixinha decide o que entra na previsão. Forma, parcelas e mês se editam na própria linha.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-0">
             <PlanList
               groups={groups}
               items={items}
               onRemove={removePlan}
               onRemoveGroup={removeGroup}
               onUpdate={updatePlan}
+              onHighlight={setPointed}
               monthsWithData={monthsWithData}
               defaultMonth={nextMonth}
               onEdit={(plan) => {
