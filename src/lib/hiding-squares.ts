@@ -36,7 +36,14 @@ export interface HidingSquaresOptions {
    * um escalar não consegue dar.
    */
   time?: number
-  /** Lado da caixa de coordenadas. 24 é a do lucide, e é o que faz o ícone alinhar com os outros. */
+  /**
+   * Lado da caixa de coordenadas.
+   *
+   * 24 é herança do lucide, que o app não usa mais — o Phosphor desenha numa caixa de 256. A
+   * medida NÃO precisa casar: `viewBox` é interno ao SVG e o tamanho na tela vem da classe do
+   * botão, então os dois alinham do mesmo jeito. O que importa é a proporção que a forma ocupa
+   * dentro da própria caixa, e essa foi calibrada por medição (ver o docblock do componente).
+   */
   box?: number
   /** Respiro entre células, como fração da célula. */
   gap?: number
