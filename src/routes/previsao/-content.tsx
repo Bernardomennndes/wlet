@@ -82,20 +82,22 @@ export function PrevisaoPageContent() {
    * período só encurta pela frente e pelo fim. Estender `ate` alcança mais longe, que é o que
    * a remoção do teto do período passou a permitir.
    */
+  /**
+   * Os meses que esta tela projeta: do primeiro mês projetável até o fim do PERÍODO.
+   *
+   * Havia aqui uma janela própria de 12 a 24 meses, conforme o alcance das regras declaradas.
+   * Ela saiu junto com o teto do período: duas janelas para a mesma pergunta divergem, e a do
+   * cabeçalho é a que a pessoa enxerga e controla. Estender `ate` alcança mais longe; estreitar
+   * mostra menos.
+   *
+   * O `start` é piso absoluto — não existe prever um mês já medido —, então o começo do
+   * período só empurra a janela para a frente.
+   */
   const futureMonths = useMemo(() => {
     const start = partialHasPending ? partialMonth : shiftMonth(partialMonth, 1)
-    const finite = PLANNED.map(lastOccurrence)
-      .filter((m): m is string => m !== null)
-      .sort()
-    const last = finite.length ? finite[finite.length - 1] : start
-    const min = shiftMonth(start, 11)
-    const max = shiftMonth(start, 23)
-    // O FIM segue o período: esticar `ate` alcança mais longe, que é o que a remoção do teto
-    // passou a permitir. A janela natural (12 a 24 meses, conforme o alcance das regras
-    // declaradas) vale quando o período não diz nada de mais restrito nem de mais longo.
-    const natural = last > min ? (last > max ? max : last) : min
-    const end = period.to > start ? period.to : start
-    return monthsBetween(start, end).filter((month) => month >= period.from && month <= (period.to > natural ? period.to : natural))
+    const from = period.from > start ? period.from : start
+    const to = period.to > from ? period.to : from
+    return monthsBetween(from, to)
   }, [partialMonth, partialHasPending, period])
 
   // A MESMA previsão que o gráfico da Visão geral desenha. Antes esta tela somava só as
