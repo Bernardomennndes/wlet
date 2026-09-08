@@ -13,6 +13,19 @@ import type { PaymentMode, Plan, PlanGroup, PlanStatus } from '@/data/types'
  * A mitigação é exportar e importar JSON, o mesmo caminho que os ajustes de categoria já têm.
  */
 
+/**
+ * A chave do `localStorage`, e ela continua sendo `wallet.` mesmo com o app chamado WLET.
+ *
+ * **Renomear o prefixo APAGA os dados de quem já usa.** O navegador não migra chave: o app
+ * passaria a ler `wlet.plans`, que não existe, e a lista inteira de planos apareceria vazia —
+ * sem erro nenhum, porque `readPlans` trata ausência como catálogo vazio. O mesmo vale para
+ * `wallet.overrides` (os ajustes manuais de categoria), `wallet.theme`, `wallet.scope` e
+ * `wallet.period`.
+ *
+ * O prefixo é ENDEREÇO, não nome de exibição, e não há ganho que pague uma perda silenciosa.
+ * Se um dia valer a pena alinhá-lo, o caminho é ler a chave nova e cair na antiga quando ela
+ * faltar, gravando na nova — nunca uma troca seca.
+ */
 export const PLANS_KEY = 'wallet.plans'
 
 /**

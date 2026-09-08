@@ -1,4 +1,4 @@
-# Wallet
+# WLET
 
 Controle financeiro pessoal (PF) e da empresa (PJ) a partir de extratos e faturas exportados dos bancos. Sem banco de dados: um script lê os arquivos em `docs/`, identifica as contas, categoriza e pareia transferências, e grava JSON em `src/generated/`. A SPA (Vite, React 19, Tailwind v4, React Router, Recharts) lê esses JSON.
 
