@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ComponentProps } from 'react'
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -14,6 +14,14 @@ interface Props {
   'aria-label': string
   /** Liga o gatilho ao `FieldLabel`: sem ele o rótulo aponta para um id que não existe. */
   id?: string
+  /**
+   * O tamanho do gatilho, repassado ao `Button`.
+   *
+   * Existe para o call site não precisar de `className="h-*"`: altura é o que a prop `size`
+   * do design system controla, e sobrepô-la por classe é o que a §6 da regra de componentes
+   * proíbe. Quem precisa casar a altura com os vizinhos de uma linha declara aqui.
+   */
+  size?: ComponentProps<typeof Button>['size']
   /** Meses que têm lançamentos: ganham um ponto, para saber onde os dados estão. */
   withData?: readonly string[]
   /**
@@ -32,7 +40,7 @@ interface Props {
  * dados não têm. Aqui a grade é de 12 meses com um passo de ano, então qualquer mês de
  * qualquer ano é alcançável.
  */
-export function MonthPicker({ value, onValueChange, withData, className, id, min, ...aria }: Props) {
+export function MonthPicker({ value, onValueChange, withData, className, id, min, size, ...aria }: Props) {
   const [open, setOpen] = useState(false)
   const selectedYear = Number(value.slice(0, 4))
   const [year, setYear] = useState(selectedYear)
@@ -51,7 +59,7 @@ export function MonthPicker({ value, onValueChange, withData, className, id, min
     >
       <PopoverTrigger
         render={
-          <Button id={id} variant="outline" aria-label={aria['aria-label']} className={cn('font-medium tabular-nums', className)}>
+          <Button id={id} variant="outline" size={size} aria-label={aria['aria-label']} className={cn('font-medium tabular-nums', className)}>
             {formatMonthShort(value)}
             <ChevronDown data-icon="inline-end" className="text-muted-foreground" />
           </Button>

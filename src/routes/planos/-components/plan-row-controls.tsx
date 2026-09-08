@@ -69,13 +69,7 @@ export function PlanRowControls({
     <div className="flex flex-wrap items-center gap-1.5">
       {/* O seletor de forma aceita ficar SEM escolha: clicar na opção acesa a desmarca, e o
           plano volta a "ainda não decidi" — o mesmo estado que o formulário permite. */}
-      <ToggleGroup
-        aria-label={`Como pagar ${plan.label}`}
-        variant="outline"
-        size="sm"
-        value={plan.payment ? [plan.payment] : []}
-        onValueChange={(next) => setPayment(next[0] as PaymentMode | undefined)}
-      >
+      <ToggleGroup aria-label={`Como pagar ${plan.label}`} variant="outline" value={plan.payment ? [plan.payment] : []} onValueChange={(next) => setPayment(next[0] as PaymentMode | undefined)}>
         {paymentModes.map((mode) => (
           <ToggleGroupItem key={mode.value} value={mode.value}>
             {mode.label}
@@ -100,6 +94,9 @@ export function PlanRowControls({
               setDraft(setInstallments(Number(event.target.value)) ? null : event.target.value)
             }}
             onBlur={() => setDraft(null)}
+            // `h-7` casa com a altura padrão dos vizinhos, e o `Input` deste registry não tem
+            // prop `size` para declará-la — desvio da §6 sem remédio disponível, porque o
+            // arquivo é gerado e o `CLAUDE.md` proíbe editá-lo.
             className="h-7 w-14 text-center"
           />
           <span className="text-xs text-muted-foreground tabular-nums">× {formatBRL(installmentAmount(plan))}</span>
@@ -108,20 +105,13 @@ export function PlanRowControls({
 
       {plan.month ? (
         <span className="flex items-center gap-1">
-          <MonthPicker
-            aria-label={`Mês da compra de ${plan.label}`}
-            value={plan.month}
-            onValueChange={(month) => onUpdate({ month })}
-            withData={monthsWithData}
-            min={monthsWithData[0]}
-            className="h-7"
-          />
+          <MonthPicker aria-label={`Mês da compra de ${plan.label}`} value={plan.month} onValueChange={(month) => onUpdate({ month })} withData={monthsWithData} min={monthsWithData[0]} />
           <Button variant="ghost" size="icon-sm" aria-label={`Limpar o mês de ${plan.label}`} onClick={() => onUpdate({ month: undefined })}>
             <X />
           </Button>
         </span>
       ) : (
-        <Button variant="outline" size="sm" onClick={() => onUpdate({ month: defaultMonth })}>
+        <Button variant="outline" onClick={() => onUpdate({ month: defaultMonth })}>
           <CalendarPlus data-icon="inline-start" /> Definir mês
         </Button>
       )}
