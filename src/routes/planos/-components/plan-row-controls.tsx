@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { CalendarPlus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,6 +32,17 @@ export function PlanRowControls({
   defaultMonth: string
   onUpdate: (patch: Partial<Omit<Plan, 'id'>>) => void
 }) {
+  /**
+   * O campo de parcelas guarda TEXTO CRU enquanto está sendo digitado.
+   *
+   * Ligado direto ao plano ele era intransponível: para chegar a 12 é preciso passar por "1",
+   * que a faixa 2..99 recusa — o campo voltava a "4", o "2" caía depois dele e o plano era
+   * gravado com 42 parcelas, um valor que ninguém pediu. Apagar tudo também não funcionava.
+   *
+   * É a mesma lição que a gaveta já tinha aprendido, e que eu repeti aqui: campo controlado
+   * pelo dado se corrige no meio da digitação, e a correção vira entrada.
+   */
+  const [draft, setDraft] = useState<string | null>(null)
   const times = planInstallments(plan)
 
   /**
@@ -43,13 +55,14 @@ export function PlanRowControls({
    * corrige.
    */
   const setInstallments = (n: number) => {
-    if (!Number.isInteger(n) || n < 2 || n > 99) return
+    if (!Number.isInteger(n) || n < 2 || n > 99) return false
     onUpdate({ financed: { total: plan.financed?.total ?? plan.cash, installments: n }, payment: 'financed' })
+    return true
   }
 
   const setPayment = (next: PaymentMode | undefined) => {
-    if (next === 'financed') return setInstallments(plan.financed?.installments ?? 2)
-    onUpdate({ payment: next })
+    if (next === 'financed') setInstallments(plan.financed?.installments ?? 2)
+    else onUpdate({ payment: next })
   }
 
   return (
@@ -80,8 +93,13 @@ export function PlanRowControls({
             min={2}
             max={99}
             step={1}
-            value={times}
-            onChange={(event) => setInstallments(Number(event.target.value))}
+            value={draft ?? String(times)}
+            onChange={(event) => {
+              // O rascunho some assim que o valor digitado é gravável; enquanto não for,
+              // ele fica na tela para a pessoa terminar de digitar.
+              setDraft(setInstallments(Number(event.target.value)) ? null : event.target.value)
+            }}
+            onBlur={() => setDraft(null)}
             className="h-7 w-14 text-center"
           />
           <span className="text-xs text-muted-foreground tabular-nums">× {formatBRL(installmentAmount(plan))}</span>

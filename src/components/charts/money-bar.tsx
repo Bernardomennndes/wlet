@@ -54,7 +54,7 @@ export function expenseHatch(id: string) {
  * e, quando tem, a hachura deixa de distinguir por si: quem separa as duas passa a ser o
  * matiz, que é o canal da identidade de série (`dataviz.md` §1).
  */
-export function hatchDefs(patterns: { id: string; stripe: string; fill?: string }[]) {
+function hatchDefs(patterns: { id: string; stripe: string; fill?: string }[]) {
   return (
     <defs>
       {/* Listras a 45° subindo para a direita: fundo mais traço, num tile do passo `wide`. */}
