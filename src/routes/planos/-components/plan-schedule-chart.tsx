@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { useMemo } from 'react'
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { CHART_TOKENS } from '@/components/charts/chart-theme'
-import { type LegendMark, MONEY_AXIS, MONEY_GRID, MONTH_AXIS, PROJECTION_DASH } from '@/components/charts/money-bar'
+import { EXPENSE_HATCH_SWATCH, expenseHatch, type LegendMark, MONEY_AXIS, MONEY_GRID, MONTH_AXIS, PROJECTION_DASH } from '@/components/charts/money-bar'
 import { ChartHeader, MarkSwatch } from '@/components/charts/money-bar-chart'
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { planStatuses } from '@/data/types'
@@ -65,11 +65,23 @@ const CHART_MARGIN = { top: 8, right: 8, left: 0, bottom: 0 }
  * marca que a tela de Previsão desenha em `VolumeBar`. O Recharts não sabe empilhar com folga,
  * então o vão sai de uma `shape` própria que encolhe o retângulo e arredonda os quatro cantos.
  */
+const STRIPE_ID = 'wallet-plan-stripes'
 const GAP = 3
 const RADIUS = 4
 
-/** Uma fatia: retângulo isolado, cheio ou OCO de traço tracejado — a marca do previsto. */
-function slice({ fill, stroke, dashed }: { fill?: string; stroke?: string; dashed?: boolean }) {
+/**
+ * Uma fatia: retângulo isolado, SEM preenchimento e de borda TRACEJADA.
+ *
+ * É a estilização de previsão do app, verificada nas duas telas que já a desenham: a `VolumeBar`
+ * da Previsão (`background: transparent` + `1px dashed` na cor da série) e as `<Cell>` do
+ * gráfico de fluxo da Visão geral (`fill: transparent` + `stroke` + o mesmo `4 4`). Aqui vale
+ * para TODAS as séries porque, ao contrário daquelas duas, este gráfico não tem um lado medido:
+ * cada coluna dele é inteira de previsão.
+ *
+ * Com preenchimento e textura fora de jogo, quem carrega a identidade é a COR — que é o que a
+ * §1 da `dataviz.md` reserva para isso, e é o que a Previsão faz com as cores de categoria.
+ */
+function slice({ fill, stroke }: { fill?: string; stroke?: string }) {
   return (props: { x?: number; y?: number; width?: number; height?: number }) => {
     const { x = 0, y = 0, width = 0, height = 0 } = props
     if (height <= 0.5) return <g />
@@ -84,25 +96,44 @@ function slice({ fill, stroke, dashed }: { fill?: string; stroke?: string; dashe
         fill={fill ?? 'none'}
         stroke={stroke}
         strokeWidth={stroke ? 1 : 0}
-        strokeDasharray={dashed ? PROJECTION_DASH : undefined}
+        strokeDasharray={stroke ? PROJECTION_DASH : undefined}
       />
     )
   }
 }
 
-const COMMITTED_FILL = 'var(--primary)'
-const DECLARED_FILL = 'color-mix(in oklab, var(--primary) 62%, var(--card))'
-const RUBRIC_FILL = 'color-mix(in oklab, var(--primary) 30%, var(--card))'
+/**
+ * Como cada série é desenhada, e a regra é UMA: **o que já é fato segue o desenho normal; só o
+ * PREVISTO fica vazado de traço tracejado.**
+ *
+ * É a mesma divisão que a Visão geral faz entre mês medido e mês projetado, e que a Previsão
+ * faz entre fatia medida e fatia prevista. Aqui ela cai sobre a ORIGEM em vez do mês: a parcela
+ * de cartão que já vai ser debitada nas próximas faturas é fato — ela é desenhada cheia, com a
+ * hachura de saída do app —, e o que a Previsão projeta (conta declarada e rubrica) é previsão,
+ * e fica oco.
+ *
+ * Dois MATIZES separam os dois grupos: `--series-expense` é o que o mês já tem por conta
+ * própria, `--primary` é o que a sua lista acrescenta.
+ */
+const DRAW = {
+  /** Parcela já comprada: FATO. Hachura de saída, a mesma marca da Visão geral. */
+  committed: { fill: `url(#${STRIPE_ID})` },
+  /** Conta declarada: previsto. Oco e tracejado. */
+  declared: { stroke: 'var(--series-expense)' },
+  /** Rubrica: previsto, e o mais incerto dos dois — traço mais apagado. */
+  rubric: { stroke: 'color-mix(in oklab, var(--series-expense) 62%, var(--card))' },
+  /** Plano decidido: você já assumiu, então é cheio — no matiz da sua lista. */
+  decided: { fill: 'var(--primary)' },
+  /** Plano em estudo: hipótese. Oco e tracejado, no mesmo matiz. */
+  considering: { stroke: 'var(--primary)' },
+} as const
 
 /** As marcas da legenda, e as MESMAS amostras que o tooltip reusa — nunca duas descrições. */
 const MARKS: Record<keyof typeof scheduleConfig, LegendMark> = {
-  committed: { label: originLabel('committed'), background: COMMITTED_FILL },
-  declared: { label: originLabel('declared'), background: DECLARED_FILL, ring: true },
-  rubric: { label: 'Rubricas', background: RUBRIC_FILL, ring: true },
-  // Os planos usam a estilização do GASTO PREVISTO da tela de Previsão: marca OCA de contorno.
-  // Contínuo no que você já assumiu, tracejado no que ainda é hipótese — o mesmo par que a
-  // `VolumeBar` usa para separar entrada de saída prevista.
-  decided: { label: statusLabel('decided'), outlined: 'var(--primary)' },
+  committed: { label: originLabel('committed'), background: EXPENSE_HATCH_SWATCH, ring: true },
+  declared: { label: originLabel('declared'), dashed: 'var(--series-expense)' },
+  rubric: { label: 'Rubricas', dashed: 'color-mix(in oklab, var(--series-expense) 62%, var(--card))' },
+  decided: { label: statusLabel('decided'), background: 'var(--primary)' },
   considering: { label: statusLabel('considering'), dashed: 'var(--primary)' },
 }
 
@@ -148,15 +179,6 @@ const ORDER = ['committed', 'declared', 'rubric', 'decided', 'considering'] as c
 /** O que o mês custaria: as cinco fatias somadas. */
 const total = (row: PlanRow) => row.committed + row.declared + row.rubric + row.decided + row.considering
 
-/** Como cada série é desenhada. Cheia enquanto é o mês que já está preso; oca no que vem da lista. */
-const SHAPE: Record<(typeof ORDER)[number], Parameters<typeof slice>[0]> = {
-  committed: { fill: COMMITTED_FILL },
-  declared: { fill: DECLARED_FILL },
-  rubric: { fill: RUBRIC_FILL },
-  decided: { stroke: 'var(--primary)' },
-  considering: { stroke: 'var(--primary)', dashed: true },
-}
-
 export function PlanScheduleChart({ data, height = 260, headline }: { data: PlanRow[]; height?: number; headline?: ReactNode }) {
   const containerStyle = useMemo(() => ({ height }), [height])
 
@@ -166,6 +188,8 @@ export function PlanScheduleChart({ data, height = 260, headline }: { data: Plan
 
       <ChartContainer config={scheduleConfig} className={CHART_TOKENS} style={containerStyle}>
         <BarChart accessibilityLayer data={data} margin={CHART_MARGIN} barCategoryGap="14%">
+          {expenseHatch(STRIPE_ID)}
+
           <CartesianGrid {...MONEY_GRID} />
           <XAxis {...MONTH_AXIS} />
           <YAxis {...MONEY_AXIS} />
@@ -201,7 +225,7 @@ export function PlanScheduleChart({ data, height = 260, headline }: { data: Plan
           {/* Uma <Bar> por série, na ORDEM declarada: o Recharts empilha na ordem dos filhos,
               então a primeira é a base — e é a primeira da legenda. */}
           {ORDER.map((key) => (
-            <Bar key={key} dataKey={key} stackId="a" maxBarSize={64} shape={slice(SHAPE[key])} isAnimationActive={false} />
+            <Bar key={key} dataKey={key} stackId="a" maxBarSize={64} shape={slice(DRAW[key])} isAnimationActive={false} />
           ))}
         </BarChart>
       </ChartContainer>
