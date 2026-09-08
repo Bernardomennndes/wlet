@@ -1,22 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { readStorage, writeStorage } from '@/lib/storage'
 import { ThemeContext, type ThemeValue } from './use-theme'
-
-function readStorage<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw ? (JSON.parse(raw) as T) : fallback
-  } catch {
-    return fallback
-  }
-}
-
-function writeStorage(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value))
-  } catch {
-    // armazenamento indisponível: segue sem persistir
-  }
-}
 
 function systemTheme(): 'light' | 'dark' {
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
@@ -29,7 +13,7 @@ function readUrlTheme(): 'light' | 'dark' | null {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => readUrlTheme() ?? readStorage('wallet.theme', systemTheme()))
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => readUrlTheme() ?? readStorage('theme', systemTheme()))
 
   const toggleTheme = useCallback(() => setTheme((t) => (t === 'dark' ? 'light' : 'dark')), [])
 
@@ -38,7 +22,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
     document.documentElement.style.colorScheme = theme
-    writeStorage('wallet.theme', theme)
+    writeStorage('theme', theme)
   }, [theme])
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>

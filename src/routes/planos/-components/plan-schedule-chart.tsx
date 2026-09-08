@@ -65,7 +65,7 @@ const CHART_MARGIN = { top: 8, right: 8, left: 0, bottom: 0 }
  * marca que a tela de Previsão desenha em `VolumeBar`. O Recharts não sabe empilhar com folga,
  * então o vão sai de uma `shape` própria que encolhe o retângulo e arredonda os quatro cantos.
  */
-const STRIPE_ID = 'wallet-plan-stripes'
+const STRIPE_ID = 'wlet-plan-stripes'
 const GAP = 3
 const RADIUS = 4
 

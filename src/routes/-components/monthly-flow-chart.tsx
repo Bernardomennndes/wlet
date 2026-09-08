@@ -26,7 +26,7 @@ const flowConfig = {
 const CHART_MARGIN = { top: PROJECTION_MARKER_SPACE, right: 8, left: 0, bottom: 0 }
 
 /** Hachura das saídas. Só existe uma instância deste gráfico, então o id pode ser fixo. */
-const STRIPE_ID = 'wallet-expense-stripes'
+const STRIPE_ID = 'wlet-expense-stripes'
 
 /** As marcas da legenda, e as MESMAS amostras que o tooltip reusa — nunca duas descrições. */
 const MARKS: Record<keyof typeof flowConfig, LegendMark> = {

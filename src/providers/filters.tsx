@@ -1,23 +1,7 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { readStorage, writeStorage } from '@/lib/storage'
 import { META, isMonth, lastMonthWithData, monthsBetween, projectionHorizon, selectTransactions, type Overrides, type Period, type Scope } from '@/lib/finance'
 import { FiltersContext, type FiltersValue } from './use-filters'
-
-function readStorage<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw ? (JSON.parse(raw) as T) : fallback
-  } catch {
-    return fallback
-  }
-}
-
-function writeStorage(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value))
-  } catch {
-    // armazenamento indisponível: segue sem persistir
-  }
-}
 
 /**
  * O padrão vai do nono mês atrás até o HORIZONTE DE PROJEÇÃO, não até o último mês com dados.
@@ -86,23 +70,23 @@ function clampPeriod(p: Period): Period {
 }
 
 export function FiltersProvider({ children }: { children: ReactNode }) {
-  const [scope, setScopeState] = useState<Scope>(() => readUrl().scope ?? readStorage('wallet.scope', 'all'))
+  const [scope, setScopeState] = useState<Scope>(() => readUrl().scope ?? readStorage('scope', 'all'))
   const [period, setPeriodState] = useState<Period>(() => {
     const url = readUrl()
-    const base = readStorage('wallet.period', defaultPeriod())
+    const base = readStorage('period', defaultPeriod())
     return clampPeriod({ from: url.from ?? base.from, to: url.to ?? base.to })
   })
-  const [overrides, setOverrides] = useState<Overrides>(() => readStorage('wallet.overrides', {}))
+  const [overrides, setOverrides] = useState<Overrides>(() => readStorage('overrides', {}))
 
   const setScope = useCallback((s: Scope) => {
     setScopeState(s)
-    writeStorage('wallet.scope', s)
+    writeStorage('scope', s)
   }, [])
 
   const setPeriod = useCallback((p: Period) => {
     const normalized = clampPeriod(p)
     setPeriodState(normalized)
-    writeStorage('wallet.period', normalized)
+    writeStorage('period', normalized)
   }, [])
 
   const setOverride = useCallback((id: string, categoryId: string | null) => {
@@ -110,7 +94,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
       const next = { ...prev }
       if (categoryId) next[id] = categoryId
       else delete next[id]
-      writeStorage('wallet.overrides', next)
+      writeStorage('overrides', next)
       return next
     })
   }, [])

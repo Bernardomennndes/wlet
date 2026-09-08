@@ -1,4 +1,5 @@
 import { CATEGORY_MAP } from '@/data/categories'
+import { readRaw, writeStorage } from '@/lib/storage'
 import type { PaymentMode, Plan, PlanGroup, PlanStatus } from '@/data/types'
 
 /**
@@ -14,19 +15,13 @@ import type { PaymentMode, Plan, PlanGroup, PlanStatus } from '@/data/types'
  */
 
 /**
- * A chave do `localStorage`, e ela continua sendo `wallet.` mesmo com o app chamado WLET.
+ * O nome da chave, sem prefixo — quem monta a chave completa é `@/lib/storage`.
  *
- * **Renomear o prefixo APAGA os dados de quem já usa.** O navegador não migra chave: o app
- * passaria a ler `wlet.plans`, que não existe, e a lista inteira de planos apareceria vazia —
- * sem erro nenhum, porque `readPlans` trata ausência como catálogo vazio. O mesmo vale para
- * `wallet.overrides` (os ajustes manuais de categoria), `wallet.theme`, `wallet.scope` e
- * `wallet.period`.
- *
- * O prefixo é ENDEREÇO, não nome de exibição, e não há ganho que pague uma perda silenciosa.
- * Se um dia valer a pena alinhá-lo, o caminho é ler a chave nova e cair na antiga quando ela
- * faltar, gravando na nova — nunca uma troca seca.
+ * O prefixo mora lá porque ele é do APP e não deste módulo, e porque a leitura de lá migra
+ * sozinha o que estiver gravado sob o prefixo antigo: um navegador que já usou a versão
+ * "wallet" continua abrindo com os planos dele.
  */
-export const PLANS_KEY = 'wallet.plans'
+export const PLANS_KEY = 'plans'
 
 /**
  * O envelope é VERSIONADO desde o primeiro dia.
@@ -146,7 +141,7 @@ export function parsePlans(raw: unknown): PlansData {
 
 export function readPlans(): PlansData {
   try {
-    const raw = localStorage.getItem(PLANS_KEY)
+    const raw = readRaw(PLANS_KEY)
     return raw ? parsePlans(JSON.parse(raw)) : emptyPlans()
   } catch {
     return emptyPlans()
@@ -154,11 +149,7 @@ export function readPlans(): PlansData {
 }
 
 export function writePlans(data: PlansData) {
-  try {
-    localStorage.setItem(PLANS_KEY, JSON.stringify(data))
-  } catch {
-    // armazenamento indisponível: segue sem persistir
-  }
+  writeStorage(PLANS_KEY, data)
 }
 
 /** Id estável sem dependência: a hora mais um sufixo aleatório basta para uma lista local. */

@@ -37,7 +37,7 @@ export interface ForecastSources {
   /** Parcelas de cartão já compradas. Não é declaração, é fato. */
   committed: number
   /**
-   * Planos de compra (`wallet.plans`), tratados como o declarado: entram ANTES do piso da
+   * Planos de compra (`wlet.plans`), tratados como o declarado: entram ANTES do piso da
    * rubrica, então uma viagem planejada de R$ 800 numa categoria com rubrica de R$ 500 projeta
    * 800, não 1.300. Origem própria porque é a única parcela da previsão que não vem de
    * arquivo — sem separá-la, o total deixaria de ser conferível.
