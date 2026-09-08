@@ -1,13 +1,14 @@
 import type { ReactNode } from 'react'
 import { useMemo } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, ReferenceArea, XAxis, YAxis } from 'recharts'
-import { CHART_TOKENS, HATCH, hatchBackground, SERIES_SWATCH } from '@/components/charts/chart-theme'
+import { CHART_TOKENS } from '@/components/charts/chart-theme'
+import { EXPENSE_HATCH_SWATCH, expenseHatch, type LegendMark, MONEY_AXIS, MONEY_GRID, MONTH_AXIS, PROJECTION_DASH } from '@/components/charts/money-bar'
+import { ChartHeader, MarkSwatch } from '@/components/charts/money-bar-chart'
 import { PROJECTION_MARKER_SPACE, ProjectionDivider } from '@/components/charts/projection-divider'
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { EXPENSE_VAR, INCOME_VAR } from '@/lib/chart-tokens'
 import { type Flow, flowKinds, type MonthSummary } from '@/lib/finance'
-import { formatAxis, formatBRL, formatMonthLongLabel, formatMonthShort, formatPercent } from '@/lib/format'
-import { cn } from '@/lib/utils'
+import { formatBRL, formatMonthLongLabel, formatPercent } from '@/lib/format'
 
 /** O rótulo do enum vem da lista de domínio — o gráfico não redigita "Entradas"/"Saídas". */
 function flowLabelPlural(value: Flow): string {
@@ -26,12 +27,12 @@ const CHART_MARGIN = { top: PROJECTION_MARKER_SPACE, right: 8, left: 0, bottom: 
 
 /** Hachura das saídas. Só existe uma instância deste gráfico, então o id pode ser fixo. */
 const STRIPE_ID = 'wallet-expense-stripes'
-/** O traço da marca prevista: o mesmo tracejado do divisor de projeção. */
-const PROJECTED_DASH = '4 4'
 
-/** Fundo listrado do quadradinho de legenda: mesmo ângulo e proporção do <pattern> do SVG,
- *  no passo `fine` — a amostra tem 14px e, com o passo da barra, mostraria uma listra só. */
-const STRIPE_SWATCH = hatchBackground('var(--series-expense-stripe)', 'var(--series-expense-fill)')
+/** As marcas da legenda, e as MESMAS amostras que o tooltip reusa — nunca duas descrições. */
+const MARKS: Record<keyof typeof flowConfig, LegendMark> = {
+  income: { label: flowConfig.income.label, background: 'var(--series-income)' },
+  expense: { label: flowConfig.expense.label, background: EXPENSE_HATCH_SWATCH, ring: true },
+}
 
 /** Ponto do gráfico: mês medido ou mês previsto. */
 export interface FlowPoint extends MonthSummary {
@@ -104,40 +105,22 @@ export function MonthlyFlowChart({ data, height = 300, projectedFrom, headline }
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        {headline ?? <span />}
-        <div className="flex items-center gap-5 text-xs font-medium">
-          <span className="flex items-center gap-2">
-            <span className="inline-block size-3.5 rounded-[3px]" style={{ background: 'var(--series-income)' }} aria-hidden />
-            {flowConfig.income.label}
-          </span>
-          <span className="flex items-center gap-2">
-            <span className={cn(SERIES_SWATCH, 'size-3.5 ring-1 ring-border ring-inset')} style={{ background: STRIPE_SWATCH }} aria-hidden />
-            {flowConfig.expense.label}
-          </span>
-        </div>
-      </div>
+      <ChartHeader headline={headline} marks={[MARKS.income, MARKS.expense]} />
 
       <ChartContainer config={flowConfig} className={CHART_TOKENS} style={containerStyle}>
         {/* barCategoryGap vale para cada lado da banda: 14% aqui = 28% de vão entre grupos.
             O vão precisa dessa folga porque a fronteira da projeção é desenhada na BORDA da
             banda — com 6% a linha tracejada encostava na coluna dos dois lados. */}
         <BarChart accessibilityLayer data={rows} margin={CHART_MARGIN} barGap={6} barCategoryGap="14%">
-          <defs>
-            {/* Listras a 45° subindo para a direita: fundo mais traço, num tile de 11px. */}
-            <pattern id={STRIPE_ID} width={HATCH.wide.step} height={HATCH.wide.step} patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
-              <rect width={HATCH.wide.step} height={HATCH.wide.step} style={{ fill: 'var(--series-expense-fill)' }} />
-              <rect width={HATCH.wide.stripe} height={HATCH.wide.step} style={{ fill: 'var(--series-expense-stripe)' }} />
-            </pattern>
-          </defs>
+          {expenseHatch(STRIPE_ID)}
 
-          <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
+          <CartesianGrid {...MONEY_GRID} />
           {/* Faixa dos meses ainda sem dados. `ifOverflow="extendDomain"` evitaria recortar,
               mas aqui os limites já são categorias presentes no eixo. */}
           {firstProjected && lastMonth ? <ReferenceArea x1={firstProjected} x2={lastMonth} fill="var(--chart-projection)" fillOpacity={1} stroke="none" /> : null}
           {firstProjected ? <ProjectionDivider month={firstProjected} /> : null}
-          <XAxis dataKey="month" tickFormatter={formatMonthShort} axisLine={{ stroke: 'var(--chart-grid)' }} tickLine={false} tickMargin={12} />
-          <YAxis tickFormatter={(v: number) => formatAxis(v)} axisLine={false} tickLine={false} width={70} />
+          <XAxis {...MONTH_AXIS} />
+          <YAxis {...MONEY_AXIS} />
 
           <ChartTooltip
             content={
@@ -148,8 +131,8 @@ export function MonthlyFlowChart({ data, height = 300, projectedFrom, headline }
                   <>
                     <span className="flex flex-1 items-center justify-between gap-6">
                       <span className="flex items-center gap-2 text-muted-foreground">
-                        <span className={SERIES_SWATCH} style={name === 'expense' ? { background: STRIPE_SWATCH } : { background: 'var(--series-income)' }} aria-hidden />
-                        {flowConfig[name as keyof typeof flowConfig]?.label}
+                        <MarkSwatch mark={MARKS[name as keyof typeof MARKS]} />
+                        {MARKS[name as keyof typeof MARKS]?.label}
                       </span>
                       <span className="font-medium tabular-nums">{formatBRL(Number(value))}</span>
                     </span>
@@ -190,7 +173,7 @@ export function MonthlyFlowChart({ data, height = 300, projectedFrom, headline }
                 fill={r.projected ? 'transparent' : `url(#${STRIPE_ID})`}
                 stroke={r.projected ? 'var(--series-expense)' : 'none'}
                 strokeWidth={r.projected ? 1 : 0}
-                strokeDasharray={r.projected ? PROJECTED_DASH : undefined}
+                strokeDasharray={r.projected ? PROJECTION_DASH : undefined}
               />
             ))}
           </Bar>

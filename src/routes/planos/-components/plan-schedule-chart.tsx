@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react'
 import { useMemo } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from 'recharts'
-import { CHART_TOKENS, HATCH, hatchBackground, SERIES_SWATCH } from '@/components/charts/chart-theme'
+import { CHART_TOKENS } from '@/components/charts/chart-theme'
+import { EXPENSE_HATCH_SWATCH, expenseHatch, type LegendMark, MONEY_AXIS, MONEY_GRID, MONTH_AXIS, PROJECTION_DASH } from '@/components/charts/money-bar'
+import { ChartHeader, MarkSwatch } from '@/components/charts/money-bar-chart'
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { planStatuses } from '@/data/types'
 import { EXPENSE_VAR } from '@/lib/chart-tokens'
-import { formatAxis, formatBRL, formatMonthLongLabel, formatMonthShort } from '@/lib/format'
+import { formatBRL, formatMonthLongLabel } from '@/lib/format'
 /** A linha do gráfico: a base já prevista mais as duas fatias de plano. */
 export interface PlanRow {
   month: string
@@ -13,7 +15,6 @@ export interface PlanRow {
   decided: number
   considering: number
 }
-import { cn } from '@/lib/utils'
 
 /** Os rótulos saem da lista de enum do domínio — o gráfico não redigita "Decidido". */
 const statusLabel = (value: string) => planStatuses.find((s) => s.value === value)?.label ?? value
@@ -29,9 +30,13 @@ const scheduleConfig = {
 
 const CHART_MARGIN = { top: 8, right: 8, left: 0, bottom: 0 }
 const STRIPE_ID = 'wallet-plan-stripes'
-/** O mesmo tracejado do divisor de projeção: no app inteiro ele quer dizer "ainda não é fato". */
-const HYPOTHESIS_DASH = '4 4'
-const STRIPE_SWATCH = hatchBackground('var(--series-expense-stripe)', 'var(--series-expense-fill)')
+
+/** As marcas da legenda, e as MESMAS amostras que o tooltip reusa — nunca duas descrições. */
+const MARKS: Record<keyof typeof scheduleConfig, LegendMark> = {
+  baseline: { label: 'Já previsto', background: 'var(--series-other)' },
+  decided: { label: statusLabel('decided'), background: EXPENSE_HATCH_SWATCH, ring: true },
+  considering: { label: statusLabel('considering'), dashed: 'var(--series-expense)' },
+}
 
 /**
  * A agenda de desembolso dos planos, mês a mês.
@@ -67,37 +72,15 @@ export function PlanScheduleChart({ data, height = 260, headline }: { data: Plan
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        {headline ?? <span />}
-        <div className="flex items-center gap-5 text-xs font-medium">
-          <span className="flex items-center gap-2">
-            <span className={cn(SERIES_SWATCH, 'size-3.5')} style={{ background: 'var(--series-other)' }} aria-hidden />
-            {scheduleConfig.baseline.label}
-          </span>
-          <span className="flex items-center gap-2">
-            <span className={cn(SERIES_SWATCH, 'size-3.5 ring-1 ring-border ring-inset')} style={{ background: STRIPE_SWATCH }} aria-hidden />
-            {scheduleConfig.decided.label}
-          </span>
-          {/* O quadradinho REPRODUZ a marca (§2): oco e de traço tracejado, como a barra. */}
-          <span className="flex items-center gap-2">
-            <span className={cn(SERIES_SWATCH, 'size-3.5 border border-dashed')} style={{ borderColor: 'var(--series-expense)' }} aria-hidden />
-            {scheduleConfig.considering.label}
-          </span>
-        </div>
-      </div>
+      <ChartHeader headline={headline} marks={[MARKS.baseline, MARKS.decided, MARKS.considering]} />
 
       <ChartContainer config={scheduleConfig} className={CHART_TOKENS} style={containerStyle}>
         <BarChart accessibilityLayer data={data} margin={CHART_MARGIN} barCategoryGap="14%">
-          <defs>
-            <pattern id={STRIPE_ID} width={HATCH.wide.step} height={HATCH.wide.step} patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
-              <rect width={HATCH.wide.step} height={HATCH.wide.step} style={{ fill: 'var(--series-expense-fill)' }} />
-              <rect width={HATCH.wide.stripe} height={HATCH.wide.step} style={{ fill: 'var(--series-expense-stripe)' }} />
-            </pattern>
-          </defs>
+          {expenseHatch(STRIPE_ID)}
 
-          <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
-          <XAxis dataKey="month" tickFormatter={formatMonthShort} axisLine={{ stroke: 'var(--chart-grid)' }} tickLine={false} tickMargin={12} />
-          <YAxis tickFormatter={(v: number) => formatAxis(v)} axisLine={false} tickLine={false} width={70} />
+          <CartesianGrid {...MONEY_GRID} />
+          <XAxis {...MONTH_AXIS} />
+          <YAxis {...MONEY_AXIS} />
 
           <ChartTooltip
             content={
@@ -108,12 +91,8 @@ export function PlanScheduleChart({ data, height = 260, headline }: { data: Plan
                   <>
                     <span className="flex flex-1 items-center justify-between gap-6">
                       <span className="flex items-center gap-2 text-muted-foreground">
-                        <span
-                          className={cn(SERIES_SWATCH, name === 'considering' && 'border border-dashed')}
-                          style={name === 'considering' ? { borderColor: 'var(--series-expense)' } : name === 'baseline' ? { background: 'var(--series-other)' } : { background: STRIPE_SWATCH }}
-                          aria-hidden
-                        />
-                        {scheduleConfig[name as keyof typeof scheduleConfig]?.label}
+                        <MarkSwatch mark={MARKS[name as keyof typeof MARKS]} />
+                        {MARKS[name as keyof typeof MARKS]?.label}
                       </span>
                       <span className="font-medium tabular-nums">{formatBRL(Number(value))}</span>
                     </span>
@@ -147,7 +126,7 @@ export function PlanScheduleChart({ data, height = 260, headline }: { data: Plan
           </Bar>
           <Bar dataKey="considering" stackId="a" maxBarSize={64} radius={[5, 5, 0, 0]} isAnimationActive={false}>
             {data.map((row) => (
-              <Cell key={row.month} fill="transparent" stroke="var(--series-expense)" strokeWidth={1} strokeDasharray={HYPOTHESIS_DASH} />
+              <Cell key={row.month} fill="transparent" stroke="var(--series-expense)" strokeWidth={1} strokeDasharray={PROJECTION_DASH} />
             ))}
           </Bar>
         </BarChart>
