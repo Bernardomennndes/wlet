@@ -5,6 +5,7 @@ import { HidingSquaresIcon } from '@/components/hiding-squares-icon'
 import { NAV } from '@/components/layout/nav'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup, ButtonGroupText } from '@/components/ui/button-group'
+import { META } from '@/lib/finance'
 import { MonthPicker } from '@/components/ui/month-picker'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -49,6 +50,9 @@ function sidebarDefaultOpen(): boolean {
 
 export function AppShell() {
   const { scope, setScope, period, setPeriod, monthsWithData } = useFilters()
+  // O piso do seletor é o MESMO do `clampPeriod`: escolher antes do primeiro lançamento
+  // seria corrigido em silêncio, e um limite que existe tem de ser visível onde se escolhe.
+  const firstMonth = META.months[0]
   const { theme, toggleTheme } = useTheme()
   const { pathname } = useLocation()
 
@@ -128,9 +132,10 @@ export function AppShell() {
             </ToggleGroup>
             {/* Par de meses colado num único controle: o "até" fica entre os dois gatilhos. */}
             <ButtonGroup aria-label="Período">
-              <MonthPicker aria-label="Mês inicial" value={period.from} onValueChange={(from) => setPeriod({ ...period, from })} withData={monthsWithData} />
+              <MonthPicker aria-label="Mês inicial" value={period.from} onValueChange={(from) => setPeriod({ ...period, from })} withData={monthsWithData} min={firstMonth} />
               <ButtonGroupText className="text-muted-foreground">até</ButtonGroupText>
-              <MonthPicker aria-label="Mês final" value={period.to} onValueChange={(to) => setPeriod({ ...period, to })} withData={monthsWithData} />
+              {/* O fim não tem teto: parcela e plano podem cair em qualquer mês à frente. */}
+              <MonthPicker aria-label="Mês final" value={period.to} onValueChange={(to) => setPeriod({ ...period, to })} withData={monthsWithData} min={firstMonth} />
             </ButtonGroup>
             <Button variant="outline" size="icon" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'}>
               {theme === 'dark' ? <Sun /> : <Moon />}

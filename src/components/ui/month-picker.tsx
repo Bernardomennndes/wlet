@@ -16,6 +16,13 @@ interface Props {
   id?: string
   /** Meses que têm lançamentos: ganham um ponto, para saber onde os dados estão. */
   withData?: readonly string[]
+  /**
+   * Primeiro mês escolhível (AAAA-MM). Antes dele o mês fica DESABILITADO e a seta do ano
+   * para: sem isso o seletor oferece 2019, quem clica é corrigido em silêncio pelo
+   * `clampPeriod` e o mês exibido salta para outro sem nenhuma explicação. Um limite que
+   * existe precisa ser visível no lugar onde a escolha é feita.
+   */
+  min?: string
   className?: string
 }
 
@@ -25,12 +32,13 @@ interface Props {
  * dados não têm. Aqui a grade é de 12 meses com um passo de ano, então qualquer mês de
  * qualquer ano é alcançável.
  */
-export function MonthPicker({ value, onValueChange, withData, className, id, ...aria }: Props) {
+export function MonthPicker({ value, onValueChange, withData, className, id, min, ...aria }: Props) {
   const [open, setOpen] = useState(false)
   const selectedYear = Number(value.slice(0, 4))
   const [year, setYear] = useState(selectedYear)
 
   const hasData = new Set(withData ?? [])
+  const firstYear = min ? Number(min.slice(0, 4)) : Number.NEGATIVE_INFINITY
 
   return (
     <Popover
@@ -51,7 +59,7 @@ export function MonthPicker({ value, onValueChange, withData, className, id, ...
       />
       <PopoverContent align="start" className="w-60 p-3">
         <div className="mb-3 flex items-center justify-between">
-          <Button variant="ghost" size="icon-sm" aria-label="Ano anterior" onClick={() => setYear((y) => y - 1)}>
+          <Button variant="ghost" size="icon-sm" aria-label="Ano anterior" disabled={year <= firstYear} onClick={() => setYear((y) => y - 1)}>
             <ChevronLeft />
           </Button>
           <span className="text-sm font-semibold tabular-nums">{year}</span>
@@ -63,11 +71,16 @@ export function MonthPicker({ value, onValueChange, withData, className, id, ...
           {MONTHS.map((label, index) => {
             const month = `${year}-${String(index + 1).padStart(2, '0')}`
             const selected = month === value
+            // Só o passado é limitado. O futuro é aberto de propósito: um plano ou uma parcela
+            // pode cair a qualquer distância, e um teto ali esconderia o mês que se quer ver.
+            const before = min !== undefined && month < min
             return (
               <Button
                 key={month}
                 role="option"
                 aria-selected={selected}
+                aria-disabled={before}
+                disabled={before}
                 variant={selected ? 'default' : 'ghost'}
                 size="sm"
                 className="relative justify-center capitalize"

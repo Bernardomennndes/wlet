@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
-import { META, isMonth, lastMonthWithData, monthsBetween, projectionHorizon, selectTransactions, type Overrides, type Period, type Scope } from '@/lib/finance'
+import { META, isMonth, lastMonthWithData, monthsBetween, selectTransactions, type Overrides, type Period, type Scope } from '@/lib/finance'
 import { FiltersContext, type FiltersValue } from './use-filters'
 
 function readStorage<T>(key: string, fallback: T): T {
@@ -52,23 +52,27 @@ function readUrl() {
 const MAX_MONTHS = 120
 
 /**
- * Ordena e encaixa o período na janela que tem algo a mostrar: do primeiro mês com
- * lançamentos até o horizonte de projeção. Vale para o que vem do seletor, da URL e do
- * navegador — o seletor aceita qualquer mês, e fora dessa janela não existe barra para
- * desenhar, nem medida nem prevista.
+ * Ordena e encaixa o período. O PISO é o primeiro mês com lançamentos: antes dele não existe
+ * barra para desenhar, e um período que começa em 2019 abre o painel inteiro vazio.
+ *
+ * **O TETO foi removido.** Ele era o horizonte de projeção, e isso impedia de olhar para onde
+ * os compromissos de fato caem: uma compra em 12× feita em novembro chega até o fim do ano
+ * seguinte, e um plano pode ser marcado para qualquer mês. Com o teto, escolher esse mês
+ * devolvia silenciosamente o fim do ano corrente. Mês futuro sem nada a mostrar desenha uma
+ * coluna vazia, que é dado — bem diferente de recusar a pergunta.
  *
  * Truncar em 120 meses resolvia o tamanho e não o conteúdo: `?de=1900-01&ate=2030-12`
  * sobrepõe a faixa válida, escapava de qualquer descarte e abria em "Jan 00 até Dez 09",
- * com o painel inteiro vazio. Encaixar as duas pontas resolve os dois casos de uma vez,
- * e o teto de 120 meses fica como último recurso.
+ * com o painel inteiro vazio. Encaixar o piso resolve isso, e o teto de 120 meses fica como
+ * último recurso contra um período absurdamente largo.
  */
 function clampPeriod(p: Period): Period {
   const ordered = p.from <= p.to ? p : { from: p.to, to: p.from }
   const floor = META.months[0]
-  const ceiling = projectionHorizon()
-  // Sem interseção nenhuma não há o que encaixar: o período pedido fica inteiro fora.
-  if (ordered.to < floor || ordered.from > ceiling) return defaultPeriod()
-  const bounded = { from: ordered.from < floor ? floor : ordered.from, to: ordered.to > ceiling ? ceiling : ordered.to }
+  // Sem interseção nenhuma não há o que encaixar: o período pedido termina antes do primeiro
+  // lançamento, então fica inteiro fora.
+  if (ordered.to < floor) return defaultPeriod()
+  const bounded = { from: ordered.from < floor ? floor : ordered.from, to: ordered.to }
   const span = monthsBetween(bounded.from, bounded.to)
   return span.length > MAX_MONTHS ? { from: bounded.from, to: span[MAX_MONTHS - 1] } : bounded
 }
