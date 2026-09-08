@@ -131,7 +131,19 @@ export function AppShell() {
           ))}
         </SidebarContent>
 
-        <SidebarRail aria-label="Alternar barra lateral" title="Alternar barra lateral" />
+        {/* Com o gatilho fora do desktop, o rail passou a ser a ÚNICA porta — e ele estava
+            perdendo metade de si mesmo.
+            Ele é `absolute` dentro do painel, e no modo `offcanvas` o painel inteiro desliza
+            para `left: -160px`; a aresta do rail ia junto e sobravam 7 dos 16px na tela.
+            Clicar funcionava, mas num alvo da metade do tamanho e sem nada que o anunciasse.
+            `fixed left-0` tira o rail do painel que se move e o prende na borda da janela,
+            onde ele recupera a largura inteira. Continua sendo layout, não restyle: a
+            largura, a cor e o realce de hover seguem sendo os do componente. */}
+        <SidebarRail
+          aria-label="Alternar barra lateral"
+          title="Alternar barra lateral"
+          className="group-data-[collapsible=offcanvas]:fixed group-data-[collapsible=offcanvas]:right-auto group-data-[collapsible=offcanvas]:left-0"
+        />
       </Sidebar>
 
       {/* `min-w-0`: item flex nasce com min-width auto e não encolhe abaixo do próprio
@@ -139,10 +151,21 @@ export function AppShell() {
       <SidebarInset className="min-w-0">
         {/* `<div>`, não `<header>`: o landmark de cabeçalho pertence à página, e só pode haver um. */}
         <div className="sticky top-0 z-10 flex min-h-14 flex-wrap items-center gap-2 border-b bg-background/95 px-4 backdrop-blur md:px-6">
-          <SidebarTrigger className="-ml-1" aria-label="Alternar barra lateral" />
+          {/* O gatilho SÓ existe no celular, e o `md:hidden` não é gosto — é o que impede a
+              navegação de ficar inalcançável.
+              No desktop quem abre e fecha é o `SidebarRail`, a faixa na aresta da barra: com
+              o painel escondido ela fica colada na borda esquerda da janela, de altura
+              inteira, e acende ao passar o cursor. Abaixo de 768px o rail NÃO EXISTE — o
+              invólucro do desktop é `hidden md:block` e o rail é `hidden sm:flex` —, e ali a
+              barra lateral é um `Sheet` que só este botão abre. Sem a exceção, um celular
+              ficaria sem nenhuma porta para o menu. 768px é o mesmo número dos dois lados:
+              o `MOBILE_BREAKPOINT` do `use-mobile` e o `md` do Tailwind.
+              O atalho Cmd/Ctrl+B continua valendo nos dois. */}
+          <SidebarTrigger className="-ml-1 md:hidden" aria-label="Alternar barra lateral" />
           {/* A altura aqui é layout, não restyle: a barra não tem altura fixa, então o
-              divisor precisa declarar a sua para não esticar com o flex-wrap. */}
-          <Separator orientation="vertical" className="mr-1 data-vertical:h-4 data-vertical:self-auto" />
+              divisor precisa declarar a sua para não esticar com o flex-wrap. Ele acompanha o
+              gatilho: sem botão à esquerda não há o que separar da trilha. */}
+          <Separator orientation="vertical" className="mr-1 data-vertical:h-4 data-vertical:self-auto md:hidden" />
           {/* A trilha mora AQUI, e não mais acima do `<h1>` de cada página.
               Ela é chrome de navegação, não conteúdo da tela: repetida em dez `-content.tsx`,
               ela empurrava o título para baixo em todas e cobrava uma linha inteira do primeiro
