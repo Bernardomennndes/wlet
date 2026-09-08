@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
-import { META, isMonth, lastMonthWithData, monthsBetween, selectTransactions, type Overrides, type Period, type Scope } from '@/lib/finance'
+import { META, isMonth, lastMonthWithData, monthsBetween, projectionHorizon, selectTransactions, type Overrides, type Period, type Scope } from '@/lib/finance'
 import { FiltersContext, type FiltersValue } from './use-filters'
 
 function readStorage<T>(key: string, fallback: T): T {
@@ -19,10 +19,18 @@ function writeStorage(key: string, value: unknown) {
   }
 }
 
+/**
+ * O padrão vai do nono mês atrás até o HORIZONTE DE PROJEÇÃO, não até o último mês com dados.
+ *
+ * Ele terminava na última medição, e com o período governando todas as telas isso deixaria
+ * Previsão e Planos vazias por padrão — elas olham para a frente, e não haveria mês futuro
+ * dentro da janela. Incluir a projeção no padrão é o que torna "o filtro vale em toda tela"
+ * uma regra que não quebra nenhuma delas; quem quiser só o medido estreita o fim.
+ */
 function defaultPeriod(): Period {
   const all = META.months
-  const to = all[all.length - 1]
-  const [y, m] = to.split('-').map(Number)
+  const to = projectionHorizon()
+  const [y, m] = all[all.length - 1].split('-').map(Number)
   const fromDate = new Date(Date.UTC(y, m - 1 - 8, 1))
   const from = `${fromDate.getUTCFullYear()}-${String(fromDate.getUTCMonth() + 1).padStart(2, '0')}`
   // Extratos bancários começam em 2026-01; antes disso só há faturas parciais.

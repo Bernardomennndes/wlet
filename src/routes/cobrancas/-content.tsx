@@ -21,7 +21,7 @@ const HISTORY_MONTHS = 12
 
 export function CobrancasPageContent() {
   useDocumentTitle('Cobranças')
-  const { history, monthsWithData, scope } = useFilters()
+  const { history, monthsWithData, scope, period, transactions } = useFilters()
 
   const currentMonth = lastMonthWithData()
   const today = lastDateWithData()
@@ -32,26 +32,34 @@ export function CobrancasPageContent() {
   // Sem conta declarada não dá para dizer que ela é de um recorte só, então ela aparece nos dois.
   const receivables = useMemo(() => RECEIVABLES.filter((receivable) => !receivable.match.accountId || accountInScope(receivable.match.accountId, scope)), [scope])
 
-  // A janela é TODO o histórico, não o período do cabeçalho: uma cobrança em atraso desde
-  // abril não pode sumir porque alguém estreitou o filtro para os últimos dois meses.
+  /**
+   * A conciliação roda sobre TODO o histórico, e só depois o período recorta o que se vê.
+   *
+   * A ordem importa: numa cobrança parcelada o dinheiro entra em agosto e quita setembro, e
+   * conciliar já filtrado declararia setembro em aberto sempre que o filtro começasse depois
+   * de agosto. Calcular inteiro e exibir recortado dá o filtro sem perder a conta — mas o
+   * preço fica dito: um atraso de abril não aparece num período que começa em agosto.
+   */
   const settled = useMemo(() => settle(history, monthsWithData, today), [history, monthsWithData, today])
+  const inPeriod = useMemo(() => settled.filter((o) => o.month >= period.from && o.month <= period.to), [settled, period])
 
   const byReceivable = useMemo(() => {
     const map = new Map<string, Settlement[]>()
-    for (const occurrence of settled) {
+    for (const occurrence of inPeriod) {
       const list = map.get(occurrence.ruleId) ?? []
       list.push(occurrence)
       map.set(occurrence.ruleId, list)
     }
     return map
-  }, [settled])
+  }, [inPeriod])
 
-  const openThisMonth = sum(settled.filter((o) => o.month === currentMonth).map((o) => Math.max(0, o.expected - o.actual)))
-  const overdue = settled.filter((o) => o.status === 'overdue')
+  const openThisMonth = sum(inPeriod.filter((o) => o.month === currentMonth).map((o) => Math.max(0, o.expected - o.actual)))
+  const overdue = inPeriod.filter((o) => o.status === 'overdue')
   const overdueTotal = sum(overdue.map((o) => o.expected))
-  // O abatido segue o PERÍODO do cabeçalho, ao contrário dos dois acima: é o número que
-  // fecha com o que saiu das categorias na Visão geral, e aquela tela obedece ao filtro.
-  const offsetInPeriod = useMemo(() => sum(history.filter((tx) => tx.flow === 'reimbursement').map((tx) => Math.abs(tx.amount))), [history])
+  // O abatido segue o PERÍODO, e agora de verdade: ele lia `history`, o recorte inteiro, e
+  // o comentário aqui já afirmava o contrário. É o número que fecha com o que saiu das
+  // categorias na Visão geral, então tem de ler o mesmo conjunto que aquela tela lê.
+  const offsetInPeriod = useMemo(() => sum(transactions.filter((tx) => tx.flow === 'reimbursement').map((tx) => Math.abs(tx.amount))), [transactions])
 
   return (
     <div className="flex flex-col gap-5">

@@ -64,7 +64,7 @@ function describeDueDay(entry: PlannedEntry, window: string[]): string | null {
 
 export function PrevisaoPageContent() {
   useDocumentTitle('Previsão')
-  const { history, scope } = useFilters()
+  const { history, scope, period } = useFilters()
   // A janela da prévia sai das próprias regras, não do filtro do cabeçalho: começa no mês
   // seguinte ao último com lançamentos e vai até a última ocorrência conhecida. Mínimo de
   // 12 meses para dar contexto, máximo de 24 para não virar tabela infinita quando houver
@@ -75,6 +75,13 @@ export function PrevisaoPageContent() {
   const cutoff = lastDateWithData()
   const partialHasPending = useMemo(() => PLANNED.some((entry) => pendingIn(entry, partialMonth, cutoff)), [partialMonth, cutoff])
 
+  /**
+   * Os meses que esta tela projeta, RECORTADOS pelo período do cabeçalho.
+   *
+   * O `start` continua sendo o piso absoluto — não existe prever um mês já medido —, então o
+   * período só encurta pela frente e pelo fim. Estender `ate` alcança mais longe, que é o que
+   * a remoção do teto do período passou a permitir.
+   */
   const futureMonths = useMemo(() => {
     const start = partialHasPending ? partialMonth : shiftMonth(partialMonth, 1)
     const finite = PLANNED.map(lastOccurrence)
@@ -83,8 +90,9 @@ export function PrevisaoPageContent() {
     const last = finite.length ? finite[finite.length - 1] : start
     const min = shiftMonth(start, 11)
     const max = shiftMonth(start, 23)
-    return monthsBetween(start, last > min ? (last > max ? max : last) : min)
-  }, [partialMonth, partialHasPending])
+    const natural = monthsBetween(start, last > min ? (last > max ? max : last) : min)
+    return natural.filter((month) => month >= period.from && month <= period.to)
+  }, [partialMonth, partialHasPending, period])
 
   // A MESMA previsão que o gráfico da Visão geral desenha. Antes esta tela somava só as
   // regras de `planned.config.ts`, e o resultado era um terceiro número para o mesmo mês:

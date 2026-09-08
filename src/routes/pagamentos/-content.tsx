@@ -27,7 +27,7 @@ const HISTORY_MONTHS = 12
 
 export function PagamentosPageContent() {
   useDocumentTitle('Pagamentos')
-  const { history, monthsWithData, scope } = useFilters()
+  const { history, monthsWithData, scope, period } = useFilters()
 
   const currentMonth = lastMonthWithData()
   const today = lastDateWithData()
@@ -36,19 +36,27 @@ export function PagamentosPageContent() {
   // pertence à Previsão, não a esta tela. Aqui a pergunta é "o que ainda vou pagar".
   const payables = useMemo(() => CONCILIATED.filter((entry) => entry.kind === 'expense' && (scope === 'all' || entry.entity === scope)), [scope])
 
+  /**
+   * A conciliação roda sobre TODO o histórico, e só depois o período recorta o que se vê.
+   *
+   * A ordem importa: numa regra parcelada o dinheiro entra em agosto e quita setembro, então
+   * conciliar já filtrado declararia setembro em aberto sempre que o filtro começasse depois
+   * de agosto. Calcular inteiro e exibir recortado dá o filtro sem perder a conta.
+   */
   const settled = useMemo(() => settlePlanned(history, monthsWithData, today, 'expense'), [history, monthsWithData, today])
+  const inPeriod = useMemo(() => settled.filter((o) => o.month >= period.from && o.month <= period.to), [settled, period])
   const byRule = useMemo(() => {
     const map = new Map<string, Settlement[]>()
-    for (const occurrence of settled) {
+    for (const occurrence of inPeriod) {
       const list = map.get(occurrence.ruleId) ?? []
       list.push(occurrence)
       map.set(occurrence.ruleId, list)
     }
     return map
-  }, [settled])
+  }, [inPeriod])
 
   const visible = useMemo(() => new Set(payables.map((entry) => entry.id)), [payables])
-  const inScope = useMemo(() => settled.filter((occurrence) => visible.has(occurrence.ruleId)), [settled, visible])
+  const inScope = useMemo(() => inPeriod.filter((occurrence) => visible.has(occurrence.ruleId)), [inPeriod, visible])
 
   const dueThisMonth = sum(inScope.filter((o) => o.month === currentMonth).map((o) => Math.max(0, o.expected - o.actual)))
   const overdue = inScope.filter((o) => o.status === 'overdue')

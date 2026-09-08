@@ -24,7 +24,7 @@ import { PlanSheet } from './-components/plan-sheet'
 export function PlanosPageContent() {
   useDocumentTitle('Planos')
 
-  const { monthsWithData, history, scope } = useFilters()
+  const { monthsWithData, history, scope, period } = useFilters()
   const { groups, items, decided, addPlan, updatePlan, removePlan, addGroup, removeGroup, data, replaceAll } = usePlans()
 
   const [open, setOpen] = useState(false)
@@ -73,7 +73,9 @@ export function PlanosPageContent() {
     // declaradas —, e é por isso que o gráfico tem o que desenhar mesmo antes de o primeiro
     // plano ganhar data. Os segundos esticam a janela para a frente quando um plano vai além
     // do horizonte.
-    const months = [...new Set([...monthsBetween(shiftMonth(last, 1), horizon), ...schedule.map((m) => m.month)])].sort()
+    // A janela natural, depois recortada pelo período do cabeçalho — como em toda outra tela.
+    const natural = [...new Set([...monthsBetween(shiftMonth(last, 1), horizon), ...schedule.map((m) => m.month)])].sort()
+    const months = natural.filter((month) => month >= period.from && month <= period.to)
     const targets = months.filter((m) => m > last)
     const input = { history, planned: plannedInScope(scope), receivables: receivablesInScope(scope, (id) => ACCOUNT_MAP[id]?.entity) }
     const all = new Map(buildForecast({ ...input, plans: live, targets }).map((m) => [m.month, m]))
@@ -94,7 +96,7 @@ export function PlanosPageContent() {
         considering: a ? Math.max(0, a.sources.plan - (d?.sources.plan ?? 0)) : (p?.considering ?? 0),
       }
     })
-  }, [schedule, items, decided, history, scope])
+  }, [schedule, items, decided, history, scope, period])
   // O cartão da agenda olha o que é AGENDÁVEL, não a lista inteira: com tudo descartado a
   // mensagem de vazio diria "nenhum plano tem mês", que seria falso — eles têm, você é que
   // desistiu deles.
