@@ -17,6 +17,9 @@ import {
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
@@ -93,21 +96,35 @@ export function AppShell() {
         </SidebarHeader>
 
         <SidebarContent>
-          {/* O `tooltip` saiu junto com o ícone: ele existia para nomear o botão no modo
-              colapsado, e agora o rótulo está sempre na tela. */}
+          {/* Os itens vão dentro de um `SidebarMenuSub`, que é o `<ul>` com `border-l`: essa
+              linha É o rail que declara o agrupamento. O `tooltip` saiu junto com o ícone —
+              ele existia para nomear o botão quando só o ícone aparecia. */}
           {NAV.map((group) => (
             <SidebarGroup key={group.label}>
               <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
               <SidebarGroupContent>
-                <SidebarMenu>
-                  {group.items.map((item) => (
-                    <SidebarMenuItem key={item.to}>
-                      <SidebarMenuButton isActive={item.to === '/' ? pathname === '/' : pathname.startsWith(item.to)} render={<NavLink to={item.to} />}>
-                        <span>{item.label}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
+                {/* O recuo padrão do `SidebarMenuSub` (`mx-3.5 px-2.5`) soma 24px antes do texto, e
+                    numa barra de 10rem isso truncava "Transferências". Aqui ele é layout, não
+                    variante: o componente do registry não expõe tamanho, e o vão é o que faz o
+                    rótulo caber. */}
+                <SidebarMenuSub className="mx-2 px-2">
+                  {group.items.map((item) => {
+                    const active = item.to === '/' ? pathname === '/' : pathname.startsWith(item.to)
+                    return (
+                      <SidebarMenuSubItem key={item.to}>
+                        {/* O marcador da seleção vive SOBRE o rail, e é por isso que ele é
+                            filho do `<li>` — o item é `relative`, e o deslocamento negativo
+                            alcança a borda do `<ul>`: os 8px do `px-2` mais o 1px da própria
+                            borda. Posicionado assim ele acompanha a altura do item sem que
+                            nada precise medir nada. */}
+                        {active ? <span aria-hidden className="absolute -left-[9px] top-1 bottom-1 w-0.5 rounded-full bg-sidebar-primary" /> : null}
+                        <SidebarMenuSubButton isActive={active} render={<NavLink to={item.to} />}>
+                          <span>{item.label}</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    )
+                  })}
+                </SidebarMenuSub>
               </SidebarGroupContent>
             </SidebarGroup>
           ))}
