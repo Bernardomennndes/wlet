@@ -47,7 +47,13 @@ export function Breadcrumbs({ trail = [] }: { trail?: TrailNode[] }) {
           return (
             <BreadcrumbItem key={`${node.label}-${node.to ?? 'atual'}`}>
               {isLast || !node.to ? <BreadcrumbPage>{node.label}</BreadcrumbPage> : <BreadcrumbLink render={<Link to={node.to} />}>{node.label}</BreadcrumbLink>}
-              {isLast ? null : <BreadcrumbSeparator />}
+              {/* O separador é uma BARRA, não o chevron padrão do registry.
+                  A barra é o separador de caminho — é o que a própria URL usa —, então ela
+                  diz "um nível dentro do outro" sem precisar de um glifo desenhado para
+                  isso. Sendo texto e não SVG, ela senta na linha de base dos rótulos em vez
+                  de flutuar ao lado deles. Passa por `children` para o arquivo do registry
+                  ficar intacto. */}
+              {isLast ? null : <BreadcrumbSeparator>/</BreadcrumbSeparator>}
             </BreadcrumbItem>
           )
         })}
