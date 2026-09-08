@@ -57,9 +57,16 @@ export const flowKinds: EnumOption<Flow>[] = [
 
 export type Entity = 'PF' | 'PJ'
 
+/**
+ * O `label` é o termo por extenso e o `shortLabel` é a sigla, e os dois têm consumidor próprio:
+ * o `label` desenha os toggles de recorte do cabeçalho, onde há espaço e o par precisa ser
+ * simétrico — "Pessoa física" contra "Empresa" comparava uma pessoa com uma organização, sendo
+ * que o eixo é a natureza jurídica dos dois lados. O `shortLabel` desenha o badge de conta, que
+ * se repete em toda linha da tabela de transações e não comportaria o termo inteiro.
+ */
 export const entityKinds: EnumOption<Entity>[] = [
   { value: 'PF', label: 'Pessoa física', shortLabel: 'PF', icon: User, tone: 'neutral' },
-  { value: 'PJ', label: 'Empresa', shortLabel: 'PJ', icon: Buildings, tone: 'neutral' },
+  { value: 'PJ', label: 'Pessoa jurídica', shortLabel: 'PJ', icon: Buildings, tone: 'neutral' },
 ]
 
 export type AccountType = 'checking' | 'credit-card' | 'investment'
