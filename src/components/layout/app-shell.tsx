@@ -69,7 +69,9 @@ export function AppShell() {
 
   return (
     <SidebarProvider defaultOpen={sidebarDefaultOpen()}>
-      <Sidebar collapsible="icon">
+      {/* `offcanvas` e não `icon`: sem ícone no menu, a faixa estreita do modo `icon` ficaria
+          em branco — colapsar passou a significar esconder, que é o que sobra de honesto. */}
+      <Sidebar collapsible="offcanvas">
         <SidebarHeader>
           <SidebarMenu>
             <SidebarMenuItem>
@@ -91,21 +93,24 @@ export function AppShell() {
         </SidebarHeader>
 
         <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel>Painéis</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {NAV.map((item) => (
-                  <SidebarMenuItem key={item.to}>
-                    <SidebarMenuButton isActive={item.to === '/' ? pathname === '/' : pathname.startsWith(item.to)} tooltip={item.label} render={<NavLink to={item.to} />}>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          {/* O `tooltip` saiu junto com o ícone: ele existia para nomear o botão no modo
+              colapsado, e agora o rótulo está sempre na tela. */}
+          {NAV.map((group) => (
+            <SidebarGroup key={group.label}>
+              <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {group.items.map((item) => (
+                    <SidebarMenuItem key={item.to}>
+                      <SidebarMenuButton isActive={item.to === '/' ? pathname === '/' : pathname.startsWith(item.to)} render={<NavLink to={item.to} />}>
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))}
         </SidebarContent>
 
         <SidebarRail aria-label="Alternar barra lateral" title="Alternar barra lateral" />
