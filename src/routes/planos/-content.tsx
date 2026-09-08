@@ -68,14 +68,21 @@ export function PlanosPageContent() {
     const last = lastMonthWithData()
     const horizon = projectionHorizon()
 
-    // A JANELA é a união de duas coisas: os meses que o app projeta e os meses que os planos
-    // alcançam. Os primeiros existem com ou sem lista — são parcelas já compradas e contas já
-    // declaradas —, e é por isso que o gráfico tem o que desenhar mesmo antes de o primeiro
-    // plano ganhar data. Os segundos esticam a janela para a frente quando um plano vai além
-    // do horizonte.
-    // A janela natural, depois recortada pelo período do cabeçalho — como em toda outra tela.
-    const natural = [...new Set([...monthsBetween(shiftMonth(last, 1), horizon), ...schedule.map((m) => m.month)])].sort()
-    const months = natural.filter((month) => month >= period.from && month <= period.to)
+    // A JANELA SEGUE O PERÍODO do cabeçalho, e é ele quem manda nas duas pontas.
+    //
+    // Ela já nasceu limitada ao horizonte de projeção uma vez, e o filtro só sabia encurtar:
+    // esticar o período para Dez 27 não alcançava nada, porque não havia mês de Dez 27 na
+    // janela para sobreviver ao recorte. Um filtro que só corta não é o filtro.
+    //
+    // O PISO absoluto é o primeiro mês projetável — não se planeja compra num mês já medido —,
+    // então o começo do período só empurra a janela para a frente, nunca para trás. Os meses
+    // que os planos alcançam entram mesmo fora do período? Não: eles também são recortados,
+    // senão o gráfico mostraria coluna fora da janela que o cabeçalho declara.
+    const start = shiftMonth(last, 1)
+    const from = period.from > start ? period.from : start
+    const to = period.to > from ? period.to : from
+    const natural = [...new Set([...monthsBetween(from, to), ...schedule.map((m) => m.month)])].sort()
+    const months = natural.filter((month) => month >= from && month <= to)
     const targets = months.filter((m) => m > last)
     const input = { history, planned: plannedInScope(scope), receivables: receivablesInScope(scope, (id) => ACCOUNT_MAP[id]?.entity) }
     const all = new Map(buildForecast({ ...input, plans: live, targets }).map((m) => [m.month, m]))
@@ -88,10 +95,14 @@ export function PlanosPageContent() {
       const p = planned.get(month)
       return {
         month,
-        // Além do horizonte de projeção a base é ZERO, não uma estimativa: o app não se dispõe
-        // a projetar rubrica e conta declarada até lá, e desenhá-las ali afirmaria um orçamento
-        // que ninguém escreveu. Sobram só os planos, que têm data própria.
-        baseline: a && month <= horizon ? Math.max(0, a.expense - a.sources.plan) : 0,
+        // Além do horizonte, a base guarda o FATO e descarta a ESTIMATIVA.
+        //
+        // Zerá-la inteira era o erro: jogava fora, junto com a projeção, as parcelas de cartão
+        // JÁ COMPRADAS que caem lá. Um 12x feito em novembro tem parcela até outubro do ano
+        // seguinte, e ela existe com ou sem horizonte — não é o app projetando, é uma compra
+        // que já aconteceu. O que fica de fora é rubrica e conta declarada, que ali seriam um
+        // orçamento que ninguém escreveu.
+        baseline: a ? (month <= horizon ? Math.max(0, a.expense - a.sources.plan) : Math.max(0, a.sources.committed)) : 0,
         decided: d ? d.sources.plan : (p?.decided ?? 0),
         considering: a ? Math.max(0, a.sources.plan - (d?.sources.plan ?? 0)) : (p?.considering ?? 0),
       }
@@ -172,7 +183,7 @@ export function PlanosPageContent() {
             <CardTitle>Quanto sai por mês</CardTitle>
             <CardDescription>
               O que cada mês já tem previsto — parcelas de cartão compradas, contas declaradas e rubricas — e, em cima, o que esta lista acrescenta. A coluna cheia é o que você já decidiu; a de
-              contorno tracejado ainda é hipótese. Além de {formatMonthShort(projectionHorizon())} o app não projeta, então ali sobram só os planos.
+              contorno tracejado ainda é hipótese. Além de {formatMonthShort(projectionHorizon())} ficam só as parcelas já compradas e os planos: rubrica e conta declarada o app não projeta tão longe.
             </CardDescription>
           </CardHeader>
           <CardContent>

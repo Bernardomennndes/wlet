@@ -90,8 +90,12 @@ export function PrevisaoPageContent() {
     const last = finite.length ? finite[finite.length - 1] : start
     const min = shiftMonth(start, 11)
     const max = shiftMonth(start, 23)
-    const natural = monthsBetween(start, last > min ? (last > max ? max : last) : min)
-    return natural.filter((month) => month >= period.from && month <= period.to)
+    // O FIM segue o período: esticar `ate` alcança mais longe, que é o que a remoção do teto
+    // passou a permitir. A janela natural (12 a 24 meses, conforme o alcance das regras
+    // declaradas) vale quando o período não diz nada de mais restrito nem de mais longo.
+    const natural = last > min ? (last > max ? max : last) : min
+    const end = period.to > start ? period.to : start
+    return monthsBetween(start, end).filter((month) => month >= period.from && month <= (period.to > natural ? period.to : natural))
   }, [partialMonth, partialHasPending, period])
 
   // A MESMA previsão que o gráfico da Visão geral desenha. Antes esta tela somava só as
