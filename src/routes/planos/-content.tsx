@@ -189,8 +189,8 @@ export function PlanosPageContent() {
             <CardTitle>Quanto sai por mês</CardTitle>
             <CardDescription>
               O que cada mês já tem preso, da base para o topo em ordem de certeza: parcela de cartão já comprada, conta declarada (líquida do que a cobrança abate) e rubrica de gasto. Em cima vem o
-              que esta lista acrescenta — cheio se você já decidiu, de contorno tracejado enquanto for hipótese. Além de {formatMonthShort(projectionHorizon())} sobram só as parcelas e os planos:
-              rubrica e conta declarada o app não projeta tão longe.
+              que esta lista acrescenta — em contorno vazado — inteiro no que você já decidiu, tracejado enquanto for hipótese. Além de {formatMonthShort(projectionHorizon())} sobram só as parcelas e
+              os planos: rubrica e conta declarada o app não projeta tão longe.
             </CardDescription>
           </CardHeader>
           <CardContent>

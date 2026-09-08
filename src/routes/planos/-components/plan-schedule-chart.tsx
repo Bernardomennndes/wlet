@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
 import { useMemo } from 'react'
-import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from 'recharts'
-import { CHART_TOKENS, hatchBackground } from '@/components/charts/chart-theme'
-import { hatchDefs, type LegendMark, MONEY_AXIS, MONEY_GRID, MONTH_AXIS, PROJECTION_DASH } from '@/components/charts/money-bar'
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
+import { CHART_TOKENS } from '@/components/charts/chart-theme'
+import { type LegendMark, MONEY_AXIS, MONEY_GRID, MONTH_AXIS, PROJECTION_DASH } from '@/components/charts/money-bar'
 import { ChartHeader, MarkSwatch } from '@/components/charts/money-bar-chart'
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { planStatuses } from '@/data/types'
@@ -37,13 +37,12 @@ const originLabel = (value: string) => forecastOrigins.find((o) => o.value === v
 const scheduleConfig = {
   committed: { label: originLabel('committed'), color: 'var(--primary)' },
   declared: { label: originLabel('declared'), color: 'var(--primary)' },
-  rubric: { label: originLabel('rubric'), color: 'var(--primary)' },
+  rubric: { label: 'Rubricas', color: 'var(--primary)' },
   decided: { label: statusLabel('decided'), color: 'var(--primary)' },
   considering: { label: statusLabel('considering'), color: 'var(--primary)' },
 } satisfies ChartConfig
 
 const CHART_MARGIN = { top: 8, right: 8, left: 0, bottom: 0 }
-const STRIPE_ID = 'wallet-plan-stripes'
 
 /**
  * Os três degraus do que o mês JÁ TEM PRESO, em ordem de certeza.
@@ -59,39 +58,53 @@ const STRIPE_ID = 'wallet-plan-stripes'
  * nesse tamanho. Com a hachura significando uma coisa só — "isto veio da sua lista" — ela
  * volta a distinguir o que a tela é sobre.
  */
+/**
+ * O vão entre as fatias, em pixels.
+ *
+ * Cada seção é um retângulo ISOLADO empilhado sobre o outro, e não um bloco contínuo — a mesma
+ * marca que a tela de Previsão desenha em `VolumeBar`. O Recharts não sabe empilhar com folga,
+ * então o vão sai de uma `shape` própria que encolhe o retângulo e arredonda os quatro cantos.
+ */
+const GAP = 3
+const RADIUS = 4
+
+/** Uma fatia: retângulo isolado, cheio ou OCO de traço tracejado — a marca do previsto. */
+function slice({ fill, stroke, dashed }: { fill?: string; stroke?: string; dashed?: boolean }) {
+  return (props: { x?: number; y?: number; width?: number; height?: number }) => {
+    const { x = 0, y = 0, width = 0, height = 0 } = props
+    if (height <= 0.5) return <g />
+    const h = Math.max(1, height - GAP)
+    return (
+      <rect
+        x={x}
+        y={y + GAP}
+        width={width}
+        height={h}
+        rx={Math.min(RADIUS, h / 2)}
+        fill={fill ?? 'none'}
+        stroke={stroke}
+        strokeWidth={stroke ? 1 : 0}
+        strokeDasharray={dashed ? PROJECTION_DASH : undefined}
+      />
+    )
+  }
+}
+
 const COMMITTED_FILL = 'var(--primary)'
 const DECLARED_FILL = 'color-mix(in oklab, var(--primary) 62%, var(--card))'
 const RUBRIC_FILL = 'color-mix(in oklab, var(--primary) 30%, var(--card))'
-
-/**
- * A hachura e o contorno dos planos, também em `--primary`.
- *
- * `--primary` INVERTE com o tema — preta no claro, branca no escuro —, então o gráfico inteiro
- * acompanha sem que nada precise ser declarado por tema. Os degraus são misturas com `--card`,
- * que inverte junto: o passo "38% da primária sobre o cartão" clareia no tema claro e escurece
- * no escuro, e a ordem de densidade se preserva nos dois.
- */
-const PLAN_HATCH = hatchBackground('var(--primary)', 'transparent')
 
 /** As marcas da legenda, e as MESMAS amostras que o tooltip reusa — nunca duas descrições. */
 const MARKS: Record<keyof typeof scheduleConfig, LegendMark> = {
   committed: { label: originLabel('committed'), background: COMMITTED_FILL },
   declared: { label: originLabel('declared'), background: DECLARED_FILL, ring: true },
-  rubric: { label: originLabel('rubric'), background: RUBRIC_FILL, ring: true },
-  decided: { label: statusLabel('decided'), background: PLAN_HATCH, ring: true },
+  rubric: { label: 'Rubricas', background: RUBRIC_FILL, ring: true },
+  // Os planos usam a estilização do GASTO PREVISTO da tela de Previsão: marca OCA de contorno.
+  // Contínuo no que você já assumiu, tracejado no que ainda é hipótese — o mesmo par que a
+  // `VolumeBar` usa para separar entrada de saída prevista.
+  decided: { label: statusLabel('decided'), outlined: 'var(--primary)' },
   considering: { label: statusLabel('considering'), dashed: 'var(--primary)' },
 }
-
-/**
- * O raio vai para a série que está no TOPO daquela coluna — a última com valor.
- *
- * Fixá-lo numa série só deixaria de topo reto todo mês em que ela não existe, ao lado de um
- * mês arredondado. Com cinco séries isso aconteceria o tempo todo.
- */
-/** O que o mês custaria: as cinco fatias somadas. */
-const total = (row: PlanRow) => row.committed + row.declared + row.rubric + row.decided + row.considering
-
-const topRadius = (acima: number[]) => (acima.some((v) => v > 0) ? 0 : ([5, 5, 0, 0] as unknown as number))
 
 /**
  * A agenda de desembolso dos planos, mês a mês.
@@ -122,17 +135,37 @@ const topRadius = (acima: number[]) => (acima.some((v) => v > 0) ? 0 : ([5, 5, 0
  * proteger, e a largura é o que faz este gráfico ser lido como irmão do da Visão geral, que é
  * de onde ele veio.
  */
+/**
+ * A ORDEM da pilha, de baixo para cima — e a mesma que a legenda lê da esquerda para a direita.
+ *
+ * As duas saem daqui e não de duas listas escritas à mão: legenda e desenho que se ordenam
+ * sozinhos divergem no primeiro ajuste, e aí o quadradinho passa a nomear a fatia errada.
+ *
+ * A ordem é a da CERTEZA: parcela já comprada na base, hipótese no topo.
+ */
+const ORDER = ['committed', 'declared', 'rubric', 'decided', 'considering'] as const
+
+/** O que o mês custaria: as cinco fatias somadas. */
+const total = (row: PlanRow) => row.committed + row.declared + row.rubric + row.decided + row.considering
+
+/** Como cada série é desenhada. Cheia enquanto é o mês que já está preso; oca no que vem da lista. */
+const SHAPE: Record<(typeof ORDER)[number], Parameters<typeof slice>[0]> = {
+  committed: { fill: COMMITTED_FILL },
+  declared: { fill: DECLARED_FILL },
+  rubric: { fill: RUBRIC_FILL },
+  decided: { stroke: 'var(--primary)' },
+  considering: { stroke: 'var(--primary)', dashed: true },
+}
+
 export function PlanScheduleChart({ data, height = 260, headline }: { data: PlanRow[]; height?: number; headline?: ReactNode }) {
   const containerStyle = useMemo(() => ({ height }), [height])
 
   return (
     <div className="flex flex-col gap-3">
-      <ChartHeader headline={headline} marks={[MARKS.committed, MARKS.declared, MARKS.rubric, MARKS.decided, MARKS.considering]} />
+      <ChartHeader headline={headline} marks={ORDER.map((key) => MARKS[key])} />
 
       <ChartContainer config={scheduleConfig} className={CHART_TOKENS} style={containerStyle}>
         <BarChart accessibilityLayer data={data} margin={CHART_MARGIN} barCategoryGap="14%">
-          {hatchDefs([{ id: STRIPE_ID, stripe: 'var(--primary)', fill: 'var(--card)' }])}
-
           <CartesianGrid {...MONEY_GRID} />
           <XAxis {...MONTH_AXIS} />
           <YAxis {...MONEY_AXIS} />
@@ -165,31 +198,11 @@ export function PlanScheduleChart({ data, height = 260, headline }: { data: Plan
           {/* Empilhadas, da mais CERTA para a mais incerta: parcela comprada na base, hipótese
               no topo. A altura total é o que o mês custaria; a leitura de baixo para cima diz
               quanto disso ainda se pode mudar de ideia. */}
-          <Bar dataKey="committed" stackId="a" maxBarSize={64} fill={COMMITTED_FILL} isAnimationActive={false}>
-            {data.map((row) => (
-              <Cell key={row.month} radius={topRadius([row.declared, row.rubric, row.decided, row.considering])} />
-            ))}
-          </Bar>
-          <Bar dataKey="declared" stackId="a" maxBarSize={64} fill={DECLARED_FILL} isAnimationActive={false}>
-            {data.map((row) => (
-              <Cell key={row.month} radius={topRadius([row.rubric, row.decided, row.considering])} />
-            ))}
-          </Bar>
-          <Bar dataKey="rubric" stackId="a" maxBarSize={64} fill={RUBRIC_FILL} isAnimationActive={false}>
-            {data.map((row) => (
-              <Cell key={row.month} radius={topRadius([row.decided, row.considering])} />
-            ))}
-          </Bar>
-          <Bar dataKey="decided" stackId="a" maxBarSize={64} fill={`url(#${STRIPE_ID})`} isAnimationActive={false}>
-            {data.map((row) => (
-              <Cell key={row.month} radius={topRadius([row.considering])} />
-            ))}
-          </Bar>
-          <Bar dataKey="considering" stackId="a" maxBarSize={64} radius={[5, 5, 0, 0]} isAnimationActive={false}>
-            {data.map((row) => (
-              <Cell key={row.month} fill="transparent" stroke="var(--primary)" strokeWidth={1} strokeDasharray={PROJECTION_DASH} />
-            ))}
-          </Bar>
+          {/* Uma <Bar> por série, na ORDEM declarada: o Recharts empilha na ordem dos filhos,
+              então a primeira é a base — e é a primeira da legenda. */}
+          {ORDER.map((key) => (
+            <Bar key={key} dataKey={key} stackId="a" maxBarSize={64} shape={slice(SHAPE[key])} isAnimationActive={false} />
+          ))}
         </BarChart>
       </ChartContainer>
     </div>

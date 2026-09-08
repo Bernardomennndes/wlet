@@ -91,8 +91,10 @@ export interface LegendMark {
   label: string
   /** Preenchimento do quadradinho. Ausente quando a marca é oca. */
   background?: string
-  /** Cor do contorno tracejado — a marca OCA, do que ainda não é fato. */
+  /** Cor do contorno tracejado — a marca OCA do que ainda é hipótese. */
   dashed?: string
+  /** Cor do contorno CONTÍNUO — a marca oca do que já foi assumido. */
+  outlined?: string
   /** Anel de 1px: a hachura clara some sobre o fundo do cartão sem ele. */
   ring?: boolean
 }

@@ -17,8 +17,8 @@ export function MarkSwatch({ mark, className }: { mark: LegendMark; className?: 
   return (
     <span
       aria-hidden
-      className={cn(SERIES_SWATCH, mark.dashed && 'border border-dashed', mark.ring && 'ring-1 ring-border ring-inset', className)}
-      style={mark.dashed ? { borderColor: mark.dashed } : { background: mark.background }}
+      className={cn(SERIES_SWATCH, mark.dashed && 'border border-dashed', mark.outlined && 'border border-solid', mark.ring && 'ring-1 ring-border ring-inset', className)}
+      style={mark.dashed ? { borderColor: mark.dashed } : mark.outlined ? { borderColor: mark.outlined } : { background: mark.background }}
     />
   )
 }
