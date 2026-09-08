@@ -1,9 +1,9 @@
-import { ArrowLeftRight, CalendarClock, HandCoins, Landmark, LayoutDashboard, List, PieChart, Receipt, Target, TrendingUp, type LucideIcon } from 'lucide-react'
+import { ArrowsLeftRight, Bank, CalendarDot, ChartPie, HandCoins, List, Receipt, SquaresFour, Target, TrendUp, type Icon as PhosphorIcon } from '@phosphor-icons/react'
 
 export interface NavItem {
   to: string
   label: string
-  icon: LucideIcon
+  icon: PhosphorIcon
 }
 
 /**
@@ -12,15 +12,15 @@ export interface NavItem {
  * rótulo, que separadas divergiriam sem nenhum sensor para avisar.
  */
 export const NAV: NavItem[] = [
-  { to: '/', label: 'Visão geral', icon: LayoutDashboard },
+  { to: '/', label: 'Visão geral', icon: SquaresFour },
   { to: '/transacoes', label: 'Transações', icon: List },
-  { to: '/categorias', label: 'Categorias', icon: PieChart },
-  { to: '/contas', label: 'Contas', icon: Landmark },
-  { to: '/transferencias', label: 'Transferências', icon: ArrowLeftRight },
-  { to: '/patrimonio', label: 'Patrimônio', icon: TrendingUp },
+  { to: '/categorias', label: 'Categorias', icon: ChartPie },
+  { to: '/contas', label: 'Contas', icon: Bank },
+  { to: '/transferencias', label: 'Transferências', icon: ArrowsLeftRight },
+  { to: '/patrimonio', label: 'Patrimônio', icon: TrendUp },
   { to: '/pagamentos', label: 'Pagamentos', icon: Receipt },
   { to: '/cobrancas', label: 'Cobranças', icon: HandCoins },
-  { to: '/previsao', label: 'Previsão', icon: CalendarClock },
+  { to: '/previsao', label: 'Previsão', icon: CalendarDot },
   { to: '/planos', label: 'Planos', icon: Target },
 ]
 

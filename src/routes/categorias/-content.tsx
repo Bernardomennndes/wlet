@@ -3,7 +3,7 @@ import { SERIES_SWATCH } from '@/components/charts/chart-theme'
 import { Breadcrumbs } from '@/components/breadcrumbs'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { Link, useSearchParams } from 'react-router'
-import { SearchX } from 'lucide-react'
+import { MagnifyingGlassMinus } from '@phosphor-icons/react'
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { CategoryBadge } from '@/components/category-badge'
 import { CHART_TOKENS } from '@/components/charts/chart-theme'
@@ -275,7 +275,7 @@ export function CategoriasPageContent() {
                         <Empty>
                           <EmptyHeader>
                             <EmptyMedia variant="icon">
-                              <SearchX />
+                              <MagnifyingGlassMinus />
                             </EmptyMedia>
                             <EmptyTitle>Nenhuma contraparte se repete em três ou mais meses no recorte e no período selecionados.</EmptyTitle>
                           </EmptyHeader>

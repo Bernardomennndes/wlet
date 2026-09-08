@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from 'react'
-import { Calculator, Info, Lightbulb, Target } from 'lucide-react'
+import { Calculator, Info, Lightbulb, Target } from '@phosphor-icons/react'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
 import { cn } from '@/lib/utils'
 

@@ -1,4 +1,4 @@
-import { CalendarClock, CopyX, Unlink, type LucideIcon } from 'lucide-react'
+import { CalendarDot, FileX, LinkBreak, type Icon as PhosphorIcon } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 
 export type Status = 'previsao' | 'sem-contraparte' | 'duplicado'
@@ -9,10 +9,10 @@ export type Status = 'previsao' | 'sem-contraparte' | 'duplicado'
  * `duplicado` é estado inerte (o arquivo repetido foi ignorado de propósito), não erro —
  * por isso cinza, e não a cor de alerta dos outros dois.
  */
-const STATUS: Record<Status, { label: string; Icon: LucideIcon; className: string }> = {
-  previsao: { label: 'Previsão', Icon: CalendarClock, className: 'border-[var(--status-warning)]/40 text-[var(--status-warning)]' },
-  'sem-contraparte': { label: 'Sem contraparte', Icon: Unlink, className: 'border-[var(--status-warning)]/40 text-[var(--status-warning)]' },
-  duplicado: { label: 'Duplicado, ignorado', Icon: CopyX, className: 'border-muted-foreground/40 text-muted-foreground' },
+const STATUS: Record<Status, { label: string; Icon: PhosphorIcon; className: string }> = {
+  previsao: { label: 'Previsão', Icon: CalendarDot, className: 'border-[var(--status-warning)]/40 text-[var(--status-warning)]' },
+  'sem-contraparte': { label: 'Sem contraparte', Icon: LinkBreak, className: 'border-[var(--status-warning)]/40 text-[var(--status-warning)]' },
+  duplicado: { label: 'Duplicado, ignorado', Icon: FileX, className: 'border-muted-foreground/40 text-muted-foreground' },
 }
 
 export function StatusBadge({ status, className }: { status: Status; className?: string }) {

@@ -6,7 +6,7 @@ import { cn } from 'cn'
 
 import { Button } from '@/components/ui/button'
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '@/components/ui/input-group'
-import { ChevronDownIcon, XIcon, CheckIcon } from 'lucide-react'
+import { CaretDown, CheckIcon, XIcon } from '@phosphor-icons/react'
 
 const Combobox = ComboboxPrimitive.Root
 
@@ -18,7 +18,7 @@ function ComboboxTrigger({ className, children, ...props }: ComboboxPrimitive.Tr
   return (
     <ComboboxPrimitive.Trigger data-slot="combobox-trigger" className={cn("[&_svg:not([class*='size-'])]:size-3.5", className)} {...props}>
       {children}
-      <ChevronDownIcon className="pointer-events-none size-3.5 text-muted-foreground" />
+      <CaretDown className="pointer-events-none size-3.5 text-muted-foreground" />
     </ComboboxPrimitive.Trigger>
   )
 }

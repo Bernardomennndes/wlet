@@ -1,4 +1,4 @@
-import { TrendingUp } from 'lucide-react'
+import { TrendUp } from '@phosphor-icons/react'
 import { Breadcrumbs } from '@/components/breadcrumbs'
 import { DataList, DataListField, DataListItem, DataListItemFields, DataListItemHeader } from '@/components/data-list/data-list'
 import { KpiCard, KpiCardGrid } from '@/components/kpi'
@@ -68,7 +68,7 @@ export function PatrimonioPageContent() {
         <Empty className="border">
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <TrendingUp />
+              <TrendUp />
             </EmptyMedia>
             <EmptyTitle>Nenhum relatório de investimentos</EmptyTitle>
             <EmptyDescription>

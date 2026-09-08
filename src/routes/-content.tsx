@@ -1,4 +1,4 @@
-import { AlertTriangle, Lightbulb, Repeat, TrendingUp } from 'lucide-react'
+import { Lightbulb, Repeat, TrendUp, Warning } from '@phosphor-icons/react'
 import { Breadcrumbs } from '@/components/breadcrumbs'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { useMemo, useState } from 'react'
@@ -439,7 +439,7 @@ function deltaHint(delta: number | null, label: string, upIsGood: boolean) {
 interface Insight {
   title: string
   body: string
-  icon: typeof TrendingUp
+  icon: typeof TrendUp
 }
 
 function buildInsights({
@@ -461,7 +461,7 @@ function buildInsights({
   const negative = complete.filter((m) => m.net < 0).sort((a, b) => a.net - b.net)
   if (negative.length > 0) {
     out.push({
-      icon: AlertTriangle,
+      icon: Warning,
       title: `${negative.length} de ${complete.length} meses no vermelho`,
       body: `Saídas superaram entradas em ${[...negative]
         .sort((a, b) => a.month.localeCompare(b.month))
@@ -473,7 +473,7 @@ function buildInsights({
   const fees = expenseCats.find((c) => c.categoryId === 'juros-multas')
   if (fees && fees.total > 50) {
     out.push({
-      icon: AlertTriangle,
+      icon: Warning,
       title: `${formatBRL(fees.total)} em juros, multas e IOF`,
       body: 'Custo puramente financeiro. IOF vem de compras internacionais no cartão (OpenAI, Vercel, Supabase); juros e multa, de fatura paga com atraso. Pagar a fatura em dia e concentrar assinaturas em dólar num cartão sem IOF elimina quase tudo.',
     })
@@ -500,7 +500,7 @@ function buildInsights({
       const beforeAvg = sum(before.map((m) => cat.byMonth[m] ?? 0)) / before.length
       if (beforeAvg > 100 && recentAvg > beforeAvg * 1.4) {
         out.push({
-          icon: TrendingUp,
+          icon: TrendUp,
           title: `${cat.label} subiu ${formatPercent(recentAvg / beforeAvg - 1)}`,
           body: `Média de ${formatBRL(recentAvg)}/mês nos últimos 3 meses contra ${formatBRL(beforeAvg)} antes.`,
         })
@@ -512,7 +512,7 @@ function buildInsights({
   for (const cat of expenseCats.filter((c) => ['transporte', 'restaurantes'].includes(c.categoryId))) {
     if (cat.count >= 40) {
       out.push({
-        icon: TrendingUp,
+        icon: TrendUp,
         title: `${cat.count} lançamentos em ${cat.label.toLowerCase()}`,
         body: `Ticket médio de ${formatBRL(cat.total / cat.count)}, total de ${formatBRL(cat.total)}. Gasto pulverizado: pequeno por vez, grande no acumulado.`,
       })
@@ -523,7 +523,7 @@ function buildInsights({
     const tech = expenseCats.find((c) => c.categoryId === 'tecnologia')
     if (tech && tech.total > 500) {
       out.push({
-        icon: TrendingUp,
+        icon: TrendUp,
         title: 'Infra de tecnologia paga na pessoa física',
         body: `${formatBRL(tech.total)} em cloud e APIs saíram de cartões PF. Migrar para a conta PJ deduz da empresa e simplifica o acerto de pró-labore.`,
       })

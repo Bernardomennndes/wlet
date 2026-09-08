@@ -1,6 +1,6 @@
 import { useRef, type RefObject } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { X } from 'lucide-react'
+import { X } from '@phosphor-icons/react'
 import { Controller, useForm, useWatch, type Control } from 'react-hook-form'
 import { z } from 'zod'
 import { AppCombobox } from '@/components/ui/app-combobox'

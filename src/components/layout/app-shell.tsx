@@ -1,4 +1,4 @@
-import { Moon, Sun } from 'lucide-react'
+import { Moon, Sun } from '@phosphor-icons/react'
 import { Suspense, useCallback, useMemo } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { HidingSquaresIcon } from '@/components/hiding-squares-icon'

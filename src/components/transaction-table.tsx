@@ -1,4 +1,4 @@
-import { ArrowLeftRight, RotateCcw, SearchX } from 'lucide-react'
+import { ArrowCounterClockwise, ArrowsLeftRight, MagnifyingGlassMinus } from '@phosphor-icons/react'
 import { CategoryBadge } from '@/components/category-badge'
 import { EntityBadge } from '@/components/entity-badge'
 import { AppCombobox } from '@/components/ui/app-combobox'
@@ -85,7 +85,7 @@ export function TransactionTable({ rows, compact = false, paging: external, scro
                 <Empty>
                   <EmptyHeader>
                     <EmptyMedia variant="icon">
-                      <SearchX />
+                      <MagnifyingGlassMinus />
                     </EmptyMedia>
                     <EmptyTitle>Nenhuma transação com esses filtros.</EmptyTitle>
                   </EmptyHeader>
@@ -113,7 +113,7 @@ export function TransactionTable({ rows, compact = false, paging: external, scro
                   {tx.description !== tx.merchant ? <div className="max-w-md truncate text-[11px] text-muted-foreground">{tx.description}</div> : null}
                   {tx.transferKind ? (
                     <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
-                      <ArrowLeftRight className="size-3" aria-hidden />
+                      <ArrowsLeftRight className="size-3" aria-hidden />
                       {counterpart ? (
                         <span>
                           {tx.amount < 0 ? 'para' : 'de'} {counterpart.name}
@@ -145,7 +145,7 @@ export function TransactionTable({ rows, compact = false, paging: external, scro
                     {overridden ? (
                       <Tooltip>
                         <TooltipTrigger render={<Button variant="outline" size="icon" onClick={() => setOverride(tx.id, null)} aria-label="Voltar à categoria automática" />}>
-                          <RotateCcw />
+                          <ArrowCounterClockwise />
                         </TooltipTrigger>
                         <TooltipContent>Voltar à categoria automática ({categoryLabel(tx.categoryId)})</TooltipContent>
                       </Tooltip>

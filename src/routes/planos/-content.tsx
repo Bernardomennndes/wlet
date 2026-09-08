@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Download, FolderPlus, Plus, Upload, Target } from 'lucide-react'
+import { Download, FolderPlus, Plus, Target, Upload } from '@phosphor-icons/react'
 import { Breadcrumbs } from '@/components/breadcrumbs'
 import { KpiCard, KpiCardGrid, KpiHeadline } from '@/components/kpi'
 import { Button } from '@/components/ui/button'

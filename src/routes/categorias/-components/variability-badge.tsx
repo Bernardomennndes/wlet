@@ -1,4 +1,4 @@
-import { Lock, type LucideIcon } from 'lucide-react'
+import { Lock, type Icon as PhosphorIcon } from '@phosphor-icons/react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
  * O prefixo não é enfeite: cor e texto sozinhos não distinguem o estado para quem não
  * enxerga a diferença de matiz.
  */
-const FIXED: { label: string; Icon: LucideIcon; className: string } = {
+const FIXED: { label: string; Icon: PhosphorIcon; className: string } = {
   label: 'valor fixo',
   Icon: Lock,
   className: 'border-muted-foreground/40 text-muted-foreground',

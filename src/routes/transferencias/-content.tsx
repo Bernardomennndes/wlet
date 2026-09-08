@@ -1,4 +1,4 @@
-import { ArrowRight, SearchX } from 'lucide-react'
+import { ArrowRight, MagnifyingGlassMinus } from '@phosphor-icons/react'
 import { Breadcrumbs } from '@/components/breadcrumbs'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { useMemo } from 'react'
@@ -77,7 +77,7 @@ export function TransferenciasPageContent() {
             <Empty className="border">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <SearchX />
+                  <MagnifyingGlassMinus />
                 </EmptyMedia>
                 <EmptyTitle>Nenhum fluxo entre contas no período e recorte selecionados.</EmptyTitle>
               </EmptyHeader>
@@ -134,7 +134,7 @@ export function TransferenciasPageContent() {
                     <Empty>
                       <EmptyHeader>
                         <EmptyMedia variant="icon">
-                          <SearchX />
+                          <MagnifyingGlassMinus />
                         </EmptyMedia>
                         <EmptyTitle>Nenhuma transferência no período e recorte selecionados.</EmptyTitle>
                       </EmptyHeader>

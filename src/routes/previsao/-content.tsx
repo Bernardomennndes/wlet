@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useSearchParams } from 'react-router'
 import { Breadcrumbs } from '@/components/breadcrumbs'
 import { useDocumentTitle } from '@/hooks/use-document-title'
-import { CalendarClock } from 'lucide-react'
+import { CalendarDot } from '@phosphor-icons/react'
 import { CategoryBadge } from '@/components/category-badge'
 import { DataList, DataListField, DataListItem, DataListItemFields, DataListItemHeader } from '@/components/data-list/data-list'
 import { EntityBadge } from '@/components/entity-badge'
@@ -194,7 +194,7 @@ export function PrevisaoPageContent() {
             <Empty className="border">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <CalendarClock />
+                  <CalendarDot />
                 </EmptyMedia>
                 <EmptyTitle>Nenhum lançamento previsto</EmptyTitle>
                 <EmptyDescription>Enquanto não houver regras, os meses futuros mostram só as parcelas de cartão já contratadas.</EmptyDescription>

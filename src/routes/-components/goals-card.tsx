@@ -1,4 +1,4 @@
-import { MoreHorizontal } from 'lucide-react'
+import { DotsThree } from '@phosphor-icons/react'
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,7 +25,7 @@ export function GoalsCard() {
         <CardAction>
           <Tooltip>
             <TooltipTrigger render={<Button variant="outline" size="icon-sm" render={<Link to="/previsao" aria-label="Ver metas e regras de previsão" />} />}>
-              <MoreHorizontal />
+              <DotsThree />
             </TooltipTrigger>
             <TooltipContent>Metas e regras de previsão</TooltipContent>
           </Tooltip>

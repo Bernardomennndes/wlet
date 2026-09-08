@@ -1,4 +1,4 @@
-import { MoreHorizontal } from 'lucide-react'
+import { DotsThree } from '@phosphor-icons/react'
 import { Link } from 'react-router'
 import { METER_HEIGHT, SERIES_SWATCH } from '@/components/charts/chart-theme'
 import { Button } from '@/components/ui/button'
@@ -34,7 +34,7 @@ export function SpendingOverviewCard({ expense, income, segments, delta, deltaLa
         <CardAction>
           <Tooltip>
             <TooltipTrigger render={<Button variant="outline" size="icon-sm" render={<Link to="/categorias" aria-label="Ver todas as categorias" />} />}>
-              <MoreHorizontal />
+              <DotsThree />
             </TooltipTrigger>
             <TooltipContent>Ver todas as categorias</TooltipContent>
           </Tooltip>

@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash } from '@phosphor-icons/react'
 import { CategoryBadge } from '@/components/category-badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { PlanRowControls } from './plan-row-controls'
@@ -61,7 +61,7 @@ export function PlanList({
                     <TooltipTrigger
                       render={
                         <Button size="icon-sm" variant="outline" aria-label={`Remover o grupo ${bucket.group.label}`} onClick={() => bucket.group && onRemoveGroup(bucket.group.id)}>
-                          <Trash2 />
+                          <Trash />
                         </Button>
                       }
                     />
@@ -121,7 +121,7 @@ export function PlanList({
                           <TooltipTrigger
                             render={
                               <Button size="icon-sm" variant="outline" aria-label={`Remover ${plan.label}`} onClick={() => onRemove(plan.id)}>
-                                <Trash2 />
+                                <Trash />
                               </Button>
                             }
                           />

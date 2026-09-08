@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { HandCoins } from 'lucide-react'
+import { HandCoins } from '@phosphor-icons/react'
 import { Breadcrumbs } from '@/components/breadcrumbs'
 import { CategoryBadge } from '@/components/category-badge'
 import { DataList, DataListField, DataListItem, DataListItemFields, DataListItemHeader } from '@/components/data-list/data-list'

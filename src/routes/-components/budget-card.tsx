@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, TriangleAlert, type LucideIcon } from 'lucide-react'
+import { Check, Warning, type Icon as PhosphorIcon } from '@phosphor-icons/react'
 import { METER_HEIGHT } from '@/components/charts/chart-theme'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { BUDGET, budgetState, type BudgetState } from '@/lib/budget'
@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
  * Ela é montada SEMPRE, mudando de texto e de tom — some-la no estado bom faria o cartão
  * mudar de altura conforme o mês avança.
  */
-const STATE: Record<BudgetState, { message: string; Icon: LucideIcon; bar: string; banner: string }> = {
+const STATE: Record<BudgetState, { message: string; Icon: PhosphorIcon; bar: string; banner: string }> = {
   ok: {
     message: 'Dentro do limite do mês',
     Icon: Check,
@@ -22,13 +22,13 @@ const STATE: Record<BudgetState, { message: string; Icon: LucideIcon; bar: strin
   },
   warning: {
     message: 'Perto do limite do mês',
-    Icon: TriangleAlert,
+    Icon: Warning,
     bar: 'var(--status-warning)',
     banner: 'border-[var(--status-warning)]/40 text-[var(--status-warning)]',
   },
   over: {
     message: 'O limite do mês foi ultrapassado',
-    Icon: AlertTriangle,
+    Icon: Warning,
     bar: 'var(--status-critical)',
     banner: 'border-[var(--status-critical)]/40 text-[var(--status-critical)]',
   },

@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-react'
+import type { Icon as PhosphorIcon } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList, ComboboxTrigger } from '@/components/ui/combobox'
 import { cn } from '@/lib/utils'
@@ -18,7 +18,7 @@ export interface SelectOption {
    */
   description?: string
   /** Ícone à esquerda. Sai da lista de enum do domínio, nunca escolhido no call site. */
-  icon?: LucideIcon
+  icon?: PhosphorIcon
 }
 
 interface AppComboboxProps {

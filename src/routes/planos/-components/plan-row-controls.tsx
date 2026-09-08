@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CalendarPlus, X } from 'lucide-react'
+import { CalendarPlus, X } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MonthPicker } from '@/components/ui/month-picker'

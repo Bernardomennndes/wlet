@@ -1,21 +1,21 @@
 import {
   ArrowDownLeft,
-  ArrowLeftRight,
+  ArrowUUpLeft,
   ArrowUpRight,
-  Banknote,
-  Building2,
-  CircleCheck,
-  CircleMinus,
+  ArrowsLeftRight,
+  Bank,
+  Buildings,
+  CheckCircle,
   Clock,
   CreditCard,
-  Landmark,
-  TrendingUp,
-  TriangleAlert,
-  Undo2,
-  Unlink,
+  LinkBreak,
+  MinusCircle,
+  Money,
+  TrendUp,
   User,
-  type LucideIcon,
-} from 'lucide-react'
+  Warning,
+  type Icon as PhosphorIcon,
+} from '@phosphor-icons/react'
 
 /** Significado da opção, não aparência: quem traduz tom em cor é o badge, num lugar só. */
 export type EnumTone = 'neutral' | 'positive' | 'negative' | 'muted'
@@ -31,7 +31,7 @@ export interface EnumOption<T extends string> {
   shortLabel?: string
   /** Grafia plural para legenda/filtro agregado. */
   labelPlural?: string
-  icon?: LucideIcon
+  icon?: PhosphorIcon
   tone?: EnumTone
 }
 
@@ -51,23 +51,23 @@ export type Flow = 'income' | 'expense' | 'transfer' | 'reimbursement'
 export const flowKinds: EnumOption<Flow>[] = [
   { value: 'income', label: 'Entrada', labelPlural: 'Entradas', icon: ArrowDownLeft, tone: 'positive' },
   { value: 'expense', label: 'Saída', labelPlural: 'Saídas', icon: ArrowUpRight, tone: 'neutral' },
-  { value: 'transfer', label: 'Transferência', labelPlural: 'Transferências', icon: ArrowLeftRight, tone: 'muted' },
-  { value: 'reimbursement', label: 'Reembolso', labelPlural: 'Reembolsos', icon: Undo2, tone: 'muted' },
+  { value: 'transfer', label: 'Transferência', labelPlural: 'Transferências', icon: ArrowsLeftRight, tone: 'muted' },
+  { value: 'reimbursement', label: 'Reembolso', labelPlural: 'Reembolsos', icon: ArrowUUpLeft, tone: 'muted' },
 ]
 
 export type Entity = 'PF' | 'PJ'
 
 export const entityKinds: EnumOption<Entity>[] = [
   { value: 'PF', label: 'Pessoa física', shortLabel: 'PF', icon: User, tone: 'neutral' },
-  { value: 'PJ', label: 'Empresa', shortLabel: 'PJ', icon: Building2, tone: 'neutral' },
+  { value: 'PJ', label: 'Empresa', shortLabel: 'PJ', icon: Buildings, tone: 'neutral' },
 ]
 
 export type AccountType = 'checking' | 'credit-card' | 'investment'
 
 export const accountsTypes: EnumOption<AccountType>[] = [
-  { value: 'checking', label: 'Conta corrente', icon: Landmark, tone: 'neutral' },
+  { value: 'checking', label: 'Conta corrente', icon: Bank, tone: 'neutral' },
   { value: 'credit-card', label: 'Cartão de crédito', icon: CreditCard, tone: 'neutral' },
-  { value: 'investment', label: 'Conta investimento', icon: TrendingUp, tone: 'neutral' },
+  { value: 'investment', label: 'Conta investimento', icon: TrendUp, tone: 'neutral' },
 ]
 
 export interface Account {
@@ -92,10 +92,10 @@ export interface Account {
 export type TransferKind = 'internal' | 'card-payment' | 'investment' | 'unmatched-self'
 
 export const transfersKinds: EnumOption<TransferKind>[] = [
-  { value: 'internal', label: 'Entre contas', icon: ArrowLeftRight, tone: 'neutral' },
+  { value: 'internal', label: 'Entre contas', icon: ArrowsLeftRight, tone: 'neutral' },
   { value: 'card-payment', label: 'Pagamento de fatura', icon: CreditCard, tone: 'neutral' },
-  { value: 'investment', label: 'Investimento', icon: TrendingUp, tone: 'neutral' },
-  { value: 'unmatched-self', label: 'Sem contraparte', icon: Unlink, tone: 'muted' },
+  { value: 'investment', label: 'Investimento', icon: TrendUp, tone: 'neutral' },
+  { value: 'unmatched-self', label: 'Sem contraparte', icon: LinkBreak, tone: 'muted' },
 ]
 
 export interface Installment {
@@ -226,8 +226,8 @@ export type PlanStatus = 'considering' | 'decided' | 'discarded'
 
 export const planStatuses: EnumOption<PlanStatus>[] = [
   { value: 'considering', label: 'Em estudo', icon: Clock, tone: 'neutral' },
-  { value: 'decided', label: 'Decidido', icon: CircleCheck, tone: 'positive' },
-  { value: 'discarded', label: 'Descartado', icon: CircleMinus, tone: 'muted' },
+  { value: 'decided', label: 'Decidido', icon: CheckCircle, tone: 'positive' },
+  { value: 'discarded', label: 'Descartado', icon: MinusCircle, tone: 'muted' },
 ]
 
 /**
@@ -240,7 +240,7 @@ export const planStatuses: EnumOption<PlanStatus>[] = [
 export type PaymentMode = 'cash' | 'financed'
 
 export const paymentModes: EnumOption<PaymentMode>[] = [
-  { value: 'cash', label: 'À vista', icon: Banknote, tone: 'positive' },
+  { value: 'cash', label: 'À vista', icon: Money, tone: 'positive' },
   { value: 'financed', label: 'Parcelado', icon: CreditCard, tone: 'neutral' },
 ]
 
@@ -388,17 +388,17 @@ export interface MatchRule {
 export type SettlementStatus = 'settled' | 'partial' | 'open' | 'overdue'
 
 export const receivableStatuses: EnumOption<SettlementStatus>[] = [
-  { value: 'settled', label: 'Recebida', labelPlural: 'Recebidas', icon: CircleCheck, tone: 'positive' },
-  { value: 'partial', label: 'Parcial', labelPlural: 'Parciais', icon: CircleMinus, tone: 'neutral' },
+  { value: 'settled', label: 'Recebida', labelPlural: 'Recebidas', icon: CheckCircle, tone: 'positive' },
+  { value: 'partial', label: 'Parcial', labelPlural: 'Parciais', icon: MinusCircle, tone: 'neutral' },
   { value: 'open', label: 'Em aberto', labelPlural: 'Em aberto', icon: Clock, tone: 'muted' },
-  { value: 'overdue', label: 'Em atraso', labelPlural: 'Em atraso', icon: TriangleAlert, tone: 'negative' },
+  { value: 'overdue', label: 'Em atraso', labelPlural: 'Em atraso', icon: Warning, tone: 'negative' },
 ]
 
 export const payableStatuses: EnumOption<SettlementStatus>[] = [
-  { value: 'settled', label: 'Paga', labelPlural: 'Pagas', icon: CircleCheck, tone: 'positive' },
-  { value: 'partial', label: 'Parcial', labelPlural: 'Parciais', icon: CircleMinus, tone: 'neutral' },
+  { value: 'settled', label: 'Paga', labelPlural: 'Pagas', icon: CheckCircle, tone: 'positive' },
+  { value: 'partial', label: 'Parcial', labelPlural: 'Parciais', icon: MinusCircle, tone: 'neutral' },
   { value: 'open', label: 'Em aberto', labelPlural: 'Em aberto', icon: Clock, tone: 'muted' },
-  { value: 'overdue', label: 'Em atraso', labelPlural: 'Em atraso', icon: TriangleAlert, tone: 'negative' },
+  { value: 'overdue', label: 'Em atraso', labelPlural: 'Em atraso', icon: Warning, tone: 'negative' },
 ]
 
 /**

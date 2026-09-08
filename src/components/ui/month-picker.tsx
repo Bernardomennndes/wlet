@@ -1,5 +1,5 @@
 import { useState, type ComponentProps } from 'react'
-import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CaretDown, CaretLeft, CaretRight } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { formatMonthShort } from '@/lib/format'
@@ -61,18 +61,18 @@ export function MonthPicker({ value, onValueChange, withData, className, id, min
         render={
           <Button id={id} variant="outline" size={size} aria-label={aria['aria-label']} className={cn('font-medium tabular-nums', className)}>
             {formatMonthShort(value)}
-            <ChevronDown data-icon="inline-end" className="text-muted-foreground" />
+            <CaretDown data-icon="inline-end" className="text-muted-foreground" />
           </Button>
         }
       />
       <PopoverContent align="start" className="w-60 p-3">
         <div className="mb-3 flex items-center justify-between">
           <Button variant="ghost" size="icon-sm" aria-label="Ano anterior" disabled={year <= firstYear} onClick={() => setYear((y) => y - 1)}>
-            <ChevronLeft />
+            <CaretLeft />
           </Button>
           <span className="text-sm font-semibold tabular-nums">{year}</span>
           <Button variant="ghost" size="icon-sm" aria-label="Próximo ano" onClick={() => setYear((y) => y + 1)}>
-            <ChevronRight />
+            <CaretRight />
           </Button>
         </div>
         <div className="grid grid-cols-3 gap-1" role="listbox" aria-label={aria['aria-label']}>
