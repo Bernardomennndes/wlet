@@ -1,17 +1,29 @@
 import type { ReactNode } from 'react'
 import { useMemo } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from 'recharts'
-import { CHART_TOKENS } from '@/components/charts/chart-theme'
-import { EXPENSE_HATCH_SWATCH, expenseHatch, type LegendMark, MONEY_AXIS, MONEY_GRID, MONTH_AXIS, PROJECTION_DASH } from '@/components/charts/money-bar'
+import { CHART_TOKENS, hatchBackground } from '@/components/charts/chart-theme'
+import { hatchDefs, type LegendMark, MONEY_AXIS, MONEY_GRID, MONTH_AXIS, PROJECTION_DASH } from '@/components/charts/money-bar'
 import { ChartHeader, MarkSwatch } from '@/components/charts/money-bar-chart'
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { planStatuses } from '@/data/types'
-import { EXPENSE_VAR } from '@/lib/chart-tokens'
+import { forecastOrigins } from '@/lib/forecast'
 import { formatBRL, formatMonthLongLabel } from '@/lib/format'
-/** A linha do gráfico: a base já prevista mais as duas fatias de plano. */
+/**
+ * A linha do gráfico: a saída prevista aberta por ORIGEM, mais as duas fatias de plano.
+ *
+ * As três primeiras vêm de `ForecastSources` e não se somam numa base só de propósito — a
+ * pergunta desta tela é o quanto de um mês já está preso. Uma parcela de cartão comprada é
+ * FATO e não se desfaz; uma rubrica de supermercado é ESTIMATIVA e cede se você quiser. Ver
+ * as duas como um bloco cinza só faria as duas parecerem igualmente inegociáveis.
+ */
 export interface PlanRow {
   month: string
-  baseline: number
+  /** Parcelas de cartão já compradas. Fato. */
+  committed: number
+  /** Contas declaradas, LÍQUIDAS do que as cobranças abatem — o aluguel menos o rateio. */
+  declared: number
+  /** Rubricas por categoria: o supermercado e afins. Estimativa. */
+  rubric: number
   decided: number
   considering: number
 }
@@ -19,24 +31,67 @@ export interface PlanRow {
 /** Os rótulos saem da lista de enum do domínio — o gráfico não redigita "Decidido". */
 const statusLabel = (value: string) => planStatuses.find((s) => s.value === value)?.label ?? value
 
+/** Os rótulos das origens saem da lista de domínio — o gráfico não redigita "Contratado". */
+const originLabel = (value: string) => forecastOrigins.find((o) => o.value === value)?.label ?? value
+
 const scheduleConfig = {
-  // A base é uma SÉRIE PRÓPRIA, com matiz próprio: ela não é um plano, e pintá-la na cor de
-  // saída como as outras duas faria três coisas diferentes parecerem a mesma. É o mesmo
-  // neutro que o resto do app usa para "o que sobra" fora das séries nomeadas.
-  baseline: { label: 'Já previsto', color: 'var(--series-other)' },
-  decided: { label: statusLabel('decided'), color: EXPENSE_VAR },
-  considering: { label: statusLabel('considering'), color: EXPENSE_VAR },
+  committed: { label: originLabel('committed'), color: 'var(--primary)' },
+  declared: { label: originLabel('declared'), color: 'var(--primary)' },
+  rubric: { label: originLabel('rubric'), color: 'var(--primary)' },
+  decided: { label: statusLabel('decided'), color: 'var(--primary)' },
+  considering: { label: statusLabel('considering'), color: 'var(--primary)' },
 } satisfies ChartConfig
 
 const CHART_MARGIN = { top: 8, right: 8, left: 0, bottom: 0 }
 const STRIPE_ID = 'wallet-plan-stripes'
 
+/**
+ * Os três degraus do que o mês JÁ TEM PRESO, em ordem de certeza.
+ *
+ * A `dataviz.md` §3 diz que densidade do preenchimento é o canal de "quanto já aconteceu", e é
+ * ele que ordena os três: parcela comprada é o tom cheio (fato), conta declarada é média
+ * (compromisso), rubrica é a mais esmaecida (estimativa) — cada uma um passo mais perto do
+ * fundo do cartão.
+ *
+ * **A TEXTURA fica reservada aos planos**, e essa é a correção de uma primeira tentativa que
+ * hachurou a rubrica: no quadradinho de 14px da legenda ela ficou indistinguível do "Decidido",
+ * porque os dois cinzas do app (`--series-other` e `--series-expense`) quase não se separam
+ * nesse tamanho. Com a hachura significando uma coisa só — "isto veio da sua lista" — ela
+ * volta a distinguir o que a tela é sobre.
+ */
+const COMMITTED_FILL = 'var(--primary)'
+const DECLARED_FILL = 'color-mix(in oklab, var(--primary) 62%, var(--card))'
+const RUBRIC_FILL = 'color-mix(in oklab, var(--primary) 30%, var(--card))'
+
+/**
+ * A hachura e o contorno dos planos, também em `--primary`.
+ *
+ * `--primary` INVERTE com o tema — preta no claro, branca no escuro —, então o gráfico inteiro
+ * acompanha sem que nada precise ser declarado por tema. Os degraus são misturas com `--card`,
+ * que inverte junto: o passo "38% da primária sobre o cartão" clareia no tema claro e escurece
+ * no escuro, e a ordem de densidade se preserva nos dois.
+ */
+const PLAN_HATCH = hatchBackground('var(--primary)', 'transparent')
+
 /** As marcas da legenda, e as MESMAS amostras que o tooltip reusa — nunca duas descrições. */
 const MARKS: Record<keyof typeof scheduleConfig, LegendMark> = {
-  baseline: { label: 'Já previsto', background: 'var(--series-other)' },
-  decided: { label: statusLabel('decided'), background: EXPENSE_HATCH_SWATCH, ring: true },
-  considering: { label: statusLabel('considering'), dashed: 'var(--series-expense)' },
+  committed: { label: originLabel('committed'), background: COMMITTED_FILL },
+  declared: { label: originLabel('declared'), background: DECLARED_FILL, ring: true },
+  rubric: { label: originLabel('rubric'), background: RUBRIC_FILL, ring: true },
+  decided: { label: statusLabel('decided'), background: PLAN_HATCH, ring: true },
+  considering: { label: statusLabel('considering'), dashed: 'var(--primary)' },
 }
+
+/**
+ * O raio vai para a série que está no TOPO daquela coluna — a última com valor.
+ *
+ * Fixá-lo numa série só deixaria de topo reto todo mês em que ela não existe, ao lado de um
+ * mês arredondado. Com cinco séries isso aconteceria o tempo todo.
+ */
+/** O que o mês custaria: as cinco fatias somadas. */
+const total = (row: PlanRow) => row.committed + row.declared + row.rubric + row.decided + row.considering
+
+const topRadius = (acima: number[]) => (acima.some((v) => v > 0) ? 0 : ([5, 5, 0, 0] as unknown as number))
 
 /**
  * A agenda de desembolso dos planos, mês a mês.
@@ -72,11 +127,11 @@ export function PlanScheduleChart({ data, height = 260, headline }: { data: Plan
 
   return (
     <div className="flex flex-col gap-3">
-      <ChartHeader headline={headline} marks={[MARKS.baseline, MARKS.decided, MARKS.considering]} />
+      <ChartHeader headline={headline} marks={[MARKS.committed, MARKS.declared, MARKS.rubric, MARKS.decided, MARKS.considering]} />
 
       <ChartContainer config={scheduleConfig} className={CHART_TOKENS} style={containerStyle}>
         <BarChart accessibilityLayer data={data} margin={CHART_MARGIN} barCategoryGap="14%">
-          {expenseHatch(STRIPE_ID)}
+          {hatchDefs([{ id: STRIPE_ID, stripe: 'var(--primary)', fill: 'var(--card)' }])}
 
           <CartesianGrid {...MONEY_GRID} />
           <XAxis {...MONTH_AXIS} />
@@ -96,10 +151,9 @@ export function PlanScheduleChart({ data, height = 260, headline }: { data: Plan
                       </span>
                       <span className="font-medium tabular-nums">{formatBRL(Number(value))}</span>
                     </span>
-                    {index === 2 ? (
+                    {index === 4 ? (
                       <div className="basis-full border-t border-border pt-1.5 text-muted-foreground">
-                        Total previsto:{' '}
-                        <strong className="text-foreground">{formatBRL((item.payload as PlanRow).baseline + (item.payload as PlanRow).decided + (item.payload as PlanRow).considering)}</strong>
+                        Total do mês: <strong className="text-foreground">{formatBRL(total(item.payload as PlanRow))}</strong>
                       </div>
                     ) : null}
                   </>
@@ -108,25 +162,32 @@ export function PlanScheduleChart({ data, height = 260, headline }: { data: Plan
             }
           />
 
-          {/* Empilhadas: a ALTURA da coluna é o total do mês, que é a pergunta que se faz aqui.
-              O raio é decidido POR COLUNA, não por série: com ele fixo na série de cima — o
-              padrão do empilhado de Categorias, que tem oito —, todo mês sem nada em estudo
-              ficava de topo reto ao lado de um mês arredondado. Com duas séries isso salta à
-              vista. Aqui quem arredonda é sempre quem está no topo daquela coluna, e as duas
-              nunca arredondam juntas, senão sobraria uma fresta no encontro delas. */}
-          <Bar dataKey="baseline" stackId="a" maxBarSize={64} fill="var(--series-other)" isAnimationActive={false}>
+          {/* Empilhadas, da mais CERTA para a mais incerta: parcela comprada na base, hipótese
+              no topo. A altura total é o que o mês custaria; a leitura de baixo para cima diz
+              quanto disso ainda se pode mudar de ideia. */}
+          <Bar dataKey="committed" stackId="a" maxBarSize={64} fill={COMMITTED_FILL} isAnimationActive={false}>
             {data.map((row) => (
-              <Cell key={row.month} radius={row.decided > 0 || row.considering > 0 ? 0 : ([5, 5, 0, 0] as unknown as number)} />
+              <Cell key={row.month} radius={topRadius([row.declared, row.rubric, row.decided, row.considering])} />
+            ))}
+          </Bar>
+          <Bar dataKey="declared" stackId="a" maxBarSize={64} fill={DECLARED_FILL} isAnimationActive={false}>
+            {data.map((row) => (
+              <Cell key={row.month} radius={topRadius([row.rubric, row.decided, row.considering])} />
+            ))}
+          </Bar>
+          <Bar dataKey="rubric" stackId="a" maxBarSize={64} fill={RUBRIC_FILL} isAnimationActive={false}>
+            {data.map((row) => (
+              <Cell key={row.month} radius={topRadius([row.decided, row.considering])} />
             ))}
           </Bar>
           <Bar dataKey="decided" stackId="a" maxBarSize={64} fill={`url(#${STRIPE_ID})`} isAnimationActive={false}>
             {data.map((row) => (
-              <Cell key={row.month} radius={row.considering > 0 ? 0 : ([5, 5, 0, 0] as unknown as number)} />
+              <Cell key={row.month} radius={topRadius([row.considering])} />
             ))}
           </Bar>
           <Bar dataKey="considering" stackId="a" maxBarSize={64} radius={[5, 5, 0, 0]} isAnimationActive={false}>
             {data.map((row) => (
-              <Cell key={row.month} fill="transparent" stroke="var(--series-expense)" strokeWidth={1} strokeDasharray={PROJECTION_DASH} />
+              <Cell key={row.month} fill="transparent" stroke="var(--primary)" strokeWidth={1} strokeDasharray={PROJECTION_DASH} />
             ))}
           </Bar>
         </BarChart>

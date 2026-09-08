@@ -44,13 +44,26 @@ export const EXPENSE_HATCH_SWATCH = hatchBackground('var(--series-expense-stripe
  * o segundo passa a pintar com o primeiro.
  */
 export function expenseHatch(id: string) {
+  return hatchDefs([{ id, stripe: 'var(--series-expense-stripe)' }])
+}
+
+/**
+ * Um ou mais `<pattern>` de hachura, num `<defs>` só.
+ *
+ * Aceita a COR da listra por padrão porque um gráfico pode ter mais de uma série hachurada —
+ * e, quando tem, a hachura deixa de distinguir por si: quem separa as duas passa a ser o
+ * matiz, que é o canal da identidade de série (`dataviz.md` §1).
+ */
+export function hatchDefs(patterns: { id: string; stripe: string; fill?: string }[]) {
   return (
     <defs>
       {/* Listras a 45° subindo para a direita: fundo mais traço, num tile do passo `wide`. */}
-      <pattern id={id} width={HATCH.wide.step} height={HATCH.wide.step} patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
-        <rect width={HATCH.wide.step} height={HATCH.wide.step} style={{ fill: 'var(--series-expense-fill)' }} />
-        <rect width={HATCH.wide.stripe} height={HATCH.wide.step} style={{ fill: 'var(--series-expense-stripe)' }} />
-      </pattern>
+      {patterns.map(({ id, stripe, fill = 'var(--series-expense-fill)' }) => (
+        <pattern key={id} id={id} width={HATCH.wide.step} height={HATCH.wide.step} patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+          <rect width={HATCH.wide.step} height={HATCH.wide.step} style={{ fill }} />
+          <rect width={HATCH.wide.stripe} height={HATCH.wide.step} style={{ fill: stripe }} />
+        </pattern>
+      ))}
     </defs>
   )
 }

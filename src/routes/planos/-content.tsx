@@ -95,14 +95,20 @@ export function PlanosPageContent() {
       const p = planned.get(month)
       return {
         month,
-        // Além do horizonte, a base guarda o FATO e descarta a ESTIMATIVA.
+        // As três origens vêm SEPARADAS de `sources`, não fundidas numa base só: parcela
+        // comprada é fato, conta declarada é compromisso e rubrica é estimativa, e a pergunta
+        // desta tela é quanto de um mês já está preso. Fundidas, as três pareceriam
+        // igualmente inegociáveis.
         //
-        // Zerá-la inteira era o erro: jogava fora, junto com a projeção, as parcelas de cartão
-        // JÁ COMPRADAS que caem lá. Um 12x feito em novembro tem parcela até outubro do ano
-        // seguinte, e ela existe com ou sem horizonte — não é o app projetando, é uma compra
-        // que já aconteceu. O que fica de fora é rubrica e conta declarada, que ali seriam um
-        // orçamento que ninguém escreveu.
-        baseline: a ? (month <= horizon ? Math.max(0, a.expense - a.sources.plan) : Math.max(0, a.sources.committed)) : 0,
+        // O ABATIDO entra no declarado, líquido: ele é negativo e nasce da cobrança que abate
+        // justamente a conta declarada — o aluguel de R$ 1.500 com R$ 750 de rateio de volta
+        // pesa 750, e é esse o número que o mês sente. Segmento negativo não se empilha.
+        //
+        // Além do horizonte sobra só o `committed`, que é fato: rubrica e conta declarada ali
+        // seriam um orçamento que ninguém escreveu.
+        committed: a ? Math.max(0, a.sources.committed) : 0,
+        declared: a && month <= horizon ? Math.max(0, a.sources.declared + a.sources.offset) : 0,
+        rubric: a && month <= horizon ? Math.max(0, a.sources.rubric) : 0,
         decided: d ? d.sources.plan : (p?.decided ?? 0),
         considering: a ? Math.max(0, a.sources.plan - (d?.sources.plan ?? 0)) : (p?.considering ?? 0),
       }
@@ -182,8 +188,9 @@ export function PlanosPageContent() {
           <CardHeader>
             <CardTitle>Quanto sai por mês</CardTitle>
             <CardDescription>
-              O que cada mês já tem previsto — parcelas de cartão compradas, contas declaradas e rubricas — e, em cima, o que esta lista acrescenta. A coluna cheia é o que você já decidiu; a de
-              contorno tracejado ainda é hipótese. Além de {formatMonthShort(projectionHorizon())} ficam só as parcelas já compradas e os planos: rubrica e conta declarada o app não projeta tão longe.
+              O que cada mês já tem preso, da base para o topo em ordem de certeza: parcela de cartão já comprada, conta declarada (líquida do que a cobrança abate) e rubrica de gasto. Em cima vem o
+              que esta lista acrescenta — cheio se você já decidiu, de contorno tracejado enquanto for hipótese. Além de {formatMonthShort(projectionHorizon())} sobram só as parcelas e os planos:
+              rubrica e conta declarada o app não projeta tão longe.
             </CardDescription>
           </CardHeader>
           <CardContent>
