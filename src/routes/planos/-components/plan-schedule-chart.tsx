@@ -6,13 +6,23 @@ import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } f
 import { planStatuses } from '@/data/types'
 import { EXPENSE_VAR } from '@/lib/chart-tokens'
 import { formatAxis, formatBRL, formatMonthLongLabel, formatMonthShort } from '@/lib/format'
-import type { PlanScheduleMonth } from '@/lib/plans'
+/** A linha do gráfico: a base já prevista mais as duas fatias de plano. */
+export interface PlanRow {
+  month: string
+  baseline: number
+  decided: number
+  considering: number
+}
 import { cn } from '@/lib/utils'
 
 /** Os rótulos saem da lista de enum do domínio — o gráfico não redigita "Decidido". */
 const statusLabel = (value: string) => planStatuses.find((s) => s.value === value)?.label ?? value
 
 const scheduleConfig = {
+  // A base é uma SÉRIE PRÓPRIA, com matiz próprio: ela não é um plano, e pintá-la na cor de
+  // saída como as outras duas faria três coisas diferentes parecerem a mesma. É o mesmo
+  // neutro que o resto do app usa para "o que sobra" fora das séries nomeadas.
+  baseline: { label: 'Já previsto', color: 'var(--series-other)' },
   decided: { label: statusLabel('decided'), color: EXPENSE_VAR },
   considering: { label: statusLabel('considering'), color: EXPENSE_VAR },
 } satisfies ChartConfig
@@ -37,6 +47,11 @@ const STRIPE_SWATCH = hatchBackground('var(--series-expense-stripe)', 'var(--ser
  * divisor de projeção, que no app inteiro quer dizer "ainda não é fato". Matiz não muda entre
  * as duas: é o mesmo dinheiro saindo, e a diferença é o compromisso.
  *
+ * A base — "Já previsto" — é o que o mês já tem sem os planos: parcelas de cartão já compradas,
+ * contas declaradas e rubricas, menos o que as cobranças abatem. Ela existe para o gráfico
+ * responder "CABE?" e não só "quanto custa": um plano de R$ 1.100 num mês que já tem R$ 4.000
+ * comprometidos é outra coisa do mesmo plano num mês vazio.
+ *
  * **Não há divisor de projeção nem véu**, ao contrário do gráfico de origem. Lá eles separam o
  * medido do previsto; aqui TUDO é planejamento, e desenhar a fronteira anunciaria uma que não
  * existe.
@@ -47,7 +62,7 @@ const STRIPE_SWATCH = hatchBackground('var(--series-expense-stripe)', 'var(--ser
  * proteger, e a largura é o que faz este gráfico ser lido como irmão do da Visão geral, que é
  * de onde ele veio.
  */
-export function PlanScheduleChart({ data, height = 260, headline }: { data: PlanScheduleMonth[]; height?: number; headline?: ReactNode }) {
+export function PlanScheduleChart({ data, height = 260, headline }: { data: PlanRow[]; height?: number; headline?: ReactNode }) {
   const containerStyle = useMemo(() => ({ height }), [height])
 
   return (
@@ -55,6 +70,10 @@ export function PlanScheduleChart({ data, height = 260, headline }: { data: Plan
       <div className="flex flex-wrap items-end justify-between gap-4">
         {headline ?? <span />}
         <div className="flex items-center gap-5 text-xs font-medium">
+          <span className="flex items-center gap-2">
+            <span className={cn(SERIES_SWATCH, 'size-3.5')} style={{ background: 'var(--series-other)' }} aria-hidden />
+            {scheduleConfig.baseline.label}
+          </span>
           <span className="flex items-center gap-2">
             <span className={cn(SERIES_SWATCH, 'size-3.5 ring-1 ring-border ring-inset')} style={{ background: STRIPE_SWATCH }} aria-hidden />
             {scheduleConfig.decided.label}
@@ -91,16 +110,17 @@ export function PlanScheduleChart({ data, height = 260, headline }: { data: Plan
                       <span className="flex items-center gap-2 text-muted-foreground">
                         <span
                           className={cn(SERIES_SWATCH, name === 'considering' && 'border border-dashed')}
-                          style={name === 'considering' ? { borderColor: 'var(--series-expense)' } : { background: STRIPE_SWATCH }}
+                          style={name === 'considering' ? { borderColor: 'var(--series-expense)' } : name === 'baseline' ? { background: 'var(--series-other)' } : { background: STRIPE_SWATCH }}
                           aria-hidden
                         />
                         {scheduleConfig[name as keyof typeof scheduleConfig]?.label}
                       </span>
                       <span className="font-medium tabular-nums">{formatBRL(Number(value))}</span>
                     </span>
-                    {index === 1 ? (
+                    {index === 2 ? (
                       <div className="basis-full border-t border-border pt-1.5 text-muted-foreground">
-                        Total do mês: <strong className="text-foreground">{formatBRL((item.payload as PlanScheduleMonth).decided + (item.payload as PlanScheduleMonth).considering)}</strong>
+                        Total previsto:{' '}
+                        <strong className="text-foreground">{formatBRL((item.payload as PlanRow).baseline + (item.payload as PlanRow).decided + (item.payload as PlanRow).considering)}</strong>
                       </div>
                     ) : null}
                   </>
@@ -115,6 +135,11 @@ export function PlanScheduleChart({ data, height = 260, headline }: { data: Plan
               ficava de topo reto ao lado de um mês arredondado. Com duas séries isso salta à
               vista. Aqui quem arredonda é sempre quem está no topo daquela coluna, e as duas
               nunca arredondam juntas, senão sobraria uma fresta no encontro delas. */}
+          <Bar dataKey="baseline" stackId="a" maxBarSize={64} fill="var(--series-other)" isAnimationActive={false}>
+            {data.map((row) => (
+              <Cell key={row.month} radius={row.decided > 0 || row.considering > 0 ? 0 : ([5, 5, 0, 0] as unknown as number)} />
+            ))}
+          </Bar>
           <Bar dataKey="decided" stackId="a" maxBarSize={64} fill={`url(#${STRIPE_ID})`} isAnimationActive={false}>
             {data.map((row) => (
               <Cell key={row.month} radius={row.considering > 0 ? 0 : ([5, 5, 0, 0] as unknown as number)} />
