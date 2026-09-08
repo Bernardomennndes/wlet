@@ -66,10 +66,7 @@ export function CobrancasPageContent() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Cobranças</h1>
-            <p className="text-xs text-muted-foreground">
-              O que outras pessoas te devem. O dinheiro que volta não é receita: é o rateio de uma despesa que você adiantou, então ele abate a categoria de origem em vez de somar às entradas. Quem
-              diz se foi paga é o extrato — não há marcar como recebida.
-            </p>
+            <p className="text-xs text-muted-foreground">O que outras pessoas te devem. O dinheiro que volta não é receita: abate a despesa que você adiantou.</p>
           </div>
         </div>
       </header>
@@ -107,8 +104,8 @@ export function CobrancasPageContent() {
         <CardHeader>
           <CardTitle>Cobranças</CardTitle>
           <CardDescription>
-            Configuração em <code className="font-mono">scripts/receivables.config.ts</code>, como as contas e as regras de categoria. Depois de editar, rode{' '}
-            <code className="font-mono">pnpm ingest</code>. O casamento é por contraparte e conta, nunca por valor — o rateio varia mês a mês, e o valor declarado serve para mostrar a diferença.
+            Configuração em <code className="font-mono">scripts/receivables.config.ts</code>; rode <code className="font-mono">pnpm ingest</code> depois de editar. Quem diz se foi paga é o extrato, e
+            o casamento é por contraparte e conta — nunca por valor, porque um rateio varia mês a mês.
           </CardDescription>
         </CardHeader>
         <CardContent>

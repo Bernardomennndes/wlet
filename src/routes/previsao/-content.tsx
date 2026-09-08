@@ -171,10 +171,7 @@ export function PrevisaoPageContent() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Previsão</h1>
-            <p className="text-xs text-muted-foreground">
-              O que está declarado aqui é o que os gráficos mostram nos meses sem lançamentos. Nada é extrapolado do histórico. Parcelas de cartão já compradas entram sozinhas na previsão de saída e
-              não precisam ser cadastradas.
-            </p>
+            <p className="text-xs text-muted-foreground">Nada é extrapolado do histórico: os meses à frente mostram só o que está declarado aqui, mais as parcelas de cartão já compradas.</p>
           </div>
         </div>
       </header>
@@ -183,8 +180,7 @@ export function PrevisaoPageContent() {
         <CardHeader>
           <CardTitle>Lançamentos previstos</CardTitle>
           <CardDescription>
-            Configuração versionada em <code className="font-mono">scripts/planned.config.ts</code>, como as contas e as regras de categoria. Depois de editar, rode{' '}
-            <code className="font-mono">pnpm ingest</code>. Edição pela interface fica para depois.
+            Configuração em <code className="font-mono">scripts/planned.config.ts</code>; rode <code className="font-mono">pnpm ingest</code> depois de editar.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -236,10 +232,7 @@ export function PrevisaoPageContent() {
       <Card>
         <CardHeader>
           <CardTitle>Previsão mês a mês</CardTitle>
-          <CardDescription>
-            A mesma previsão que o gráfico da Visão geral desenha, com a origem de cada real discriminada: o que você declarou acima, as parcelas de cartão já contratadas, as rubricas de{' '}
-            <code className="font-mono">budget.config.ts</code> e o que as cobranças abatem. A janela vai até a última ocorrência conhecida.
-          </CardDescription>
+          <CardDescription>A mesma previsão da Visão geral, com a origem de cada real discriminada.</CardDescription>
         </CardHeader>
         <CardContent>
           <ForecastList rows={preview} />

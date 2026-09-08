@@ -218,10 +218,7 @@ export function OverviewPageContent() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Visão geral</h1>
-            <p className="text-xs text-muted-foreground">
-              {formatMonthLong(months[0])} a {formatMonthLong(months[months.length - 1])} · {scope === 'all' ? 'todas as contas' : scope === 'PF' ? 'contas da pessoa física' : 'conta da empresa'} ·
-              transferências entre suas contas não contam como entrada nem saída.
-            </p>
+            <p className="text-xs text-muted-foreground">Transferências entre suas contas não contam como entrada nem saída.</p>
           </div>
         </div>
       </header>
@@ -292,11 +289,7 @@ export function OverviewPageContent() {
         <Card className="min-w-0 lg:col-span-2">
           <CardHeader>
             <CardTitle>Mês a mês</CardTitle>
-            <CardDescription>
-              Clique num mês para ver os lançamentos dele. A barra é o movimento do mês inteiro: o bloco sólido são as entradas, e as saídas vêm fatiadas nas três maiores categorias mais o restante.
-              “% das entradas” é outra leitura — quanto das entradas as saídas consumiram, o mesmo número da etiqueta no gráfico. Mês previsto vem com a barra oca — contorno sólido na entrada,
-              tracejado na saída — e não tem lançamentos para abrir.
-            </CardDescription>
+            <CardDescription>Clique num mês para ver os lançamentos. A barra é o volume do mês; “% das entradas” é quanto delas as saídas consumiram.</CardDescription>
           </CardHeader>
           <CardContent>
             <MonthlyList rows={chartRows} segmentsByMonth={segmentsByMonth} openMonth={openMonth} onSelect={selectMonth} />

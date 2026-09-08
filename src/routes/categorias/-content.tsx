@@ -18,7 +18,7 @@ import { ACCOUNT_MAP, detectRecurring, lastMonthWithData, sum, summarizeByCatego
 import { buildCategoryForecast } from '@/lib/forecast'
 import { plannedInScope } from '@/lib/planned'
 import { receivablesInScope } from '@/lib/receivables'
-import { formatAxis, formatBRL, formatDate, formatMonthLong, formatMonthLongLabel, formatMonthShort, formatPercent, plural } from '@/lib/format'
+import { formatAxis, formatBRL, formatDate, formatMonthLongLabel, formatMonthShort, formatPercent, plural } from '@/lib/format'
 import { useFilters } from '@/providers/use-filters'
 import { BarList, type BarListItem } from './-components/bar-list'
 import { CategoryStackChart } from './-components/category-stack-chart'
@@ -38,7 +38,6 @@ export function CategoriasPageContent() {
   const merchants = useMemo(() => summarizeByMerchant(transactions, 'expense'), [transactions])
   const recurring = useMemo(() => detectRecurring(merchants, months.length), [merchants, months.length])
   const totalExpense = sum(expenseCats.map((c) => c.total))
-  const totalIncome = sum(incomeCats.map((c) => c.total))
 
   // Mesma previsão da visão geral, aberta por categoria: regras cadastradas mais
   // parcelas contratadas. Só `byMonth` é enriquecido:
@@ -127,10 +126,7 @@ export function CategoriasPageContent() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Categorias</h1>
-            <p className="text-xs text-muted-foreground">
-              {formatBRL(totalExpense)} em saídas e {formatBRL(totalIncome)} em entradas, de {formatMonthLong(months[0])} a {formatMonthLong(months[months.length - 1])}. Clique numa categoria de
-              despesa para abrir os detalhes.
-            </p>
+            <p className="text-xs text-muted-foreground">Clique numa categoria de despesa para abrir o histórico dela.</p>
           </div>
         </div>
       </header>
@@ -139,8 +135,8 @@ export function CategoriasPageContent() {
         <CardHeader>
           <CardTitle>Despesas por mês e categoria</CardTitle>
           <CardDescription>
-            As sete maiores categorias do conjunto; o restante agrupado em “Outras”.
-            {projectedFrom ? ' Neste gráfico tudo é saída, então a hachura marca PREVISÃO: parcelas já contratadas, contas declaradas e rubricas.' : ''}
+            As sete maiores; o restante em “Outras”.
+            {projectedFrom ? ' Aqui tudo é saída, então a hachura marca previsão.' : ''}
           </CardDescription>
         </CardHeader>
         <CardContent>

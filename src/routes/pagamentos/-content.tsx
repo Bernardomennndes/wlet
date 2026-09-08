@@ -84,8 +84,7 @@ export function PagamentosPageContent() {
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Pagamentos</h1>
             <p className="text-xs text-muted-foreground">
-              O que você vai pagar, em duas naturezas. Uma <strong className="font-medium">conta</strong> tem credor e vencimento, e a pergunta é "paguei? atrasou?". Uma{' '}
-              <strong className="font-medium">rubrica</strong> não tem credor único — não existe "a conta do mercado" —, e a pergunta é "estourei?". Quem responde as duas é o extrato.
+              Uma <strong className="font-medium">conta</strong> tem credor e vencimento; uma <strong className="font-medium">rubrica</strong> não tem credor único. Quem responde as duas é o extrato.
             </p>
           </div>
         </div>
@@ -124,8 +123,7 @@ export function PagamentosPageContent() {
         <CardHeader>
           <CardTitle>Contas a pagar</CardTitle>
           <CardDescription>
-            Regras de <code className="font-mono">scripts/planned.config.ts</code> que declaram credor (<code className="font-mono">match</code>). São elas que ganham situação de pagamento; as demais
-            só projetam. Depois de editar, rode <code className="font-mono">pnpm ingest</code>.
+            Regras de <code className="font-mono">scripts/planned.config.ts</code> que declaram credor. Só elas ganham situação de pagamento; as demais só projetam.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -195,8 +193,7 @@ export function PagamentosPageContent() {
         <CardHeader>
           <CardTitle>Rubricas de gasto</CardTitle>
           <CardDescription>
-            Categorias sem credor único, de <code className="font-mono">scripts/budget.config.ts</code>. O mesmo número tem duas leituras: teto no mês em curso, previsão nos meses futuros. Na projeção
-            ele é piso, não soma — o que já está contratado em parcelas abate a rubrica em vez de se acumular a ela.
+            De <code className="font-mono">scripts/budget.config.ts</code>. O mesmo número é teto no mês em curso e previsão nos futuros — e na projeção é piso, não soma.
           </CardDescription>
         </CardHeader>
         <CardContent>

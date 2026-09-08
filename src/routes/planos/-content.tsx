@@ -170,10 +170,7 @@ export function PlanosPageContent() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Planos</h1>
-            <p className="text-xs text-muted-foreground">
-              O que você pretende comprar. Um plano <strong className="font-medium">decidido</strong> entra na previsão como origem própria; um <strong className="font-medium">em estudo</strong> só
-              aparece quando você liga a simulação na tela de Previsão. Esta lista vive no navegador — exporte para levá-la a outro lugar.
-            </p>
+            <p className="text-xs text-muted-foreground">O que você pretende comprar. Só os planos decididos entram na previsão.</p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
             <Button variant="outline" onClick={() => setGroupOpen(true)}>
@@ -277,8 +274,7 @@ export function PlanosPageContent() {
         <CardHeader>
           <CardTitle>Levar a lista com você</CardTitle>
           <CardDescription>
-            Os planos ficam no <code className="font-mono">localStorage</code> deste navegador — some ao limpar os dados do site e não vai para outro dispositivo. Diferente do resto do app, ele não
-            nasce de um arquivo em <code className="font-mono">docs/</code>, então a previsão com planos não é reproduzível num clone novo. Exportar é o que fecha essa ponta.
+            Ficam no <code className="font-mono">localStorage</code> deste navegador: somem ao limpar os dados do site e não vão para outro dispositivo.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">

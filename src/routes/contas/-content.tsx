@@ -38,9 +38,7 @@ export function ContasPageContent() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Contas</h1>
-            <p className="text-xs text-muted-foreground">
-              Identificadas automaticamente pelo código do banco e número da conta presentes nos arquivos. Valores abaixo referem-se ao período selecionado.
-            </p>
+            <p className="text-xs text-muted-foreground">Identificadas pelos metadados dos próprios arquivos.</p>
           </div>
         </div>
       </header>

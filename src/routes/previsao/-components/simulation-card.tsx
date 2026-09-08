@@ -55,8 +55,7 @@ export function SimulationCard({
       <CardHeader>
         <CardTitle>Simular</CardTitle>
         <CardDescription>
-          {considering.length} {plural(considering.length, 'plano', 'planos')} em estudo com data. Ligue os que quiser testar — eles entram nos meses abaixo e a previsão se recompõe. A escolha fica na
-          URL, então dá para compartilhar o cenário.
+          {considering.length} {plural(considering.length, 'plano', 'planos')} em estudo com data. Ligue os que quiser testar — a escolha fica na URL.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">

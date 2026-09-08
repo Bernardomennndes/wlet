@@ -57,8 +57,7 @@ export function TransferenciasPageContent() {
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Transferências entre contas</h1>
             <p className="text-xs text-muted-foreground">
-              Pares detectados por valor idêntico, datas próximas e descrição apontando para você mesmo. Retiradas da empresa para a pessoa física no período:{' '}
-              <strong className="text-foreground">{formatBRL(pjToPf)}</strong>.
+              Pares detectados por valor, data próxima e descrição. Retiradas da empresa para a pessoa física: <strong className="text-foreground">{formatBRL(pjToPf)}</strong>.
             </p>
           </div>
         </div>
@@ -167,7 +166,7 @@ export function TransferenciasPageContent() {
         <Card>
           <CardHeader>
             <CardTitle>Movimentações próprias sem contraparte</CardTitle>
-            <CardDescription>Parecem transferências para você mesmo, mas o outro lado não está em nenhum arquivo. Não entram como receita nem despesa; confira se falta algum extrato.</CardDescription>
+            <CardDescription>O outro lado não está em nenhum arquivo. Confira se falta algum extrato.</CardDescription>
           </CardHeader>
           <CardContent>
             <DataList aria-label="Movimentações próprias sem contraparte">

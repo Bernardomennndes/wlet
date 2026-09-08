@@ -92,11 +92,7 @@ export function PatrimonioPageContent() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Patrimônio</h1>
-            <p className="text-xs text-muted-foreground">
-              A carteira reconstruída mês a mês, de três fontes. O <strong className="font-medium">valor</strong> vem da posição da B3 e da movimentação, com cada CDB acumulado pelo CDI do Banco
-              Central; o <strong className="font-medium">caixa</strong> e o <strong className="font-medium">aportado</strong> vêm do extrato da corretora. A distância entre o aportado e o total é o
-              rendimento.
-            </p>
+            <p className="text-xs text-muted-foreground">A carteira reconstruída mês a mês. O rendimento é a distância entre o aportado e o total.</p>
           </div>
         </div>
       </header>
@@ -136,8 +132,7 @@ export function PatrimonioPageContent() {
         <CardHeader>
           <CardTitle>Papéis</CardTitle>
           <CardDescription>
-            {INVESTMENTS.holdings.length} {plural(INVESTMENTS.holdings.length, 'papel', 'papéis')} na posição de {formatDate(INVESTMENTS.asOf)}, ordenados por peso. A barra é a fatia de cada um no
-            patrimônio — é ela que mostra concentração.
+            {INVESTMENTS.holdings.length} {plural(INVESTMENTS.holdings.length, 'papel', 'papéis')} na posição de {formatDate(INVESTMENTS.asOf)}. A largura da barra é a concentração.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -149,10 +144,7 @@ export function PatrimonioPageContent() {
         <Card>
           <CardHeader>
             <CardTitle>Proventos</CardTitle>
-            <CardDescription>
-              Dividendo, JCP e rendimento que caíram no caixa da corretora nos últimos 12 meses. O eixo é de CALENDÁRIO, então mês sem provento aparece vazio — é dado, não ausência. Eles NÃO são
-              aporte: entram no patrimônio sem sair do seu bolso, e por isso contam como rendimento.
-            </CardDescription>
+            <CardDescription>Dividendo, JCP e rendimento dos últimos 12 meses. Não são aporte: entram no patrimônio sem sair do seu bolso.</CardDescription>
           </CardHeader>
           <CardContent>{INCOME.length === 0 ? <NotInformed>Nenhum provento no extrato da corretora</NotInformed> : <IncomeCard income={INCOME} until={last.month} />}</CardContent>
         </Card>
@@ -173,9 +165,8 @@ export function PatrimonioPageContent() {
         <CardHeader>
           <CardTitle>Evolução mês a mês</CardTitle>
           <CardDescription>
-            {PATRIMONY.length} {plural(PATRIMONY.length, 'mês', 'meses')} desde {PATRIMONY[0].month.replace('-', '/')}. Aqui a área é dividida por CLASSE, que é a leitura que o gráfico do topo não dá
-            — ele mostra o total contra o CDI, este mostra de que o total é feito. <strong className="font-medium">Ações entram a custo</strong> nos meses passados; o último mês usa a posição real da
-            B3.
+            {PATRIMONY.length} {plural(PATRIMONY.length, 'mês', 'meses')} desde {PATRIMONY[0].month.replace('-', '/')}, dividido por classe.{' '}
+            <strong className="font-medium">Ações entram a custo</strong> nos meses passados; o último usa a posição real da B3.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -187,8 +178,7 @@ export function PatrimonioPageContent() {
         <CardHeader>
           <CardTitle>Posição em {formatDate(INVESTMENTS.asOf)}</CardTitle>
           <CardDescription>
-            Direto do relatório da B3 (<code className="font-mono">{INVESTMENTS.source}</code>). Renda fixa pelo valor na curva, renda variável pelo preço de fechamento. O caixa vem do extrato da
-            corretora.
+            Do relatório da B3 (<code className="font-mono">{INVESTMENTS.source}</code>). Renda fixa na curva, variável a fechamento; o caixa vem da corretora.
           </CardDescription>
         </CardHeader>
         <CardContent>
