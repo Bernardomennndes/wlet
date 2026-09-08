@@ -237,6 +237,9 @@ export function PlanosPageContent() {
               items={items}
               onRemove={removePlan}
               onRemoveGroup={removeGroup}
+              onUpdate={updatePlan}
+              monthsWithData={monthsWithData}
+              defaultMonth={nextMonth}
               onEdit={(plan) => {
                 setEditing(plan)
                 setOpen(true)

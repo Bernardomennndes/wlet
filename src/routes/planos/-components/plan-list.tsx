@@ -1,13 +1,14 @@
 import { Pencil, Trash2 } from 'lucide-react'
 import { CategoryBadge } from '@/components/category-badge'
-import { NotInformed } from '@/components/not-informed'
+import { Checkbox } from '@/components/ui/checkbox'
+import { PlanRowControls } from './plan-row-controls'
 import { DataList, DataListItem, DataListItemHeader } from '@/components/data-list/data-list'
 import { EnumBadge } from '@/components/enum-badge'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { paymentModes, planStatuses, type Plan, type PlanGroup } from '@/data/types'
+import { planStatuses, type Plan, type PlanGroup } from '@/data/types'
 import { formatBRL, formatMonthShort } from '@/lib/format'
-import { installmentAmount, planInstallments, planTotal, savingOf } from '@/lib/plans'
+import { planTotal, savingOf } from '@/lib/plans'
 
 /**
  * A lista de planos, agrupada.
@@ -22,12 +23,18 @@ export function PlanList({
   onEdit,
   onRemove,
   onRemoveGroup,
+  onUpdate,
+  monthsWithData,
+  defaultMonth,
 }: {
   groups: PlanGroup[]
   items: Plan[]
   onEdit: (plan: Plan) => void
   onRemove: (id: string) => void
   onRemoveGroup: (id: string) => void
+  onUpdate: (id: string, patch: Partial<Omit<Plan, 'id'>>) => void
+  monthsWithData: string[]
+  defaultMonth: string
 }) {
   // Cada grupo com os seus, e no fim os avulsos. `null` é o balde dos sem grupo — ele existe
   // como seção para um item solto não parecer perdido entre viagens.
@@ -71,24 +78,26 @@ export function PlanList({
                 {bucket.plans.map((plan) => (
                   <DataListItem key={plan.id} className="gap-1.5">
                     <DataListItemHeader>
-                      <span className="truncate font-medium">{plan.label}</span>
+                      <span className="flex min-w-0 items-center gap-2">
+                        {/* A caixinha CONFIRMA o plano: marcada, ele é "Decidido" e entra na
+                            previsão de verdade; desmarcada, volta a "Em estudo" e o gráfico o
+                            desenha como hipótese. É o mesmo par de situações que a gaveta
+                            oferece — aqui ele vira um clique, porque é o que mais se mexe. */}
+                        <Checkbox
+                          aria-label={`Aplicar ${plan.label} na previsão`}
+                          checked={plan.status === 'decided'}
+                          onCheckedChange={(checked) => onUpdate(plan.id, { status: checked ? 'decided' : 'considering' })}
+                        />
+                        <span className="truncate font-medium">{plan.label}</span>
+                      </span>
                       <span className="font-mono tabular-nums">{formatBRL(planTotal(plan))}</span>
                     </DataListItemHeader>
+
+                    <PlanRowControls plan={plan} monthsWithData={monthsWithData} defaultMonth={defaultMonth} onUpdate={(patch) => onUpdate(plan.id, patch)} />
+
                     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <EnumBadge option={planStatuses.find((s) => s.value === plan.status)} value={plan.status} />
-                      {/* Forma de pagamento ainda não decidida não vira badge: `enum-badges.md`
-                          diz que enum sem valor não renderiza a badge, e um "Não definido"
-                          ali competiria com a situação, que é o estado que importa na lista. */}
-                      {plan.payment && <EnumBadge option={paymentModes.find((m) => m.value === plan.payment)} value={plan.payment} />}
                       <CategoryBadge value={plan.categoryId} />
-                      {/* O mês, ao contrário, PRECISA aparecer quando falta: é ele que decide
-                          se o plano está na previsão, e um espaço em branco não diria isso. */}
-                      {plan.month ? <span>{formatMonthShort(plan.month)}</span> : <NotInformed>Não definido</NotInformed>}
-                      {planInstallments(plan) > 1 && (
-                        <span className="tabular-nums">
-                          {planInstallments(plan)}× de {formatBRL(installmentAmount(plan))}
-                        </span>
-                      )}
                       {/* A economia só aparece quando existem os DOIS preços: sem preço
                           parcelado não há comparação, e um "R$ 0,00 de economia" afirmaria que
                           os preços são iguais, que é outra coisa. */}
@@ -106,7 +115,7 @@ export function PlanList({
                               </Button>
                             }
                           />
-                          <TooltipContent>Editar</TooltipContent>
+                          <TooltipContent>Editar nome, preços, categoria e grupo</TooltipContent>
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger
