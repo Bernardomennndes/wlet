@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import type { Plan } from '@/data/types'
-import { ACCOUNT_MAP, lastMonthWithData, projectionHorizon, shiftMonth } from '@/lib/finance'
+import { ACCOUNT_MAP, lastMonthWithData, monthsBetween, projectionHorizon, shiftMonth } from '@/lib/finance'
 import { formatBRL, formatMonthShort, plural } from '@/lib/format'
 import { installmentAmount, parsePlans, planOccursIn, planScheduleByMonth, planTotal, scheduledPlans } from '@/lib/plans'
 import { useFilters } from '@/providers/use-filters'
@@ -20,9 +20,6 @@ import { PlanList } from './-components/plan-list'
 import { GroupDialog } from './-components/group-dialog'
 import { PlanScheduleChart } from './-components/plan-schedule-chart'
 import { PlanSheet } from './-components/plan-sheet'
-
-/** Seis meses a partir do próximo, todos zerados: a grade que espera a primeira data. */
-const EMPTY_WINDOW = (from: string) => Array.from({ length: 6 }, (_, i) => ({ month: shiftMonth(from, i), baseline: 0, decided: 0, considering: 0 }))
 
 export function PlanosPageContent() {
   useDocumentTitle('Planos')
@@ -68,23 +65,33 @@ export function PlanosPageContent() {
    */
   const chartMonths = useMemo(() => {
     const live = items.filter((p) => p.status !== 'discarded')
-    const targets = schedule.map((m) => m.month).filter((m) => m > lastMonthWithData())
+    const last = lastMonthWithData()
+    const horizon = projectionHorizon()
+
+    // A JANELA é a união de duas coisas: os meses que o app projeta e os meses que os planos
+    // alcançam. Os primeiros existem com ou sem lista — são parcelas já compradas e contas já
+    // declaradas —, e é por isso que o gráfico tem o que desenhar mesmo antes de o primeiro
+    // plano ganhar data. Os segundos esticam a janela para a frente quando um plano vai além
+    // do horizonte.
+    const months = [...new Set([...monthsBetween(shiftMonth(last, 1), horizon), ...schedule.map((m) => m.month)])].sort()
+    const targets = months.filter((m) => m > last)
     const input = { history, planned: plannedInScope(scope), receivables: receivablesInScope(scope, (id) => ACCOUNT_MAP[id]?.entity) }
     const all = new Map(buildForecast({ ...input, plans: live, targets }).map((m) => [m.month, m]))
     const onlyDecided = new Map(buildForecast({ ...input, plans: decided, targets }).map((m) => [m.month, m]))
-    const horizon = projectionHorizon()
+    const planned = new Map(schedule.map((m) => [m.month, m]))
 
-    return schedule.map((row) => {
-      const a = all.get(row.month)
-      const d = onlyDecided.get(row.month)
+    return months.map((month) => {
+      const a = all.get(month)
+      const d = onlyDecided.get(month)
+      const p = planned.get(month)
       return {
-        month: row.month,
+        month,
         // Além do horizonte de projeção a base é ZERO, não uma estimativa: o app não se dispõe
         // a projetar rubrica e conta declarada até lá, e desenhá-las ali afirmaria um orçamento
         // que ninguém escreveu. Sobram só os planos, que têm data própria.
-        baseline: a && row.month <= horizon ? Math.max(0, a.expense - a.sources.plan) : 0,
-        decided: d ? d.sources.plan : row.decided,
-        considering: a ? Math.max(0, a.sources.plan - (d?.sources.plan ?? 0)) : row.considering,
+        baseline: a && month <= horizon ? Math.max(0, a.expense - a.sources.plan) : 0,
+        decided: d ? d.sources.plan : (p?.decided ?? 0),
+        considering: a ? Math.max(0, a.sources.plan - (d?.sources.plan ?? 0)) : (p?.considering ?? 0),
       }
     })
   }, [schedule, items, decided, history, scope])
@@ -168,10 +175,7 @@ export function PlanosPageContent() {
           </CardHeader>
           <CardContent>
             <PlanScheduleChart
-              /* Sem NADA agendado o gráfico ainda é desenhado, sobre uma janela de calendário
-                 vazia: um cartão que some parece defeito, e a grade dá o lugar onde a coluna
-                 vai nascer. O porquê vai para o hint do headline. */
-              data={chartMonths.length > 0 ? chartMonths : EMPTY_WINDOW(nextMonth)}
+              data={chartMonths}
               /* O número que ancora um gráfico é `KpiHeadline`, como o "Resultado no período"
                  da Visão geral: não é markup à mão (§1 da regra de KPI), não é `HeroKpiCard`
                  (que é um Card e aninharia dois) nem `KpiCard` solto fora do grid. */
