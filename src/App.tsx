@@ -16,6 +16,7 @@ const Pagamentos = lazy(() => import('./routes/pagamentos'))
 const Cobrancas = lazy(() => import('./routes/cobrancas'))
 const Previsao = lazy(() => import('./routes/previsao'))
 const Dados = lazy(() => import('./routes/dados'))
+const Configuracao = lazy(() => import('./routes/configuracao'))
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/contas" element={<Contas />} />
         <Route path="/transferencias" element={<Transferencias />} />
         <Route path="/dados" element={<Dados />} />
+        <Route path="/configuracao" element={<Configuracao />} />
         <Route path="/patrimonio" element={<Patrimonio />} />
         <Route path="/planos" element={<Planos />} />
         <Route path="/pagamentos" element={<Pagamentos />} />

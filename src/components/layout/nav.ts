@@ -49,7 +49,10 @@ export const NAV: NavGroup[] = [
   },
   {
     label: 'Dados',
-    items: [{ to: '/dados', label: 'Meus dados' }],
+    items: [
+      { to: '/dados', label: 'Meus dados' },
+      { to: '/configuracao', label: 'Configuração' },
+    ],
   },
   {
     label: 'Planejamento',
