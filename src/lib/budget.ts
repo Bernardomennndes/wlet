@@ -1,4 +1,4 @@
-import budgetJson from '@/generated/budget.json'
+import { dataset } from './dataset'
 import type { Budget } from '@/data/types'
 
 export type { Budget } from '@/data/types'
@@ -7,7 +7,7 @@ export type { Budget } from '@/data/types'
  * Teto de gastos, gerado pelo `pnpm ingest` a partir de `scripts/budget.config.ts`. É
  * configuração versionada, como as metas — editar na interface fica para depois.
  */
-export const BUDGET: Budget = budgetJson as Budget
+export const BUDGET: Budget = dataset().budget
 
 export type BudgetState = 'ok' | 'warning' | 'over'
 

@@ -1,7 +1,4 @@
-import accountsJson from '@/generated/accounts.json'
-import metaJson from '@/generated/meta.json'
-import transactionsJson from '@/generated/transactions.json'
-import transfersJson from '@/generated/transfers.json'
+import { dataset } from './dataset'
 import { CATEGORY_MAP } from '@/data/categories'
 import { offsetCategoryOf } from './receivables'
 import type { Account, DatasetMeta, Flow, Transaction, Transfer } from '@/data/types'
@@ -12,10 +9,12 @@ import type { Account, DatasetMeta, Flow, Transaction, Transfer } from '@/data/t
 export type { Flow }
 export { flowKinds } from '@/data/types'
 
-export const ACCOUNTS = accountsJson as Account[]
-export const TRANSACTIONS = transactionsJson as Transaction[]
-export const TRANSFERS = transfersJson as Transfer[]
-export const META = metaJson as DatasetMeta
+const data = dataset()
+
+export const ACCOUNTS: Account[] = data.accounts
+export const TRANSACTIONS: Transaction[] = data.transactions
+export const TRANSFERS: Transfer[] = data.transfers
+export const META: DatasetMeta = data.meta
 
 export const ACCOUNT_MAP: Record<string, Account> = Object.fromEntries(ACCOUNTS.map((a) => [a.id, a]))
 

@@ -1,4 +1,4 @@
-import investmentsJson from '@/generated/investments.json'
+import { dataset } from './dataset'
 import type { IncomeMonth, InvestmentSnapshot, PatrimonyPoint } from '@/data/types'
 
 export type { InvestmentHolding, InvestmentSnapshot, IncomeMonth, PatrimonyPoint } from '@/data/types'
@@ -10,7 +10,7 @@ export type { InvestmentHolding, InvestmentSnapshot, IncomeMonth, PatrimonyPoint
  * `snapshot` é `null` quando não há relatório em `docs/investimentos/` — um clone novo, por
  * exemplo. Toda tela que usa isto precisa desenhar a ausência, não um zero.
  */
-const data = investmentsJson as { snapshot: InvestmentSnapshot | null; series: PatrimonyPoint[]; income: IncomeMonth[] }
+const data = dataset().investments
 
 export const INVESTMENTS: InvestmentSnapshot | null = data.snapshot
 export const PATRIMONY: PatrimonyPoint[] = data.series

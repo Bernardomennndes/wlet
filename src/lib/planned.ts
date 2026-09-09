@@ -1,4 +1,4 @@
-import plannedJson from '@/generated/planned.json'
+import { dataset } from './dataset'
 import { shiftMonth } from './finance'
 import { dueDateOf, occursIn, settleAll, type Settlement } from './settlement'
 import type { PlannedEntry } from '@/data/types'
@@ -15,7 +15,7 @@ export { amountAt, dueDateOf, occursIn } from './settlement'
  * É configuração versionada, como as contas e as regras de categoria — editar na
  * interface fica para depois.
  */
-export const PLANNED: PlannedEntry[] = plannedJson as PlannedEntry[]
+export const PLANNED: PlannedEntry[] = dataset().planned
 
 /**
  * Último mês em que a regra ainda incide, quando ela tem fim.

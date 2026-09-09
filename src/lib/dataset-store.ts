@@ -19,6 +19,23 @@ export interface LoadResult {
   origin: DatasetOrigin
 }
 
+/**
+ * Quanto tempo o boot espera o IndexedDB antes de desistir dele.
+ *
+ * Não é otimização: `indexedDB.open` pode NUNCA responder. Outra aba segurando uma versão
+ * anterior dispara `onblocked`, e há navegadores em que nem esse evento chega — o app ficaria
+ * com a tela em branco para sempre, sem erro, sem pista. Medido aqui: no Chrome headless com
+ * `--virtual-time-budget` o `open` não completa, e sem este limite o boot pendurava.
+ *
+ * Estourar o prazo não é falha: cai na semente, que é um app inteiro funcionando. O preço é
+ * ficar somente-leitura nessa sessão, e o `origin` diz isso a quem chamou.
+ */
+const DB_TIMEOUT_MS = 3000
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([promise, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))])
+}
+
 export async function loadDataset(): Promise<LoadResult> {
   // Sem IndexedDB — modo privado restrito, navegador antigo — o app continua abrindo com o
   // que veio no build. Degradar para somente-leitura é melhor do que uma tela de erro: o
@@ -26,11 +43,13 @@ export async function loadDataset(): Promise<LoadResult> {
   if (!isSupported()) return { data: await loadSeed(), origin: 'seed-sem-suporte' }
 
   try {
-    const keys = new Set(await dbKeys('dataset'))
-    if (PARTS.every((part) => keys.has(part))) {
-      const values = await Promise.all(PARTS.map((part) => dbGet<unknown>('dataset', part)))
-      const data = Object.fromEntries(PARTS.map((part, i) => [part, values[i]])) as unknown as Dataset
-      return { data, origin: 'indexeddb' }
+    const keys = await withTimeout(dbKeys('dataset'), DB_TIMEOUT_MS)
+    if (keys && PARTS.every((part) => keys.includes(part))) {
+      const values = await withTimeout(Promise.all(PARTS.map((part) => dbGet<unknown>('dataset', part))), DB_TIMEOUT_MS)
+      if (values) {
+        const data = Object.fromEntries(PARTS.map((part, i) => [part, values[i]])) as unknown as Dataset
+        return { data, origin: 'indexeddb' }
+      }
     }
   } catch {
     // Banco corrompido ou inacessível não pode impedir o app de abrir: a semente responde.
