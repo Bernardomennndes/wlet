@@ -1,4 +1,4 @@
-import type { Rule } from './rules.ts'
+import type { Rule } from '../src/lib/ingest/rules.ts'
 
 /**
  * MODELO — copie para `rules.config.ts` (ignorado pelo git). `pnpm run setup` faz isso.
