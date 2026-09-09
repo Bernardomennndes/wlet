@@ -19,29 +19,15 @@ import type { DatasetRepository } from '../domain/ports/dataset-repository'
  */
 const STORE = 'dataset'
 
-/**
- * Quanto o boot espera o banco antes de desistir dele.
- *
- * Não é otimização: `indexedDB.open` pode NUNCA responder — outra aba segurando uma versão
- * anterior dispara `onblocked`, e há casos em que nem esse evento chega. Medido nesta base: no
- * Chrome headless sob `--virtual-time-budget` o `open` não completa, e sem este limite o boot
- * pendurava com a tela em branco, sem erro e sem pista. Estourar o prazo cai na semente, que é
- * um app inteiro funcionando.
- */
-const TIMEOUT_MS = 3000
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
-  return Promise.race([promise, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))])
-}
-
 export function makeIndexedDbDatasetRepository(): DatasetRepository {
   return {
     async find() {
       try {
-        const keys = await withTimeout(dbKeys(STORE), TIMEOUT_MS)
-        if (!keys || !DATASET_PARTS.every((part) => keys.includes(part))) return null
-        const values = await withTimeout(Promise.all(DATASET_PARTS.map((part) => dbGet<unknown>(STORE, part))), TIMEOUT_MS)
-        if (!values) return null
+        // O prazo vive em `src/lib/db.ts` e vale para toda leitura — uma cópia por adapter
+        // era o que deixava as outras quatro sem nenhum (§10).
+        const keys = await dbKeys(STORE)
+        if (!DATASET_PARTS.every((part) => keys.includes(part))) return null
+        const values = await Promise.all(DATASET_PARTS.map((part) => dbGet<unknown>(STORE, part)))
         return Object.fromEntries(DATASET_PARTS.map((part, i) => [part, values[i]])) as unknown as Dataset
       } catch {
         // Banco corrompido ou inacessível: o serviço trata `null` como "não há gravado".

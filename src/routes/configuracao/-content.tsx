@@ -1,7 +1,11 @@
 import { ArrowsClockwise, CheckCircle, Warning } from '@phosphor-icons/react'
 import { useDocumentTitle } from '@/hooks/use-document-title'
+import { AccountsSection } from './-components/accounts-section'
 import { BudgetSection } from './-components/budget-section'
 import { GoalsSection } from './-components/goals-section'
+import { PlannedSection } from './-components/planned-section'
+import { ReceivablesSection } from './-components/receivables-section'
+import { RulesSection } from './-components/rules-section'
 import { TripsSection } from './-components/trips-section'
 import { useDeclarations } from './-components/use-declarations'
 
@@ -47,14 +51,22 @@ export function ConfiguracaoPageContent() {
         </p>
       )}
 
+      {/* A ordem é a do que se mexe com mais frequência: teto e rubricas primeiro, perfis de
+          conta e regras por último — os dois que quase nunca mudam e que, quando mudam, pedem
+          reprocessamento. */}
       <BudgetSection budget={current.budget} disabled={saving} onChange={(budget) => save({ budget })} />
+      <PlannedSection entries={current.planned} disabled={saving} onChange={(planned) => save({ planned })} />
+      <ReceivablesSection receivables={current.receivables} disabled={saving} onChange={(receivables) => save({ receivables })} />
       <GoalsSection goals={current.goals} disabled={saving} onChange={(goals) => save({ goals })} />
       <TripsSection trips={current.trips} disabled={saving} onChange={(trips) => save({ trips })} />
 
       <p className="text-muted-foreground flex items-start gap-2 text-xs">
         <ArrowsClockwise className="mt-0.5 shrink-0" />
-        Perfis de conta e regras de categoria agem na leitura dos arquivos: mudá-los exige <strong className="text-foreground font-medium">reprocessar</strong> em Meus dados, não só recarregar.
+        As duas seções abaixo agem na LEITURA dos arquivos: mudá-las exige <strong className="text-foreground font-medium">reprocessar</strong> em Meus dados, não só recarregar.
       </p>
+
+      <AccountsSection accounts={current.accounts} disabled={saving} onChange={(accounts) => save({ accounts })} />
+      <RulesSection rules={current.rules} disabled={saving} onChange={(rules) => save({ rules })} />
     </div>
   )
 }

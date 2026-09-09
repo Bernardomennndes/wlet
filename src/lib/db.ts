@@ -23,6 +23,26 @@ const DB_VERSION = 1
 export const STORES = ['dataset', 'config', 'cache', 'files'] as const
 export type StoreName = (typeof STORES)[number]
 
+/**
+ * Quanto qualquer leitura espera o banco antes de desistir dele.
+ *
+ * `indexedDB.open` pode NUNCA responder: outra aba segurando uma versão anterior dispara
+ * `onblocked`, e há navegadores em que nem esse evento chega. Sem prazo, uma promessa que não
+ * resolve pendura quem a espera — e o boot espera CINCO leituras num `Promise.all`, então uma
+ * pendurada deixa o app em branco para sempre, sem erro e sem pista.
+ *
+ * Medido: era exatamente isso que fazia a tela alternar entre abrir e não abrir. O prazo
+ * ficava só na leitura do conjunto; as outras quatro não tinham nenhum.
+ *
+ * Estourar o prazo NÃO é falha — é "não há dado gravado", e cada contexto já sabe o que fazer
+ * com isso: cair na semente, ou no padrão.
+ */
+const READ_TIMEOUT_MS = 3000
+
+function withTimeout<T>(promise: Promise<T>, fallback: T): Promise<T> {
+  return Promise.race([promise, new Promise<T>((resolve) => setTimeout(() => resolve(fallback), READ_TIMEOUT_MS))])
+}
+
 let opening: Promise<IDBDatabase> | null = null
 
 export function openDb(): Promise<IDBDatabase> {
@@ -71,7 +91,10 @@ function run<T>(store: StoreName, mode: IDBTransactionMode, body: (s: IDBObjectS
 }
 
 export function dbGet<T>(store: StoreName, key: string): Promise<T | undefined> {
-  return run<T | undefined>(store, 'readonly', (s) => s.get(key) as IDBRequest<T | undefined>)
+  return withTimeout(
+    run<T | undefined>(store, 'readonly', (s) => s.get(key) as IDBRequest<T | undefined>),
+    undefined,
+  )
 }
 
 export function dbSet(store: StoreName, key: string, value: unknown): Promise<void> {
@@ -83,7 +106,10 @@ export function dbDelete(store: StoreName, key: string): Promise<void> {
 }
 
 export function dbKeys(store: StoreName): Promise<string[]> {
-  return run<IDBValidKey[]>(store, 'readonly', (s) => s.getAllKeys()).then((keys) => keys.map(String))
+  return withTimeout(
+    run<IDBValidKey[]>(store, 'readonly', (s) => s.getAllKeys()).then((keys) => keys.map(String)),
+    [],
+  )
 }
 
 export function dbClear(store: StoreName): Promise<void> {
