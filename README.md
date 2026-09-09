@@ -13,7 +13,7 @@ pnpm dev
 `pnpm run setup` deixa o app rodando com dados inventados, para você ver a tela antes de entregar
 qualquer extrato. Para usar os seus, veja **Como adicionar movimentações**.
 
-Outros scripts: `pnpm ingest`, `pnpm cdi` (baixa o CDI do Banco Central, para valorar a renda fixa), `pnpm build`, `pnpm preview`, `pnpm lint`, `pnpm check` (testes do calendário bancário e da conciliação, no runner do próprio Node).
+Outros scripts: `pnpm ingest`, `pnpm package` (gera um arquivo com TUDO — conjunto, declarações e os extratos originais — para importar noutro navegador), `pnpm cdi` (baixa o CDI do Banco Central, para valorar a renda fixa), `pnpm build`, `pnpm preview`, `pnpm lint`, `pnpm check` (testes do calendário bancário e da conciliação, no runner do próprio Node).
 
 ## Privacidade
 
@@ -109,7 +109,8 @@ src/services/            a camada DDD: cinco contextos (dataset, config, plans, 
 src/routes/dados/        a tela "Meus dados": origem do conjunto, espaço, ler extratos e a cópia
                          de segurança
 src/routes/configuracao/ a tela "Configuração": as sete declarações, editáveis
-src/services/backup.ts   exportar/importar o que só existe no navegador
+src/services/backup.ts   o pacote: exportar tudo, importar as partes escolhidas
+scripts/package.ts       gera o pacote a partir de docs/, para importar no navegador
 src/generated/*.json     saída gerada, NÃO versionada
 src/data/                vocabulário de domínio (tipos, listas de enum, catálogo de categorias)
 src/lib/finance.ts       recortes, agregações mensais, por categoria, recorrências

@@ -35,6 +35,12 @@ dist-ssr
 # ─────────────────────────────────────────────────────────────────────────────
 docs/
 src/generated/
+
+# O pacote de exportação: conjunto INTEIRO mais os extratos originais em base64.
+# É o arquivo mais sensível que este projeto produz — 18 MB com toda transação — e ele nasce
+# na raiz, onde um `git add .` o pegaria. `pnpm package` o escreve; ele nunca entra num commit.
+wlet-*.json
+
 scripts/accounts.config.ts
 scripts/rules.config.ts
 scripts/planned.config.ts

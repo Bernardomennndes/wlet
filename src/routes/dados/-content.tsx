@@ -6,7 +6,8 @@ import { useDocumentTitle } from '@/hooks/use-document-title'
 import type { SourceFile } from '@/lib/ingest/io'
 import type { IngestReport } from '@/lib/ingest/pipeline'
 import { preloaded } from '@/providers/preloaded'
-import { exportState, importState, type ImportSummary } from '@/services/backup'
+import { exportState, importState, inspectPackage, type ImportSummary, type PackageContents, type PackagePart } from '@/services/backup'
+import { ImportDialog } from './-components/import-dialog'
 import { services } from '@/services'
 import { requestPersistence, storageEstimate } from '@/lib/db'
 
@@ -37,6 +38,9 @@ export function DadosPageContent() {
   const input = useRef<HTMLInputElement>(null)
   const backupInput = useRef<HTMLInputElement>(null)
   const [backup, setBackup] = useState<{ kind: 'idle' } | { kind: 'done'; summary: ImportSummary } | { kind: 'failed'; message: string }>({ kind: 'idle' })
+  // O arquivo lido fica em espera enquanto o diálogo pergunta o que trazer. Importar direto e
+  // depois avisar seria o oposto do que se quer num app cujo armazenamento é a única cópia.
+  const [pending, setPending] = useState<{ contents: PackageContents; payload: Parameters<typeof importState>[0]; key: number } | null>(null)
 
   const refreshStorage = useCallback(() => {
     void storageEstimate().then(setStorage)
@@ -105,21 +109,41 @@ export function DadosPageContent() {
     URL.revokeObjectURL(url)
   }, [])
 
-  const restore = useCallback(async (file: File | null | undefined) => {
+  /**
+   * Lê o arquivo e ABRE o diálogo — não importa nada ainda.
+   *
+   * A inspeção é separada da escrita porque a pessoa precisa ver o que vai substituir antes de
+   * substituir. "Importar e ver no que dá" não é uma opção quando o armazenamento do navegador
+   * é a única cópia.
+   */
+  const inspect = useCallback(async (file: File | null | undefined) => {
     if (!file) return
     try {
-      const summary = await importState(await file.text())
-      // `null` quer dizer "não é um arquivo deste app". Dizer isso é diferente de dizer que
-      // deu erro: o arquivo pode estar íntegro e ser de outra coisa.
-      if (!summary) {
+      const read = inspectPackage(await file.text())
+      if (!read) {
         setBackup({ kind: 'failed', message: 'Este arquivo não é uma cópia do WLET.' })
         return
       }
-      setBackup({ kind: 'done', summary })
+      setPending({ contents: read.contents, payload: read.payload, key: Date.now() })
     } catch (cause) {
       setBackup({ kind: 'failed', message: cause instanceof Error ? cause.message : String(cause) })
     }
   }, [])
+
+  const confirmImport = useCallback(
+    async (parts: PackagePart[]) => {
+      if (!pending) return
+      const payload = pending.payload
+      setPending(null)
+      try {
+        setBackup({ kind: 'done', summary: await importState(payload, parts) })
+        refreshStorage()
+      } catch (cause) {
+        setBackup({ kind: 'failed', message: cause instanceof Error ? cause.message : String(cause) })
+      }
+    },
+    [pending, refreshStorage],
+  )
 
   return (
     <div className="space-y-4">
@@ -223,11 +247,13 @@ export function DadosPageContent() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Cópia de segurança</CardTitle>
-          <CardDescription>O que você digitou — declarações, planos, ajustes de categoria e preferências. Os lançamentos ficam de fora: eles se refazem a partir dos arquivos.</CardDescription>
+          <CardTitle className="text-sm">Exportar e importar</CardTitle>
+          <CardDescription>
+            Tudo o que existe neste navegador, num arquivo só — lançamentos, declarações, planos, ajustes e os extratos originais. Na importação você escolhe o que trazer.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-xs">
-          <input ref={backupInput} type="file" accept="application/json,.json" className="hidden" onChange={(e) => void restore(e.target.files?.[0])} />
+          <input ref={backupInput} type="file" accept="application/json,.json" className="hidden" onChange={(e) => void inspect(e.target.files?.[0])} />
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={() => void download()}>
               <DownloadSimple /> Exportar
@@ -245,9 +271,7 @@ export function DadosPageContent() {
             <p className="flex items-start gap-2">
               <CheckCircle className="mt-0.5 shrink-0" />
               <span>
-                Restaurado: {backup.summary.declarations ? 'declarações, ' : ''}
-                {backup.summary.plans} {backup.summary.plans === 1 ? 'plano' : 'planos'}, {backup.summary.overrides} {backup.summary.overrides === 1 ? 'ajuste' : 'ajustes'} de categoria
-                {backup.summary.preferences ? ' e as preferências' : ''}.{' '}
+                Importado: {backup.summary.imported.length} {backup.summary.imported.length === 1 ? 'parte' : 'partes'}.{' '}
                 <button type="button" className="underline" onClick={() => window.location.reload()}>
                   Recarregue a página
                 </button>{' '}
@@ -257,6 +281,10 @@ export function DadosPageContent() {
           )}
         </CardContent>
       </Card>
+
+      {/* A `key` recria o estado das caixinhas a cada arquivo: sem ela, a escolha do arquivo
+          anterior sobreviveria para um arquivo com partes diferentes. */}
+      {pending && <ImportDialog key={pending.key} contents={pending.contents} open onOpenChange={() => setPending(null)} onConfirm={(parts) => void confirmImport(parts)} />}
     </div>
   )
 }

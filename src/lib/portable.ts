@@ -58,8 +58,15 @@ export function decode(value: unknown): unknown {
   return value
 }
 
-/** A versão do ARQUIVO exportado, independente da versão de cada envelope que ele carrega. */
-export const SNAPSHOT_VERSION = 1
+/**
+ * A versão do ARQUIVO exportado, independente da versão de cada envelope que ele carrega.
+ *
+ * A 2 acrescentou o conjunto de lançamentos e os arquivos-fonte. A 1 continua sendo LIDA: ela
+ * só tinha declarações, planos, ajustes e preferências, e a leitura já restaura cada parte de
+ * forma independente — recusar um arquivo antigo transformaria uma cópia existente em nenhuma.
+ */
+export const SNAPSHOT_VERSION = 2
+const READABLE_VERSIONS = new Set([1, 2])
 
 export interface Snapshot {
   version: number
@@ -68,9 +75,14 @@ export interface Snapshot {
   payload: Record<string, unknown>
 }
 
-export function toJson(payload: Record<string, unknown>): string {
+/**
+ * `compact` desliga a indentação, e não é preferência: o conjunto inteiro formatado passa de
+ * 4,4 MB contra 3,3 MB minificado, e com os arquivos-fonte a diferença cresce junto. Um
+ * arquivo de configuração vale ser lido a olho; um de 18 MB não vai ser.
+ */
+export function toJson(payload: Record<string, unknown>, compact = false): string {
   const snapshot: Snapshot = { version: SNAPSHOT_VERSION, exportedAt: new Date().toISOString(), app: 'wlet', payload: encode(payload) as Record<string, unknown> }
-  return JSON.stringify(snapshot, null, 2)
+  return compact ? JSON.stringify(snapshot) : JSON.stringify(snapshot, null, 2)
 }
 
 /**
@@ -80,10 +92,35 @@ export function toJson(payload: Record<string, unknown>): string {
 export function fromJson(text: string): Record<string, unknown> | null {
   try {
     const raw = JSON.parse(text) as Partial<Snapshot>
-    if (raw.app !== 'wlet' || raw.version !== SNAPSHOT_VERSION) return null
+    if (raw.app !== 'wlet' || typeof raw.version !== 'number' || !READABLE_VERSIONS.has(raw.version)) return null
     if (!raw.payload || typeof raw.payload !== 'object') return null
     return decode(raw.payload) as Record<string, unknown>
   } catch {
     return null
   }
+}
+
+/**
+ * Bytes em texto, para os arquivos-fonte caberem num JSON.
+ *
+ * Base64 custa +33% — 11,4 MB viram 15,1 — e não há alternativa padrão: JSON não tem tipo
+ * binário. Comprimir antes não ajudaria, porque o que está ali é PDF e xlsx, formatos que já
+ * chegam comprimidos.
+ *
+ * A conversão é em FATIAS de 32 KB. `String.fromCharCode(...bytes)` sobre um arranjo de
+ * megabytes estoura a pilha de argumentos, e o erro é um `RangeError` que não diz nada sobre
+ * tamanho.
+ */
+export function toBase64(bytes: Uint8Array): string {
+  let binary = ''
+  const chunk = 0x8000
+  for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+  return btoa(binary)
+}
+
+export function fromBase64(text: string): Uint8Array {
+  const binary = atob(text)
+  const out = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i)
+  return out
 }

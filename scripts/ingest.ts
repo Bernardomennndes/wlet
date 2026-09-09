@@ -11,10 +11,10 @@
  *
  * Uso: `pnpm ingest`
  */
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { collect } from './collect.ts'
 import { runIngest, type AccountProfile } from '../src/lib/ingest/pipeline.ts'
-import type { SourceFile } from '../src/lib/ingest/io.ts'
 import { buildRules } from '../src/lib/ingest/rules.ts'
 import { ACCOUNT_PROFILES, SELF_NAME_PATTERNS } from './accounts.config.ts'
 import { BUDGET } from './budget.config.ts'
@@ -28,17 +28,6 @@ const ROOT = new URL('..', import.meta.url).pathname
 const DOCS_DIR = join(ROOT, 'docs')
 const OUT_DIR = join(ROOT, 'src', 'generated')
 
-/** Todo arquivo de `docs/`, com o caminho RELATIVO à raiz — é ele que o núcleo usa como identidade. */
-function collect(dir: string): SourceFile[] {
-  const out: SourceFile[] = []
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry)
-    if (statSync(full).isDirectory()) out.push(...collect(full))
-    else out.push({ path: relative(ROOT, full), bytes: new Uint8Array(readFileSync(full)) })
-  }
-  return out
-}
-
 async function main() {
   if (!existsSync(DOCS_DIR)) {
     console.log('Não há docs/ para ler. Coloque extratos e faturas lá e rode de novo.')
@@ -46,7 +35,7 @@ async function main() {
   }
 
   const result = await runIngest({
-    sources: collect(DOCS_DIR),
+    sources: collect(DOCS_DIR, ROOT),
     accounts: ACCOUNT_PROFILES as AccountProfile[],
     selfNamePatterns: SELF_NAME_PATTERNS,
     rules: buildRules(CUSTOM_RULES),

@@ -58,6 +58,10 @@ export interface DatasetService {
   reingest(config: Declarations, now: string): Promise<{ data: Dataset; report: IngestReport }>
   /** Quantos arquivos estão guardados. Zero significa que só resta escolher a pasta. */
   storedSources(): Promise<number>
+  /** Os arquivos guardados, para irem num pacote de exportação. */
+  readSources(): Promise<SourceFile[]>
+  /** Substitui os arquivos guardados — o caminho da importação de um pacote. */
+  writeSources(sources: SourceFile[]): Promise<void>
 }
 
 /**
@@ -108,6 +112,10 @@ export function makeDatasetService({ repository, seed, runner, sources: sourceSt
     },
 
     storedSources: () => sourceStore.count(),
+
+    readSources: () => sourceStore.load(),
+
+    writeSources: (sources) => sourceStore.save(sources),
 
     async reset() {
       const fresh = await seed.read()
