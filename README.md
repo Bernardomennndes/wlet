@@ -1,6 +1,8 @@
 # WLET
 
-Controle financeiro pessoal (PF) e da empresa (PJ) a partir de extratos e faturas exportados dos bancos. Sem banco de dados: um script lê os arquivos em `docs/`, identifica as contas, categoriza e pareia transferências, e grava JSON em `src/generated/`. A SPA (Vite, React 19, Tailwind v4, React Router, Recharts) lê esses JSON.
+Controle financeiro pessoal (PF) e da empresa (PJ) a partir de extratos e faturas exportados dos bancos. **Sem banco de dados e sem servidor**: um pipeline lê os arquivos, identifica as contas, categoriza e pareia transferências, e o resultado alimenta a SPA (Vite, React 19, Tailwind v4, React Router, Recharts).
+
+O pipeline é **um só e roda nos dois lugares**: no terminal (`pnpm ingest`, gravando `src/generated/*.json`) e **no próprio navegador**, pela tela "Meus dados", que guarda o resultado no IndexedDB. Duas implementações do mesmo casamento divergiriam no primeiro ajuste, então não existem duas.
 
 ```sh
 pnpm install
@@ -40,6 +42,10 @@ gerador, não a massa de dados.
 3. Solte o arquivo na pasta correspondente em `docs/extrato/<banco>/` ou `docs/fatura/<banco>/`.
 4. Rode `pnpm ingest`. O relatório no terminal mostra arquivos lidos, duplicados ignorados, transferências sem contraparte e lançamentos sem categoria específica.
 
+**Ou sem terminal nenhum:** abra **Meus dados** e escolha a pasta `docs/`. O mesmo pipeline roda num Web Worker, o mesmo relatório aparece na tela, e o conjunto vai para o IndexedDB do navegador. É preciso escolher a PASTA, e não arquivos soltos: só assim o navegador entrega o caminho de cada arquivo, e sem caminho o pipeline não distingue a fatura do extrato do mesmo banco.
+
+> Enquanto o dado morava só em arquivo, perdê-lo era irrelevante — bastava rodar o ingest de novo. No navegador ele é a única cópia, e o navegador pode limpá-la sob pressão de disco. A tela **Meus dados** pede a proteção do armazenamento e mostra o espaço em uso; mantenha também uma cópia exportada.
+
 Regras de leitura:
 
 - O mesmo documento em vários formatos usa só o mais rico: OFX, depois CSV, depois PDF. TXT é ignorado. PDF só é lido para fatura do Nubank, porque o banco não publica outro formato antes de 2024 — e só entra se a soma dos lançamentos fechar com o total impresso na própria fatura.
@@ -77,22 +83,15 @@ Regras por palavra-chave, em três camadas — a primeira que casa vence. `PRIOR
 
 ```
 docs/                    extratos e faturas (entrada)
-scripts/ingest.ts        pipeline docs/ → src/generated/
-scripts/parsers.ts       OFX (extrato e fatura) e CSV da fatura XP
+scripts/ingest.ts        a casca de Node sobre o pipeline: lê docs/, grava src/generated/
 scripts/setup.ts         prepara um clone novo (configs + dataset fictício)
-scripts/matching.ts      casa regra declarada com o extrato (usado pelo ingest E pelo seed)
 scripts/checks/          testes de `pnpm check`
-scripts/xlsx.ts          leitor mínimo de xlsx (B3 e extrato da corretora), sem dependência
-scripts/pdf.ts           extrator de texto de PDF (faturas Nubank anteriores a 2024), sem dependência
 scripts/trips.config.ts     as viagens realizadas; o ingest calcula o custo de cada uma
 src/lib/plans.ts         planos de compra: catálogo no navegador, com envelope versionado
 src/routes/planos/       a tela de planos: grupos, situação e parcelamento
-scripts/brokerage.ts     o razão de caixa da corretora: aporte líquido, resgate, taxa e saldo
-scripts/cdi.ts           o cache do CDI (leitura pura, sem rede)
+scripts/cdi.ts           onde o cache do CDI fica no disco (a leitura mora no pipeline)
 scripts/fetch-cdi.ts     baixa o CDI diário do Banco Central para docs/investimentos/
-scripts/investments.ts   reconstrói a carteira mês a mês: posição + movimentação + CDI
 scripts/seed.ts          gera o dataset fictício de src/generated/
-scripts/rules.ts         categorização genérica e limpeza de descrição
 scripts/*.config.ts      dado pessoal, NÃO versionado (o `.example` de cada um é)
 scripts/accounts.config.ts  contas conhecidas
 scripts/planned.config.ts   lançamentos previstos (a previsão dos gráficos), com o dia de cada um
@@ -100,11 +99,20 @@ scripts/receivables.config.ts  cobranças: quem te deve, e a despesa que o receb
 scripts/goals.config.ts     metas de poupança (o cartão "Metas" da visão geral)
 scripts/budget.config.ts    teto do mês e rubricas de gasto por categoria
 src/lib/settlement.ts    conciliação: uma só para cobrança e conta a pagar
+src/lib/ingest/          O PIPELINE, um só para o terminal e o navegador: parsers (OFX/CSV),
+                         xlsx e pdf sem dependência, categorização, casamento, corretora,
+                         investimentos, e pipeline.ts, que orquestra tudo com I/O injetado
+src/lib/ingest/ingest.worker.ts  a ingestão fora da thread principal, no navegador
+src/lib/dataset.ts       o portão de boot: carrega antes, para os módulos lerem síncrono
+src/lib/db.ts            IndexedDB cru, sem dependência
+src/lib/portable.ts      exportar/importar o estado em JSON, preservando RegExp e Date
+src/services/            a camada DDD: cinco contextos (dataset, config, plans, overrides,
+                         preferences), cada um com domain/ports, application e infrastructure
+src/routes/dados/        a tela "Meus dados": origem do conjunto, espaço, e ler extratos
 src/generated/*.json     saída gerada, NÃO versionada
 src/data/                vocabulário de domínio (tipos, listas de enum, catálogo de categorias)
 src/lib/finance.ts       recortes, agregações mensais, por categoria, recorrências
 src/lib/receivables.ts   cobranças: vencimento, conciliação e situação por mês
-src/lib/storage.ts       o que o app guarda no navegador: o prefixo das chaves num lugar só
 src/components/ui/       componentes shadcn (estilo base-mira, Base UI) + AppCombobox, MonthPicker, MoneyInput e BarProgress compostos sobre eles
 src/components/enum-badge.tsx  o badge de enum, e a tradução de `tone` em cor num lugar só
 src/components/*-badge.tsx  badges de domínio (entidade, categoria, tipo de conta, tipo de transferência, fluxo, status)
