@@ -70,8 +70,8 @@ export function PatrimonioPageContent() {
             </EmptyMedia>
             <EmptyTitle>Nenhum relatório de investimentos</EmptyTitle>
             <EmptyDescription>
-              Exporte a posição, a movimentação e o extrato da corretora para <code className="font-mono">docs/investimentos/</code>, rode <code className="font-mono">pnpm cdi</code> e depois{' '}
-              <code className="font-mono">pnpm ingest</code>.
+              Exporte a posição, a movimentação e o extrato da corretora para <code className="font-mono">docs/investimentos/</code>, junto do cache do CDI. Depois leia a pasta em{' '}
+              <strong className="font-medium text-foreground">Meus dados</strong>, ou rode <code className="font-mono">pnpm ingest</code>.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>

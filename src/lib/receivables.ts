@@ -1,4 +1,4 @@
-import { dataset } from './dataset'
+import { declarations } from './dataset'
 import { dueDateOf, occursIn, settleAll, type Settlement } from './settlement'
 import type { Receivable } from '@/data/types'
 
@@ -14,7 +14,7 @@ export { receivableStatuses } from '@/data/types'
  * cobrança abate, então é `finance` quem depende daqui. Por isso `settle` recebe os meses e
  * a data de corte por parâmetro, em vez de buscá-los.
  */
-export const RECEIVABLES: Receivable[] = dataset().receivables
+export const RECEIVABLES: Receivable[] = declarations().receivables
 
 export const RECEIVABLE_MAP: Record<string, Receivable> = Object.fromEntries(RECEIVABLES.map((r) => [r.id, r]))
 

@@ -122,9 +122,7 @@ export function PagamentosPageContent() {
       <Card>
         <CardHeader>
           <CardTitle>Contas a pagar</CardTitle>
-          <CardDescription>
-            Regras de <code className="font-mono">scripts/planned.config.ts</code> que declaram credor. Só elas ganham situação de pagamento; as demais só projetam.
-          </CardDescription>
+          <CardDescription>As declarações que informam credor. Só elas ganham situação de pagamento; as demais apenas projetam.</CardDescription>
         </CardHeader>
         <CardContent>
           {payables.length === 0 ? (
@@ -192,9 +190,7 @@ export function PagamentosPageContent() {
       <Card>
         <CardHeader>
           <CardTitle>Rubricas de gasto</CardTitle>
-          <CardDescription>
-            De <code className="font-mono">scripts/budget.config.ts</code>. O mesmo número é teto no mês em curso e previsão nos futuros — e na projeção é piso, não soma.
-          </CardDescription>
+          <CardDescription>O mesmo número é teto no mês em curso e previsão nos futuros — e na projeção é piso, não soma.</CardDescription>
         </CardHeader>
         <CardContent>
           <RubricList rubrics={rubrics} month={currentMonth} />

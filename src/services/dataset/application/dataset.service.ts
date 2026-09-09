@@ -1,6 +1,6 @@
 import type { Dataset } from '@/lib/dataset'
 import type { SourceFile } from '@/lib/ingest/io'
-import type { IngestConfig, IngestReport } from '@/lib/ingest/pipeline'
+import type { Declarations, IngestReport } from '@/lib/ingest/pipeline'
 import { IncompleteDatasetError, NoSourcesError } from '../domain/errors'
 import type { DatasetRepository, DatasetSeed } from '../domain/ports/dataset-repository'
 import type { IngestRunner } from '../domain/ports/ingest-runner'
@@ -13,7 +13,14 @@ import type { SourceStore } from '../domain/ports/source-store'
  * conciliação vivem em `src/lib/` e são lidos por 25 arquivos. Aqui só mora de onde o conjunto
  * vem, para onde ele vai, e a garantia de que ele está inteiro antes de ser publicado.
  */
-export const DATASET_PARTS = ['accounts', 'meta', 'transactions', 'transfers', 'planned', 'receivables', 'budget', 'goals', 'investments'] as const
+/**
+ * As cinco partes do conjunto MEDIDO.
+ *
+ * Eram nove: as declarações também eram gravadas aqui, e o app as lia daqui — duas cópias do
+ * mesmo dado, e mudar uma rubrica não mexia em número nenhum até reingerir. Elas moram no
+ * contexto `config` agora.
+ */
+export const DATASET_PARTS = ['accounts', 'meta', 'transactions', 'transfers', 'investments'] as const
 
 export type DatasetOrigin = 'indexeddb' | 'seed'
 
@@ -39,7 +46,7 @@ export interface DatasetService {
    * criada sozinha. No terminal ele era impresso; aqui ele precisa chegar à tela, senão o
    * ingest do navegador seria mais silencioso que o do terminal — o contrário do que se quer.
    */
-  ingest(sources: SourceFile[], config: IngestConfig, now: string): Promise<{ data: Dataset; report: IngestReport }>
+  ingest(sources: SourceFile[], config: Declarations, now: string): Promise<{ data: Dataset; report: IngestReport }>
   /**
    * Reprocessa os arquivos JÁ GUARDADOS, com a configuração de agora.
    *
@@ -48,7 +55,7 @@ export interface DatasetService {
    * então nenhuma altera nada sem o arquivo passar de novo pelo pipeline. Sem isto, cada ajuste
    * de regra exigiria escolher a pasta outra vez.
    */
-  reingest(config: IngestConfig, now: string): Promise<{ data: Dataset; report: IngestReport }>
+  reingest(config: Declarations, now: string): Promise<{ data: Dataset; report: IngestReport }>
   /** Quantos arquivos estão guardados. Zero significa que só resta escolher a pasta. */
   storedSources(): Promise<number>
 }
@@ -110,17 +117,13 @@ export function makeDatasetService({ repository, seed, runner, sources: sourceSt
     },
   }
 
-  async function run(sources: SourceFile[], config: IngestConfig, now: string): Promise<{ data: Dataset; report: IngestReport }> {
+  async function run(sources: SourceFile[], config: Declarations, now: string): Promise<{ data: Dataset; report: IngestReport }> {
     const result = await runner.run(sources, config, now)
     const data: Dataset = {
       accounts: result.accounts,
       meta: result.meta,
       transactions: result.transactions,
       transfers: result.transfers,
-      planned: result.planned,
-      receivables: result.receivables,
-      budget: result.budget,
-      goals: result.goals,
       investments: result.investments,
     }
     // Passa pela MESMA conferência de `replace`: uma ingestão que produziu conjunto

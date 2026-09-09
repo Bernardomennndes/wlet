@@ -103,10 +103,7 @@ export function CobrancasPageContent() {
       <Card>
         <CardHeader>
           <CardTitle>Cobranças</CardTitle>
-          <CardDescription>
-            Configuração em <code className="font-mono">scripts/receivables.config.ts</code>; rode <code className="font-mono">pnpm ingest</code> depois de editar. Quem diz se foi paga é o extrato, e
-            o casamento é por contraparte e conta — nunca por valor, porque um rateio varia mês a mês.
-          </CardDescription>
+          <CardDescription>Quem diz se foi paga é o extrato, e o casamento é por contraparte e conta — nunca por valor, porque um rateio varia mês a mês.</CardDescription>
         </CardHeader>
         <CardContent>
           {receivables.length === 0 ? (

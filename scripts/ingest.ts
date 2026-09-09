@@ -67,10 +67,16 @@ async function main() {
   write('transactions.json', result.transactions)
   write('transfers.json', result.transfers)
   write('meta.json', result.meta)
-  write('planned.json', result.planned)
-  write('goals.json', result.goals)
-  write('budget.json', result.budget)
-  write('receivables.json', result.receivables)
+  // As declarações são gravadas a partir dos CONFIGS, não do resultado: o pipeline deixou de
+  // ecoá-las, porque o app as lê de onde elas moram — o contexto `config`. Estes quatro
+  // arquivos continuam existindo como SEMENTE, para um navegador vazio ter de onde partir.
+  write(
+    'planned.json',
+    PLANNED_ENTRIES.map((e) => ({ ...e, exceptions: e.exceptions ?? {} })),
+  )
+  write('goals.json', GOALS)
+  write('budget.json', BUDGET)
+  write('receivables.json', RECEIVABLES)
   write('trips.json', result.trips)
   write('investments.json', result.investments)
 

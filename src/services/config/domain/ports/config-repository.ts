@@ -1,30 +1,17 @@
-import type { Budget, Goal, PlannedEntry, Receivable, Trip } from '@/data/types'
-import type { AccountProfile } from '@/lib/ingest/pipeline'
-import type { Rule } from '@/lib/ingest/rules'
+import type { Declarations } from '@/lib/ingest/pipeline'
 
 /**
  * A configuração declarada: o que o ingest lê para identificar, categorizar, projetar e cobrar.
  *
- * São os SETE. `accounts`, `rules` e `selfNames` entraram quando o porte do pipeline trouxe
- * `AccountProfile` e `Rule` para `src/lib/ingest/` — antes disso os tipos só existiam em
- * `scripts/`, e a §8 proíbe redeclarar tipo de domínio dentro de um serviço.
+ * É EXATAMENTE a forma que o pipeline recebe (`Declarations`, no kernel), e a identidade não é
+ * conveniência: enquanto eram dois tipos, o app carregava uma cópia de cada e editar a
+ * configuração não mudava tela nenhuma. Um tipo só é o que impede as duas de divergirem.
  *
- * São eles que obrigam este contexto a viver em IndexedDB e não em `localStorage` (§7): as
- * regras carregam dezenas de `RegExp`, e `JSON.stringify(/x/i)` devolve `{}` sem erro nenhum.
+ * São os SETE, e é `rules`/`selfNamePatterns` que obrigam este contexto a viver em IndexedDB e
+ * não em `localStorage` (§7): eles carregam dezenas de `RegExp`, e `JSON.stringify(/x/i)`
+ * devolve `{}` sem erro nenhum.
  */
-export interface ConfigData {
-  planned: PlannedEntry[]
-  budget: Budget
-  receivables: Receivable[]
-  goals: Goal[]
-  trips: Trip[]
-  /** Como reconhecer a conta a partir do arquivo. */
-  accounts: AccountProfile[]
-  /** As SUAS regras de categorização, que rodam antes das genéricas. */
-  rules: Rule[]
-  /** Os nomes que identificam você numa descrição de transferência. */
-  selfNames: RegExp[]
-}
+export type ConfigData = Declarations
 
 export interface ConfigRepository {
   find(): Promise<ConfigData | null>

@@ -37,8 +37,17 @@ export interface AccountProfile {
   }
 }
 
-export interface IngestInput {
-  sources: SourceFile[]
+/**
+ * TUDO que você declara: como reconhecer suas contas, como categorizar, o que espera pagar e
+ * receber, quanto pretende gastar, aonde viajou.
+ *
+ * O nome é `Declarations` e não `Declarations` porque deixou de ser só entrada do pipeline: as
+ * telas leem daqui também. Antes havia DUAS formas para a mesma coisa — esta e a `ConfigData`
+ * do serviço —, e o app carregava uma cópia de cada, o que fazia editar a configuração não
+ * mudar tela nenhuma. Uma forma só, no kernel, é o que permite os dois lados dependerem dela
+ * sem um conhecer o outro (§4 e §5 da rule de serviços).
+ */
+export interface Declarations {
   accounts: AccountProfile[]
   selfNamePatterns: readonly RegExp[]
   /** Já concatenadas nas três camadas: prioridade → suas → genéricas. */
@@ -49,6 +58,10 @@ export interface IngestInput {
   goals: Goal[]
   trips: Trip[]
   tripExcludedCategories: readonly string[]
+}
+
+export interface IngestInput extends Declarations {
+  sources: SourceFile[]
   /**
    * O instante da geração, INJETADO.
    *
@@ -61,15 +74,6 @@ export interface IngestInput {
   cdi?: CdiDay[]
   env: IngestEnv
 }
-
-/**
- * A parte CONFIGURÁVEL da entrada — o que muda de pessoa para pessoa.
- *
- * Separada de `IngestInput` porque é ela que atravessa a fronteira dos contextos: `config`
- * guarda, `dataset` consome, e nenhum dos dois importa os ports do outro (§4 da rule de
- * serviços). O tipo mora no KERNEL, que os dois podem depender.
- */
-export type IngestConfig = Pick<IngestInput, 'accounts' | 'selfNamePatterns' | 'rules' | 'planned' | 'receivables' | 'budget' | 'goals' | 'trips' | 'tripExcludedCategories'>
 
 export interface IngestReport {
   filesRead: number
@@ -91,10 +95,15 @@ export interface IngestResult {
   transactions: Transaction[]
   transfers: Transfer[]
   meta: DatasetMeta
-  planned: PlannedEntry[]
-  goals: Goal[]
-  budget: Budget
-  receivables: Receivable[]
+  /**
+   * As declarações NÃO voltam aqui.
+   *
+   * Elas voltavam, e o app as lia do conjunto em vez de da configuração — duas cópias do mesmo
+   * dado, e editar uma rubrica não mudava número nenhum até reingerir. O pipeline as recebe
+   * como entrada e usa para carimbar `plannedId`/`receivableId`; quem quer lê-las lê de onde
+   * elas moram. `planned` era o único caso com transformação (`exceptions ?? {}`), e ela subiu
+   * para a leitura da configuração.
+   */
   trips: TripCost[]
   investments: { snapshot: InvestmentSnapshot | null; series: PatrimonyPoint[]; income: IncomeMonth[] }
   report: IngestReport
@@ -579,8 +588,6 @@ export async function runIngest(input: IngestInput): Promise<IngestResult> {
       if (!entry.dueOn) plannedProblems.push(`${where}: regra com match precisa de dueOn, senão não há como dizer se atrasou`)
     }
   }
-  const planned: PlannedEntry[] = input.planned.map((e) => ({ ...e, exceptions: e.exceptions ?? {} }))
-
   // ---- Cobranças: mesma validação, mesmo motivo. Uma categoria de entrada aqui abateria
   // a coisa errada, e um `matchMerchant` minúsculo nunca casaria nada em silêncio.
   const receivableProblems: string[] = [...receivableMatches.conflicts]
@@ -648,10 +655,6 @@ export async function runIngest(input: IngestInput): Promise<IngestResult> {
     transactions,
     transfers,
     meta,
-    planned,
-    goals: input.goals,
-    budget: input.budget,
-    receivables: input.receivables,
     trips,
     investments: investments ? { snapshot: investments.snapshot, series: investments.series, income: investments.income } : { snapshot: null, series: [], income: [] },
     report: {

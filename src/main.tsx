@@ -1,4 +1,4 @@
-import { setDataset } from './lib/dataset'
+import { setDataset, setDeclarations } from './lib/dataset'
 import { setPreloaded } from './providers/preloaded'
 import { services } from './services'
 import './index.css'
@@ -28,13 +28,16 @@ function fail(message: string, cause: unknown): void {
 }
 
 async function start(): Promise<void> {
-  const { dataset, preferences, overrides, plans } = services()
+  const { dataset, config, preferences, overrides, plans } = services()
 
   // Os três em paralelo: são armazenamentos independentes, e encadeá-los somaria três esperas
   // no caminho crítico do primeiro render.
-  const [loaded, prefs, over, catalogue] = await Promise.all([dataset.load(), preferences.load(), overrides.list(), plans.list()])
+  // Os cinco em paralelo: são armazenamentos independentes, e encadeá-los somaria cinco
+  // esperas no caminho crítico do primeiro render.
+  const [loaded, declared, prefs, over, catalogue] = await Promise.all([dataset.load(), config.load(), preferences.load(), overrides.list(), plans.list()])
 
   setDataset(loaded.data)
+  setDeclarations(declared)
   setPreloaded({ preferences: prefs, overrides: over, plans: catalogue, datasetOrigin: loaded.origin })
 
   if (loaded.origin !== 'indexeddb') {

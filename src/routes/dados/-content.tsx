@@ -44,21 +44,9 @@ export function DadosPageContent() {
   // faz sentido, e sem isso ele apareceria prometendo algo que ainda não existe.
   useEffect(refreshStorage, [refreshStorage])
 
-  /** A configuração no formato que o pipeline espera. Usada pela leitura E pela reingestão. */
-  const readConfig = useCallback(async () => {
-    const c = await services().config.load()
-    return {
-      accounts: c.accounts,
-      selfNamePatterns: c.selfNames,
-      rules: c.rules,
-      planned: c.planned,
-      receivables: c.receivables,
-      budget: c.budget,
-      goals: c.goals,
-      trips: c.trips,
-      tripExcludedCategories: [],
-    }
-  }, [])
+  // Sem mapeamento: a configuração JÁ É a forma que o pipeline recebe. Enquanto eram dois
+  // tipos, esta função traduzia um no outro — e era ali que os dois podiam divergir.
+  const readConfig = useCallback(() => services().config.load(), [])
 
   const reprocess = useCallback(async () => {
     setState({ kind: 'running', files: stored ?? 0 })

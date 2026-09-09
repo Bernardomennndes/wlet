@@ -180,7 +180,7 @@ export function PrevisaoPageContent() {
         <CardHeader>
           <CardTitle>Lançamentos previstos</CardTitle>
           <CardDescription>
-            Configuração em <code className="font-mono">scripts/planned.config.ts</code>; rode <code className="font-mono">pnpm ingest</code> depois de editar.
+            Declarado por você e guardado NESTE navegador — <code className="font-mono">scripts/planned.config.ts</code> só semeia um navegador que ainda não tem nada.
           </CardDescription>
         </CardHeader>
         <CardContent>

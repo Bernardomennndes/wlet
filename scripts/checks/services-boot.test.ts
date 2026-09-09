@@ -23,6 +23,7 @@ describe('portão de boot', () => {
     assert.equal(mod.hasDataset(), false, 'nada preencheu o portão só por importar')
     // A leitura sem carga LANÇA, e é isso que transforma um erro de ordem de boot em mensagem.
     assert.throws(() => mod.dataset(), /antes do boot/)
+    assert.throws(() => mod.declarations(), /antes do boot/)
   })
 
   it('montar os serviços não lê o dataset', async () => {

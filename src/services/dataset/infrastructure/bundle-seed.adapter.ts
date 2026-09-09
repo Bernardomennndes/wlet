@@ -1,4 +1,4 @@
-import type { Account, Budget, DatasetMeta, Goal, PlannedEntry, Receivable, Transaction, Transfer } from '@/data/types'
+import type { Account, DatasetMeta, Transaction, Transfer } from '@/data/types'
 import type { Dataset } from '@/lib/dataset'
 import type { DatasetSeed } from '../domain/ports/dataset-repository'
 
@@ -12,15 +12,11 @@ import type { DatasetSeed } from '../domain/ports/dataset-repository'
  * lê do IndexedDB e a semente nunca mais é buscada.
  */
 async function loadSeed(): Promise<Dataset> {
-  const [accounts, meta, transactions, transfers, planned, receivables, budget, goals, investments] = await Promise.all([
+  const [accounts, meta, transactions, transfers, investments] = await Promise.all([
     import('@/generated/accounts.json'),
     import('@/generated/meta.json'),
     import('@/generated/transactions.json'),
     import('@/generated/transfers.json'),
-    import('@/generated/planned.json'),
-    import('@/generated/receivables.json'),
-    import('@/generated/budget.json'),
-    import('@/generated/goals.json'),
     import('@/generated/investments.json'),
   ])
   return {
@@ -28,10 +24,6 @@ async function loadSeed(): Promise<Dataset> {
     meta: meta.default as DatasetMeta,
     transactions: transactions.default as Transaction[],
     transfers: transfers.default as Transfer[],
-    planned: planned.default as PlannedEntry[],
-    receivables: receivables.default as Receivable[],
-    budget: budget.default as Budget,
-    goals: goals.default as Goal[],
     investments: investments.default as Dataset['investments'],
   }
 }

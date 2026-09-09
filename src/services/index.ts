@@ -1,5 +1,5 @@
 import { dataset as loadedDataset } from '@/lib/dataset'
-import { createConfigService, type ConfigService } from './config'
+import { createConfigService, makeBundleDeclarations, type ConfigService } from './config'
 import { createDatasetService, type DatasetService } from './dataset'
 import { createOverridesService, type OverridesService } from './overrides'
 import { createPlansService, type PlansService } from './plans'
@@ -36,30 +36,10 @@ export function services(): Services {
       dataset,
       // A semente da config é o que o ingest gravou e veio no dataset: `config` não pode
       // conhecer quem produziu aquele JSON (§4), então ele recebe a leitura por porta.
-      config: createConfigService({
-        read: async () => {
-          const { data } = await dataset.load()
-          // `trips` sai VAZIO, e não é esquecimento: o ingest grava `src/generated/trips.json`,
-          // mas nenhuma tela o lê hoje — ele não faz parte do `Dataset` que o app carrega.
-          // Semear com lista vazia é o que corresponde à verdade; inventar viagem não.
-          return {
-            planned: data.planned,
-            budget: data.budget,
-            receivables: data.receivables,
-            goals: data.goals,
-            trips: [],
-            // Os três nascem VAZIOS, e isso não é lacuna — é o que o pipeline espera de quem
-            // ainda não configurou nada. Sem perfil de conta ele CRIA a conta a partir dos
-            // metadados do arquivo (e avisa no relatório); sem regra sua, valem as genéricas,
-            // que já estão no código; sem nome próprio, nenhuma transferência é reconhecida
-            // como sua, o que é o certo — inventar um nome casaria transferência alheia.
-            // O `ingest` do terminal continua passando os do disco.
-            accounts: [],
-            rules: [],
-            selfNames: [],
-          }
-        },
-      }),
+      // A semente vem do BUNDLE, não do conjunto: `config` não pode conhecer quem produziu
+      // aquele JSON (§4), e depois que as declarações saíram do `Dataset` não haveria de onde
+      // tirá-las por ali de qualquer modo.
+      config: createConfigService(makeBundleDeclarations()),
       plans: createPlansService(),
       overrides: createOverridesService(),
       // O piso vem daqui e não do barrel de `preferences`: `@/lib/dataset` é o PORTÃO, que

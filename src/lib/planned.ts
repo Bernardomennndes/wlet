@@ -1,4 +1,4 @@
-import { dataset } from './dataset'
+import { declarations } from './dataset'
 import { shiftMonth } from './finance'
 import { dueDateOf, occursIn, settleAll, type Settlement } from './settlement'
 import type { PlannedEntry } from '@/data/types'
@@ -15,7 +15,9 @@ export { amountAt, dueDateOf, occursIn } from './settlement'
  * É configuração versionada, como as contas e as regras de categoria — editar na
  * interface fica para depois.
  */
-export const PLANNED: PlannedEntry[] = dataset().planned
+// `exceptions ?? {}` acontece AQUI, e não no pipeline: a normalização é da leitura, e o
+// pipeline deixou de ecoar as declarações no conjunto.
+export const PLANNED: PlannedEntry[] = declarations().planned.map((e) => ({ ...e, exceptions: e.exceptions ?? {} }))
 
 /**
  * Último mês em que a regra ainda incide, quando ela tem fim.

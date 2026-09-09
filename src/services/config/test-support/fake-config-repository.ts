@@ -31,6 +31,7 @@ export function seedConfig(): ConfigData {
     trips: [],
     accounts: [],
     rules: [],
-    selfNames: [],
+    selfNamePatterns: [],
+    tripExcludedCategories: [],
   }
 }

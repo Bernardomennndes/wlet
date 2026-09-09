@@ -42,10 +42,6 @@ export function seedDataset(): Dataset {
     meta: { months: ['2026-01'], generatedAt: '2026-01-01T00:00:00.000Z', sourceFiles: [] } as unknown as Dataset['meta'],
     transactions: [],
     transfers: [],
-    planned: [],
-    receivables: [],
-    budget: { monthlyLimit: 1000, warnAt: 0.75, byCategory: [] },
-    goals: [],
     investments: { snapshot: null, series: [], income: [] },
   }
 }
@@ -62,10 +58,6 @@ export function makeFakeRunner(result: Partial<IngestResult>): IngestRunner & { 
         transactions: base.transactions,
         transfers: base.transfers,
         meta: base.meta,
-        planned: base.planned,
-        goals: base.goals,
-        budget: base.budget,
-        receivables: base.receivables,
         trips: [],
         investments: base.investments,
         report: {

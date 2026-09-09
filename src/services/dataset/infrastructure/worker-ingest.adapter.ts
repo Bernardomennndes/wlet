@@ -1,5 +1,5 @@
 import type { SourceFile } from '@/lib/ingest/io'
-import type { IngestConfig, IngestResult } from '@/lib/ingest/pipeline'
+import type { Declarations, IngestResult } from '@/lib/ingest/pipeline'
 import type { IngestResponse } from '@/lib/ingest/ingest.worker'
 import { DomainError } from '@/services/shared/domain/errors'
 import type { IngestRunner } from '../domain/ports/ingest-runner'
@@ -23,7 +23,7 @@ export class IngestFailedError extends DomainError {
  */
 export function makeWorkerIngestRunner(): IngestRunner {
   return {
-    run(sources: SourceFile[], config: IngestConfig, now: string): Promise<IngestResult> {
+    run(sources: SourceFile[], config: Declarations, now: string): Promise<IngestResult> {
       return new Promise((resolve, reject) => {
         const worker = new Worker(new URL('../../../lib/ingest/ingest.worker.ts', import.meta.url), { type: 'module' })
         worker.onmessage = (event: MessageEvent<IngestResponse>) => {

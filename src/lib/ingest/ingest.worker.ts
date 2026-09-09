@@ -1,5 +1,5 @@
 import { browserEnv, type SourceFile } from './io'
-import { runIngest, type IngestConfig, type IngestResult } from './pipeline'
+import { runIngest, type Declarations, type IngestResult } from './pipeline'
 
 /**
  * O ingest fora da thread principal.
@@ -14,7 +14,7 @@ import { runIngest, type IngestConfig, type IngestResult } from './pipeline'
  */
 export interface IngestRequest {
   sources: SourceFile[]
-  config: IngestConfig
+  config: Declarations
   now: string
 }
 
