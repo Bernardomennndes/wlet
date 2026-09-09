@@ -1,5 +1,5 @@
 import { CATEGORY_MAP } from '@/data/categories'
-import type { Account, Budget, DatasetMeta, Goal, PlannedEntry, Receivable, Transaction, Transfer, TransferKind, Trip, TripCost } from '@/data/types'
+import type { Account, Budget, DatasetMeta, Goal, IncomeMonth, InvestmentSnapshot, PatrimonyPoint, PlannedEntry, Receivable, Transaction, Transfer, TransferKind, Trip, TripCost } from '@/data/types'
 import { readBrokerageLedger, type BrokerageLedger } from './brokerage'
 import type { IngestEnv, SourceFile } from './io'
 import { buildInvestments, type CdiDay } from './investments'
@@ -62,6 +62,15 @@ export interface IngestInput {
   env: IngestEnv
 }
 
+/**
+ * A parte CONFIGURÁVEL da entrada — o que muda de pessoa para pessoa.
+ *
+ * Separada de `IngestInput` porque é ela que atravessa a fronteira dos contextos: `config`
+ * guarda, `dataset` consome, e nenhum dos dois importa os ports do outro (§4 da rule de
+ * serviços). O tipo mora no KERNEL, que os dois podem depender.
+ */
+export type IngestConfig = Pick<IngestInput, 'accounts' | 'selfNamePatterns' | 'rules' | 'planned' | 'receivables' | 'budget' | 'goals' | 'trips' | 'tripExcludedCategories'>
+
 export interface IngestReport {
   filesRead: number
   skipped: string[]
@@ -87,7 +96,7 @@ export interface IngestResult {
   budget: Budget
   receivables: Receivable[]
   trips: TripCost[]
-  investments: { snapshot: unknown; series: unknown[]; income: unknown[] }
+  investments: { snapshot: InvestmentSnapshot | null; series: PatrimonyPoint[]; income: IncomeMonth[] }
   report: IngestReport
 }
 

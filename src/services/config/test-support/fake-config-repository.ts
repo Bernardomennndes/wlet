@@ -29,5 +29,8 @@ export function seedConfig(): ConfigData {
     receivables: [],
     goals: [],
     trips: [],
+    accounts: [],
+    rules: [],
+    selfNames: [],
   }
 }

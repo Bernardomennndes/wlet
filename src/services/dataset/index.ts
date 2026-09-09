@@ -1,6 +1,7 @@
 import { makeDatasetService, type DatasetService } from './application/dataset.service'
 import { makeBundleSeed } from './infrastructure/bundle-seed.adapter'
 import { makeIndexedDbDatasetRepository } from './infrastructure/indexed-db-dataset.adapter'
+import { makeWorkerIngestRunner } from './infrastructure/worker-ingest.adapter'
 
 /**
  * A API pública do contexto do conjunto ingerido (§1, §4).
@@ -10,11 +11,13 @@ import { makeIndexedDbDatasetRepository } from './infrastructure/indexed-db-data
  * garante que o app abre mesmo sem banco nenhum.
  */
 export function createDatasetService(): DatasetService {
-  return makeDatasetService({ repository: makeIndexedDbDatasetRepository(), seed: makeBundleSeed() })
+  return makeDatasetService({ repository: makeIndexedDbDatasetRepository(), seed: makeBundleSeed(), runner: makeWorkerIngestRunner() })
 }
 
 export { DATASET_PARTS, makeDatasetService, type DatasetOrigin, type DatasetService, type DatasetServiceDeps } from './application/dataset.service'
 export { IncompleteDatasetError } from './domain/errors'
 export type { DatasetRepository, DatasetSeed } from './domain/ports/dataset-repository'
+export type { IngestRunner } from './domain/ports/ingest-runner'
 export { makeBundleSeed } from './infrastructure/bundle-seed.adapter'
+export { IngestFailedError, makeInlineIngestRunner, makeWorkerIngestRunner } from './infrastructure/worker-ingest.adapter'
 export { makeIndexedDbDatasetRepository } from './infrastructure/indexed-db-dataset.adapter'

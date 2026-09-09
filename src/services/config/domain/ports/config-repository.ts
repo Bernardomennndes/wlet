@@ -1,12 +1,16 @@
 import type { Budget, Goal, PlannedEntry, Receivable, Trip } from '@/data/types'
+import type { AccountProfile } from '@/lib/ingest/pipeline'
+import type { Rule } from '@/lib/ingest/rules'
 
 /**
- * A configuração declarada: o que o ingest lê para projetar, cobrar e medir.
+ * A configuração declarada: o que o ingest lê para identificar, categorizar, projetar e cobrar.
  *
- * São CINCO, e não sete. `accounts` e `rules` — os dois que carregam `RegExp` — ficam de fora
- * por enquanto porque seus tipos (`AccountProfile`, `CategoryRule`) só existem em `scripts/`, e
- * a §8 proíbe redeclarar tipo de domínio dentro do serviço. Eles entram quando os tipos
- * mudarem para `src/data/types.ts`, o que é passo do porte do ingest, não desta camada.
+ * São os SETE. `accounts`, `rules` e `selfNames` entraram quando o porte do pipeline trouxe
+ * `AccountProfile` e `Rule` para `src/lib/ingest/` — antes disso os tipos só existiam em
+ * `scripts/`, e a §8 proíbe redeclarar tipo de domínio dentro de um serviço.
+ *
+ * São eles que obrigam este contexto a viver em IndexedDB e não em `localStorage` (§7): as
+ * regras carregam dezenas de `RegExp`, e `JSON.stringify(/x/i)` devolve `{}` sem erro nenhum.
  */
 export interface ConfigData {
   planned: PlannedEntry[]
@@ -14,6 +18,12 @@ export interface ConfigData {
   receivables: Receivable[]
   goals: Goal[]
   trips: Trip[]
+  /** Como reconhecer a conta a partir do arquivo. */
+  accounts: AccountProfile[]
+  /** As SUAS regras de categorização, que rodam antes das genéricas. */
+  rules: Rule[]
+  /** Os nomes que identificam você numa descrição de transferência. */
+  selfNames: RegExp[]
 }
 
 export interface ConfigRepository {

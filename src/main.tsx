@@ -35,7 +35,7 @@ async function start(): Promise<void> {
   const [loaded, prefs, over, catalogue] = await Promise.all([dataset.load(), preferences.load(), overrides.list(), plans.list()])
 
   setDataset(loaded.data)
-  setPreloaded({ preferences: prefs, overrides: over, plans: catalogue })
+  setPreloaded({ preferences: prefs, overrides: over, plans: catalogue, datasetOrigin: loaded.origin })
 
   if (loaded.origin !== 'indexeddb') {
     // Não é erro — é o primeiro boot, ou um navegador sem IndexedDB. Fica no console porque a

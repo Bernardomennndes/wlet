@@ -1,6 +1,9 @@
 import type { Dataset } from '@/lib/dataset'
+import type { SourceFile } from '@/lib/ingest/io'
+import type { IngestConfig, IngestReport } from '@/lib/ingest/pipeline'
 import { IncompleteDatasetError } from '../domain/errors'
 import type { DatasetRepository, DatasetSeed } from '../domain/ports/dataset-repository'
+import type { IngestRunner } from '../domain/ports/ingest-runner'
 
 /**
  * Os casos de uso do conjunto ingerido.
@@ -16,6 +19,7 @@ export type DatasetOrigin = 'indexeddb' | 'seed'
 export interface DatasetServiceDeps {
   repository: DatasetRepository
   seed: DatasetSeed
+  runner: IngestRunner
 }
 
 export interface DatasetService {
@@ -25,6 +29,15 @@ export interface DatasetService {
   replace(data: Dataset): Promise<Dataset>
   /** Descarta o gravado e volta à cópia que veio no aplicativo. */
   reset(): Promise<Dataset>
+  /**
+   * Lê extratos e faturas e SUBSTITUI o conjunto — a ingestão, agora no navegador.
+   *
+   * Devolve o relatório junto do conjunto porque ele é a única coisa que explica um número
+   * estranho: duplicado descartado, fatura recusada, transferência sem contraparte, conta
+   * criada sozinha. No terminal ele era impresso; aqui ele precisa chegar à tela, senão o
+   * ingest do navegador seria mais silencioso que o do terminal — o contrário do que se quer.
+   */
+  ingest(sources: SourceFile[], config: IngestConfig, now: string): Promise<{ data: Dataset; report: IngestReport }>
 }
 
 /**
@@ -36,7 +49,7 @@ function assertComplete(data: Dataset): void {
   if (missing.length) throw new IncompleteDatasetError(missing)
 }
 
-export function makeDatasetService({ repository, seed }: DatasetServiceDeps): DatasetService {
+export function makeDatasetService({ repository, seed, runner }: DatasetServiceDeps): DatasetService {
   return {
     async load() {
       // Banco inacessível, corrompido ou lento não pode impedir o app de abrir — a semente
@@ -58,6 +71,26 @@ export function makeDatasetService({ repository, seed }: DatasetServiceDeps): Da
       assertComplete(data)
       await repository.save(data)
       return data
+    },
+
+    async ingest(sources, config, now) {
+      const result = await runner.run(sources, config, now)
+      const data: Dataset = {
+        accounts: result.accounts,
+        meta: result.meta,
+        transactions: result.transactions,
+        transfers: result.transfers,
+        planned: result.planned,
+        receivables: result.receivables,
+        budget: result.budget,
+        goals: result.goals,
+        investments: result.investments,
+      }
+      // Passa pela MESMA conferência de `replace`: uma ingestão que produziu conjunto
+      // incompleto não pode substituir um conjunto íntegro.
+      assertComplete(data)
+      await repository.save(data)
+      return { data, report: result.report }
     },
 
     async reset() {

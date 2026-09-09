@@ -1,5 +1,6 @@
 import type { Overrides } from '@/lib/finance'
 import { emptyPlans, type PlansData } from '@/lib/plans'
+import type { DatasetOrigin } from '@/services/dataset'
 import type { Preferences } from '@/services/preferences'
 
 /**
@@ -22,6 +23,14 @@ export interface Preloaded {
   preferences: Preferences
   overrides: Overrides
   plans: PlansData
+  /**
+   * De onde o conjunto veio neste boot.
+   *
+   * Ia só para o `console.info`, e ali ela não serve a quem precisa: quando um número parece
+   * errado, a primeira pergunta é "estes dados são os meus ou a cópia que veio no app?". A
+   * tela de Dados responde isso.
+   */
+  datasetOrigin: DatasetOrigin
 }
 
 let current: Preloaded | null = null
@@ -40,5 +49,5 @@ export function setPreloaded(next: Preloaded): void {
  * que um que escolhe por você desta vez.
  */
 export function preloaded(): Preloaded {
-  return current ?? { preferences: { scope: null, period: null, theme: null }, overrides: {}, plans: emptyPlans() }
+  return current ?? { preferences: { scope: null, period: null, theme: null }, overrides: {}, plans: emptyPlans(), datasetOrigin: 'seed' }
 }

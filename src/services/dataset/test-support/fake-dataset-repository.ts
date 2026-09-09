@@ -1,5 +1,7 @@
 import type { Dataset } from '@/lib/dataset'
+import type { IngestResult } from '@/lib/ingest/pipeline'
 import type { DatasetRepository, DatasetSeed } from '../domain/ports/dataset-repository'
+import type { IngestRunner } from '../domain/ports/ingest-runner'
 
 /** Fakes in-memory (§9). NÃO é código de produção. */
 export function makeFakeDatasetRepository(initial: Dataset | null = null): DatasetRepository & { snapshot(): Dataset | null; cleared: boolean } {
@@ -44,4 +46,48 @@ export function seedDataset(): Dataset {
     goals: [],
     investments: { snapshot: null, series: [], income: [] },
   }
+}
+
+/** Um executor que devolve o que lhe mandaram devolver, sem tocar em arquivo nenhum. */
+export function makeFakeRunner(result: Partial<IngestResult>): IngestRunner & { calls: number } {
+  const state = {
+    calls: 0,
+    async run() {
+      state.calls += 1
+      const base = seedDataset()
+      return {
+        accounts: base.accounts,
+        transactions: base.transactions,
+        transfers: base.transfers,
+        meta: base.meta,
+        planned: base.planned,
+        goals: base.goals,
+        budget: base.budget,
+        receivables: base.receivables,
+        trips: [],
+        investments: base.investments,
+        report: {
+          filesRead: 0,
+          skipped: [],
+          duplicated: [],
+          pdfProblems: [],
+          unknownAccounts: [],
+          plannedProblems: [],
+          receivableProblems: [],
+          goalProblems: [],
+          brokerageProblems: [],
+          investmentProblems: [],
+          unmatchedTransfers: [],
+          uncategorized: [],
+        },
+        ...result,
+      } as IngestResult
+    },
+  }
+  return state
+}
+
+/** Um executor que sempre falha — o arquivo ilegível, o PDF que não fecha. */
+export function makeBrokenRunner(): IngestRunner {
+  return { run: () => Promise.reject(new Error('arquivo ilegível')) }
 }

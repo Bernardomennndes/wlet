@@ -42,7 +42,22 @@ export function services(): Services {
           // `trips` sai VAZIO, e não é esquecimento: o ingest grava `src/generated/trips.json`,
           // mas nenhuma tela o lê hoje — ele não faz parte do `Dataset` que o app carrega.
           // Semear com lista vazia é o que corresponde à verdade; inventar viagem não.
-          return { planned: data.planned, budget: data.budget, receivables: data.receivables, goals: data.goals, trips: [] }
+          return {
+            planned: data.planned,
+            budget: data.budget,
+            receivables: data.receivables,
+            goals: data.goals,
+            trips: [],
+            // Os três nascem VAZIOS, e isso não é lacuna — é o que o pipeline espera de quem
+            // ainda não configurou nada. Sem perfil de conta ele CRIA a conta a partir dos
+            // metadados do arquivo (e avisa no relatório); sem regra sua, valem as genéricas,
+            // que já estão no código; sem nome próprio, nenhuma transferência é reconhecida
+            // como sua, o que é o certo — inventar um nome casaria transferência alheia.
+            // O `ingest` do terminal continua passando os do disco.
+            accounts: [],
+            rules: [],
+            selfNames: [],
+          }
         },
       }),
       plans: createPlansService(),
