@@ -1,4 +1,4 @@
-import { ArrowClockwise, ArrowsClockwise, CheckCircle, DownloadSimple, FolderOpen, Warning } from '@phosphor-icons/react'
+import { ArrowClockwise, ArrowsClockwise, CheckCircle, DownloadSimple, FolderOpen, UploadSimple, Warning } from '@phosphor-icons/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -6,6 +6,7 @@ import { useDocumentTitle } from '@/hooks/use-document-title'
 import type { SourceFile } from '@/lib/ingest/io'
 import type { IngestReport } from '@/lib/ingest/pipeline'
 import { preloaded } from '@/providers/preloaded'
+import { exportState, importState, type ImportSummary } from '@/services/backup'
 import { services } from '@/services'
 import { requestPersistence, storageEstimate } from '@/lib/db'
 
@@ -34,6 +35,8 @@ export function DadosPageContent() {
   const [stored, setStored] = useState<number | null>(null)
   const [persistent, setPersistent] = useState<boolean | null>(null)
   const input = useRef<HTMLInputElement>(null)
+  const backupInput = useRef<HTMLInputElement>(null)
+  const [backup, setBackup] = useState<{ kind: 'idle' } | { kind: 'done'; summary: ImportSummary } | { kind: 'failed'; message: string }>({ kind: 'idle' })
 
   const refreshStorage = useCallback(() => {
     void storageEstimate().then(setStorage)
@@ -84,6 +87,40 @@ export function DadosPageContent() {
     [readConfig, refreshStorage],
   )
 
+  /**
+   * Baixa o arquivo sem passar por servidor nenhum.
+   *
+   * `URL.createObjectURL` e um clique sintético: é o único caminho que mantém o dado no
+   * navegador — um endpoint de download exigiria enviar para fora justamente o que este app
+   * existe para não enviar. O objeto é revogado logo depois, senão o blob fica preso na
+   * memória da aba até ela fechar.
+   */
+  const download = useCallback(async () => {
+    const json = await exportState()
+    const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `wlet-${new Date().toISOString().slice(0, 10)}.json`
+    link.click()
+    URL.revokeObjectURL(url)
+  }, [])
+
+  const restore = useCallback(async (file: File | null | undefined) => {
+    if (!file) return
+    try {
+      const summary = await importState(await file.text())
+      // `null` quer dizer "não é um arquivo deste app". Dizer isso é diferente de dizer que
+      // deu erro: o arquivo pode estar íntegro e ser de outra coisa.
+      if (!summary) {
+        setBackup({ kind: 'failed', message: 'Este arquivo não é uma cópia do WLET.' })
+        return
+      }
+      setBackup({ kind: 'done', summary })
+    } catch (cause) {
+      setBackup({ kind: 'failed', message: cause instanceof Error ? cause.message : String(cause) })
+    }
+  }, [])
+
   return (
     <div className="space-y-4">
       <header className="flex items-start justify-between">
@@ -101,7 +138,7 @@ export function DadosPageContent() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-xs">
-          <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <div>
               <dt className="text-muted-foreground">Origem</dt>
               <dd className="font-mono">{origin === 'indexeddb' ? 'IndexedDB' : 'aplicativo'}</dd>
@@ -181,6 +218,43 @@ export function DadosPageContent() {
           )}
 
           {state.kind === 'done' && <Report report={state.report} />}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Cópia de segurança</CardTitle>
+          <CardDescription>O que você digitou — declarações, planos, ajustes de categoria e preferências. Os lançamentos ficam de fora: eles se refazem a partir dos arquivos.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-xs">
+          <input ref={backupInput} type="file" accept="application/json,.json" className="hidden" onChange={(e) => void restore(e.target.files?.[0])} />
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={() => void download()}>
+              <DownloadSimple /> Exportar
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => backupInput.current?.click()}>
+              <UploadSimple /> Importar
+            </Button>
+          </div>
+          {backup.kind === 'failed' && (
+            <p className="text-destructive flex items-start gap-2">
+              <Warning className="mt-0.5 shrink-0" /> {backup.message}
+            </p>
+          )}
+          {backup.kind === 'done' && (
+            <p className="flex items-start gap-2">
+              <CheckCircle className="mt-0.5 shrink-0" />
+              <span>
+                Restaurado: {backup.summary.declarations ? 'declarações, ' : ''}
+                {backup.summary.plans} {backup.summary.plans === 1 ? 'plano' : 'planos'}, {backup.summary.overrides} {backup.summary.overrides === 1 ? 'ajuste' : 'ajustes'} de categoria
+                {backup.summary.preferences ? ' e as preferências' : ''}.{' '}
+                <button type="button" className="underline" onClick={() => window.location.reload()}>
+                  Recarregue a página
+                </button>{' '}
+                para as telas passarem a usar.
+              </span>
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

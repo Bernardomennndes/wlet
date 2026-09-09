@@ -24,6 +24,13 @@ export interface ConfigService {
   saveTrips(trips: Trip[]): Promise<ConfigData>
   /** Volta ao que a semente declara, descartando o que foi editado no navegador. */
   reset(): Promise<ConfigData>
+  /**
+   * Substitui a configuração INTEIRA — o caminho da importação de um arquivo exportado.
+   *
+   * Passa pela mesma validação das gravações parciais: vir de um export não torna um arquivo
+   * confiável, porque ele pode ter sido editado à mão entre a exportação e a importação.
+   */
+  replace(next: ConfigData): Promise<ConfigData>
 }
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/
@@ -83,6 +90,8 @@ export function makeConfigService({ repository, seed }: ConfigServiceDeps): Conf
     saveReceivables: async (receivables) => commit({ ...(await current()), receivables }),
     saveGoals: async (goals) => commit({ ...(await current()), goals }),
     saveTrips: async (trips) => commit({ ...(await current()), trips }),
+
+    replace: (next) => commit(next),
 
     async reset() {
       const seeded = await seed.read()
