@@ -1,6 +1,7 @@
 import { makeDatasetService, type DatasetService } from './application/dataset.service'
 import { makeBundleSeed } from './infrastructure/bundle-seed.adapter'
 import { makeIndexedDbDatasetRepository } from './infrastructure/indexed-db-dataset.adapter'
+import { makeIndexedDbSourceStore } from './infrastructure/indexed-db-source.adapter'
 import { makeWorkerIngestRunner } from './infrastructure/worker-ingest.adapter'
 
 /**
@@ -11,13 +12,15 @@ import { makeWorkerIngestRunner } from './infrastructure/worker-ingest.adapter'
  * garante que o app abre mesmo sem banco nenhum.
  */
 export function createDatasetService(): DatasetService {
-  return makeDatasetService({ repository: makeIndexedDbDatasetRepository(), seed: makeBundleSeed(), runner: makeWorkerIngestRunner() })
+  return makeDatasetService({ repository: makeIndexedDbDatasetRepository(), seed: makeBundleSeed(), runner: makeWorkerIngestRunner(), sources: makeIndexedDbSourceStore() })
 }
 
 export { DATASET_PARTS, makeDatasetService, type DatasetOrigin, type DatasetService, type DatasetServiceDeps } from './application/dataset.service'
-export { IncompleteDatasetError } from './domain/errors'
+export { IncompleteDatasetError, NoSourcesError } from './domain/errors'
 export type { DatasetRepository, DatasetSeed } from './domain/ports/dataset-repository'
 export type { IngestRunner } from './domain/ports/ingest-runner'
+export type { SourceStore } from './domain/ports/source-store'
 export { makeBundleSeed } from './infrastructure/bundle-seed.adapter'
+export { makeIndexedDbSourceStore } from './infrastructure/indexed-db-source.adapter'
 export { IngestFailedError, makeInlineIngestRunner, makeWorkerIngestRunner } from './infrastructure/worker-ingest.adapter'
 export { makeIndexedDbDatasetRepository } from './infrastructure/indexed-db-dataset.adapter'

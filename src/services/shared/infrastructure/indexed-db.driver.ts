@@ -1,4 +1,4 @@
-import { dbClear, dbGet, dbSet, dbSetMany, type StoreName } from '@/lib/db'
+import { dbClear, dbGet, dbReplaceAll, dbSet, dbSetMany, type StoreName } from '@/lib/db'
 import { translateStorageError } from '../domain/errors'
 import { type EnvelopeSpec, open, wrap } from '../envelope'
 import type { StorageDriver } from './local-storage.driver'
@@ -61,6 +61,21 @@ export function makeIndexedDbDriver<T>(store: StoreName, name: string, spec: Env
 export async function writeManyAtomic(store: StoreName, entries: [string, unknown][]): Promise<void> {
   try {
     await dbSetMany(store, entries)
+  } catch (cause) {
+    throw translateStorageError(cause)
+  }
+}
+
+/**
+ * Substitui o conteúdo inteiro de um store, numa transação só.
+ *
+ * O irmão de `writeManyAtomic` para quando o que estava lá precisa SAIR. Separá-los é o que
+ * evita cada contexto escrever o seu próprio "limpa e regrava" em duas transações — que é
+ * justamente a forma de perder dado sem erro.
+ */
+export async function replaceAllAtomic(store: StoreName, entries: [string, unknown][]): Promise<void> {
+  try {
+    await dbReplaceAll(store, entries)
   } catch (cause) {
     throw translateStorageError(cause)
   }

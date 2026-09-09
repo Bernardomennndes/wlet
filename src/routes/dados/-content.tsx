@@ -1,5 +1,5 @@
-import { ArrowClockwise, CheckCircle, DownloadSimple, FolderOpen, Warning } from '@phosphor-icons/react'
-import { useCallback, useRef, useState } from 'react'
+import { ArrowClockwise, ArrowsClockwise, CheckCircle, DownloadSimple, FolderOpen, Warning } from '@phosphor-icons/react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useDocumentTitle } from '@/hooks/use-document-title'
@@ -31,12 +31,45 @@ export function DadosPageContent() {
   const origin = preloaded().datasetOrigin
   const [state, setState] = useState<State>({ kind: 'idle' })
   const [storage, setStorage] = useState<{ usage: number; quota: number } | null>(null)
+  const [stored, setStored] = useState<number | null>(null)
   const [persistent, setPersistent] = useState<boolean | null>(null)
   const input = useRef<HTMLInputElement>(null)
 
   const refreshStorage = useCallback(() => {
     void storageEstimate().then(setStorage)
+    void services().dataset.storedSources().then(setStored)
   }, [])
+
+  // Uma leitura na montagem: quantos arquivos estão guardados decide se o botão de reprocessar
+  // faz sentido, e sem isso ele apareceria prometendo algo que ainda não existe.
+  useEffect(refreshStorage, [refreshStorage])
+
+  /** A configuração no formato que o pipeline espera. Usada pela leitura E pela reingestão. */
+  const readConfig = useCallback(async () => {
+    const c = await services().config.load()
+    return {
+      accounts: c.accounts,
+      selfNamePatterns: c.selfNames,
+      rules: c.rules,
+      planned: c.planned,
+      receivables: c.receivables,
+      budget: c.budget,
+      goals: c.goals,
+      trips: c.trips,
+      tripExcludedCategories: [],
+    }
+  }, [])
+
+  const reprocess = useCallback(async () => {
+    setState({ kind: 'running', files: stored ?? 0 })
+    try {
+      const { report } = await services().dataset.reingest(await readConfig(), new Date().toISOString())
+      setState({ kind: 'done', report })
+      refreshStorage()
+    } catch (cause) {
+      setState({ kind: 'failed', message: cause instanceof Error ? cause.message : String(cause) })
+    }
+  }, [readConfig, refreshStorage, stored])
 
   const onPick = useCallback(
     async (list: FileList | null) => {
@@ -53,29 +86,14 @@ export function DadosPageContent() {
             bytes: new Uint8Array(await file.arrayBuffer()),
           })),
         )
-        const config = await services().config.load()
-        const { report } = await services().dataset.ingest(
-          sources,
-          {
-            accounts: config.accounts,
-            selfNamePatterns: config.selfNames,
-            rules: config.rules,
-            planned: config.planned,
-            receivables: config.receivables,
-            budget: config.budget,
-            goals: config.goals,
-            trips: config.trips,
-            tripExcludedCategories: [],
-          },
-          new Date().toISOString(),
-        )
+        const { report } = await services().dataset.ingest(sources, await readConfig(), new Date().toISOString())
         setState({ kind: 'done', report })
         refreshStorage()
       } catch (cause) {
         setState({ kind: 'failed', message: cause instanceof Error ? cause.message : String(cause) })
       }
     },
-    [refreshStorage],
+    [readConfig, refreshStorage],
   )
 
   return (
@@ -103,6 +121,10 @@ export function DadosPageContent() {
             <div>
               <dt className="text-muted-foreground">Espaço usado</dt>
               <dd className="font-mono">{storage ? `${bytes(storage.usage)} de ${bytes(storage.quota)}` : '—'}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Arquivos guardados</dt>
+              <dd className="font-mono">{stored === null ? '—' : stored === 0 ? 'nenhum' : String(stored)}</dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Proteção contra limpeza</dt>
@@ -146,9 +168,23 @@ export function DadosPageContent() {
             className="hidden"
             onChange={(e) => void onPick(e.target.files)}
           />
-          <Button size="sm" onClick={() => input.current?.click()} disabled={state.kind === 'running'}>
-            <FolderOpen /> {state.kind === 'running' ? `Lendo ${state.files} arquivos…` : 'Escolher a pasta docs/'}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => input.current?.click()} disabled={state.kind === 'running'}>
+              <FolderOpen /> {state.kind === 'running' ? `Lendo ${state.files} arquivos…` : 'Escolher a pasta docs/'}
+            </Button>
+            {/* Só aparece com arquivo guardado: um botão permanentemente desabilitado ocupa o
+                mesmo espaço para dizer que não serve, e antes da primeira leitura ele nem
+                descreve uma ação possível. */}
+            {stored !== null && stored > 0 && (
+              <Button size="sm" variant="outline" onClick={() => void reprocess()} disabled={state.kind === 'running'}>
+                <ArrowsClockwise /> Reprocessar os {stored} arquivos
+              </Button>
+            )}
+          </div>
+          <p className="text-muted-foreground">
+            Os arquivos ficam guardados aqui depois da primeira leitura. Mudou um perfil de conta ou uma regra de categoria? Reprocessar aplica a mudança sem escolher a pasta de novo — as duas agem na
+            LEITURA do arquivo, então nada muda sem passar pelo pipeline outra vez.
+          </p>
 
           {state.kind === 'failed' && (
             <p className="text-destructive flex items-start gap-2">

@@ -112,6 +112,32 @@ export function dbSetMany(store: StoreName, entries: [string, unknown][]): Promi
 }
 
 /**
+ * Esvazia o store e regrava, TUDO numa transação só.
+ *
+ * Não é `dbClear` seguido de `dbSetMany`: são duas transações, e a aba que fecha entre elas
+ * deixa o store vazio sem nada no lugar — perda de dado sem erro nenhum. É o mesmo problema
+ * que `dbSetMany` já resolve para a escrita múltipla, agora estendido ao caso em que o que
+ * havia antes precisa sair.
+ *
+ * "Substituir" e não "somar" é a semântica certa para um conjunto de arquivos: um extrato que
+ * a pessoa apagou da pasta não pode continuar produzindo lançamentos.
+ */
+export function dbReplaceAll(store: StoreName, entries: [string, unknown][]): Promise<void> {
+  return openDb().then(
+    (db) =>
+      new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(store, 'readwrite')
+        const s = tx.objectStore(store)
+        s.clear()
+        for (const [key, value] of entries) s.put(value, key)
+        tx.oncomplete = () => resolve()
+        tx.onerror = () => reject(tx.error ?? new Error(`falha ao substituir ${store}`))
+        tx.onabort = () => reject(tx.error ?? new Error(`transação abortada em ${store}`))
+      }),
+  )
+}
+
+/**
  * Pede ao navegador para NÃO despejar este banco.
  *
  * Sem isto, o storage é "best-effort": sob pressão de disco o navegador limpa origens sem

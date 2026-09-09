@@ -1,7 +1,9 @@
 import type { Dataset } from '@/lib/dataset'
 import type { IngestResult } from '@/lib/ingest/pipeline'
+import type { SourceFile } from '@/lib/ingest/io'
 import type { DatasetRepository, DatasetSeed } from '../domain/ports/dataset-repository'
 import type { IngestRunner } from '../domain/ports/ingest-runner'
+import type { SourceStore } from '../domain/ports/source-store'
 
 /** Fakes in-memory (§9). NÃO é código de produção. */
 export function makeFakeDatasetRepository(initial: Dataset | null = null): DatasetRepository & { snapshot(): Dataset | null; cleared: boolean } {
@@ -90,4 +92,27 @@ export function makeFakeRunner(result: Partial<IngestResult>): IngestRunner & { 
 /** Um executor que sempre falha — o arquivo ilegível, o PDF que não fecha. */
 export function makeBrokenRunner(): IngestRunner {
   return { run: () => Promise.reject(new Error('arquivo ilegível')) }
+}
+
+/** Um armazenamento de fontes em memória, para o teste ver o que foi guardado e quando. */
+export function makeFakeSourceStore(initial: SourceFile[] = []): SourceStore & { snapshot(): SourceFile[]; cleared: boolean } {
+  let files = [...initial]
+  const state = {
+    cleared: false,
+    async save(next: SourceFile[]) {
+      files = [...next]
+    },
+    async load() {
+      return [...files]
+    },
+    async count() {
+      return files.length
+    },
+    async clear() {
+      files = []
+      state.cleared = true
+    },
+    snapshot: () => [...files],
+  }
+  return state
 }

@@ -1,9 +1,10 @@
 import type { Dataset } from '@/lib/dataset'
 import type { SourceFile } from '@/lib/ingest/io'
 import type { IngestConfig, IngestReport } from '@/lib/ingest/pipeline'
-import { IncompleteDatasetError } from '../domain/errors'
+import { IncompleteDatasetError, NoSourcesError } from '../domain/errors'
 import type { DatasetRepository, DatasetSeed } from '../domain/ports/dataset-repository'
 import type { IngestRunner } from '../domain/ports/ingest-runner'
+import type { SourceStore } from '../domain/ports/source-store'
 
 /**
  * Os casos de uso do conjunto ingerido.
@@ -20,6 +21,7 @@ export interface DatasetServiceDeps {
   repository: DatasetRepository
   seed: DatasetSeed
   runner: IngestRunner
+  sources: SourceStore
 }
 
 export interface DatasetService {
@@ -38,6 +40,17 @@ export interface DatasetService {
    * ingest do navegador seria mais silencioso que o do terminal — o contrário do que se quer.
    */
   ingest(sources: SourceFile[], config: IngestConfig, now: string): Promise<{ data: Dataset; report: IngestReport }>
+  /**
+   * Reprocessa os arquivos JÁ GUARDADOS, com a configuração de agora.
+   *
+   * É o que dá efeito a uma mudança em `accounts` ou `rules`: as duas agem durante a LEITURA
+   * do arquivo — uma decide de que conta ele é, a outra que categoria cada lançamento recebe —,
+   * então nenhuma altera nada sem o arquivo passar de novo pelo pipeline. Sem isto, cada ajuste
+   * de regra exigiria escolher a pasta outra vez.
+   */
+  reingest(config: IngestConfig, now: string): Promise<{ data: Dataset; report: IngestReport }>
+  /** Quantos arquivos estão guardados. Zero significa que só resta escolher a pasta. */
+  storedSources(): Promise<number>
 }
 
 /**
@@ -49,7 +62,7 @@ function assertComplete(data: Dataset): void {
   if (missing.length) throw new IncompleteDatasetError(missing)
 }
 
-export function makeDatasetService({ repository, seed, runner }: DatasetServiceDeps): DatasetService {
+export function makeDatasetService({ repository, seed, runner, sources: sourceStore }: DatasetServiceDeps): DatasetService {
   return {
     async load() {
       // Banco inacessível, corrompido ou lento não pode impedir o app de abrir — a semente
@@ -74,29 +87,46 @@ export function makeDatasetService({ repository, seed, runner }: DatasetServiceD
     },
 
     async ingest(sources, config, now) {
-      const result = await runner.run(sources, config, now)
-      const data: Dataset = {
-        accounts: result.accounts,
-        meta: result.meta,
-        transactions: result.transactions,
-        transfers: result.transfers,
-        planned: result.planned,
-        receivables: result.receivables,
-        budget: result.budget,
-        goals: result.goals,
-        investments: result.investments,
-      }
-      // Passa pela MESMA conferência de `replace`: uma ingestão que produziu conjunto
-      // incompleto não pode substituir um conjunto íntegro.
-      assertComplete(data)
-      await repository.save(data)
-      return { data, report: result.report }
+      // Guarda ANTES de executar, e a ordem não é preferência: o executor TRANSFERE os buffers
+      // para o worker, e depois disso eles ficam destacados e ilegíveis aqui. Gravar depois
+      // gravaria vazio — sem erro nenhum.
+      await sourceStore.save(sources)
+      return run(sources, config, now)
     },
+
+    async reingest(config, now) {
+      const stored = await sourceStore.load()
+      if (!stored.length) throw new NoSourcesError()
+      return run(stored, config, now)
+    },
+
+    storedSources: () => sourceStore.count(),
 
     async reset() {
       const fresh = await seed.read()
       await repository.clear()
+      await sourceStore.clear()
       return fresh
     },
+  }
+
+  async function run(sources: SourceFile[], config: IngestConfig, now: string): Promise<{ data: Dataset; report: IngestReport }> {
+    const result = await runner.run(sources, config, now)
+    const data: Dataset = {
+      accounts: result.accounts,
+      meta: result.meta,
+      transactions: result.transactions,
+      transfers: result.transfers,
+      planned: result.planned,
+      receivables: result.receivables,
+      budget: result.budget,
+      goals: result.goals,
+      investments: result.investments,
+    }
+    // Passa pela MESMA conferência de `replace`: uma ingestão que produziu conjunto
+    // incompleto não pode substituir um conjunto íntegro.
+    assertComplete(data)
+    await repository.save(data)
+    return { data, report: result.report }
   }
 }
