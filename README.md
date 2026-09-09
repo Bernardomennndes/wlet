@@ -126,3 +126,12 @@ src/hooks/               hooks compartilhados entre telas (título do documento)
 Ícones são do `@phosphor-icons/react`, declarado em `components.json` (`iconLibrary`), então o `shadcn add` já emite os imports certos. Componentes de interface vêm do registry do shadcn (`pnpm dlx shadcn add <nome>`); só gráficos são próprios, sobre Recharts — e um gráfico usado por uma tela só vive no `-components/` daquela rota, não numa pasta compartilhada.
 
 Parâmetros de URL para abrir num estado específico: `?recorte=PJ&de=2026-01&ate=2026-06&tema=claro`. Cada limite de período vale sozinho (`?de=2026-05` basta). O início é limitado ao primeiro mês com lançamentos; o fim é livre, porque parcela e plano podem cair em qualquer mês à frente. Um período que termina antes do primeiro lançamento cai no padrão em vez de abrir a tela vazia. Filtros de tela (`?mes`, `?categoria`, `?conta`, `?fluxo`, `?q`) convivem com os do cabeçalho: mexer num não apaga o outro.
+
+## Licença
+
+[MIT](LICENSE). O software é fornecido "como está", sem garantia — vale reler essa cláusula
+antes de agir sobre um número que ele calculou.
+
+A fonte é a exceção: `@fontsource-variable/inter` é **OFL-1.1**, não MIT, e os arquivos `.woff2`
+que vão no `dist/` carregam a obrigação de manter o aviso da própria fonte. É um regime à parte,
+que convive com a licença do código.

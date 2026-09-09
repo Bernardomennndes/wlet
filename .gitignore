@@ -43,6 +43,11 @@ scripts/goals.config.ts
 scripts/budget.config.ts
 scripts/trips.config.ts
 
+# Ferramental local dos agentes. `.mcp.json` sai pela mesma razão que `.claude/`: é
+# configuração de ferramenta de quem trabalha aqui, não do app — e a lista nomeia um
+# servidor de projeto interno, que não é deste repositório.
+.mcp.json
+
 # Ferramental local do Claude Code. Fica de fora inteiro: as rules, commands e skills
 # daqui vieram de outro repositório e carregam nome de pacote, caminho de rota e URL de
 # Confluence de um projeto interno — material que não é deste app nem é para ser público.
