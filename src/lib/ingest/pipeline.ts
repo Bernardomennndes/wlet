@@ -1,5 +1,5 @@
 import { CATEGORY_MAP } from '@/data/categories'
-import type { Account, Budget, DatasetMeta, Goal, IncomeMonth, InvestmentSnapshot, PatrimonyPoint, PlannedEntry, Receivable, Transaction, Transfer, TransferKind, Trip, TripCost } from '@/data/types'
+import type { Account, Budget, DatasetMeta, Goal, IncomeMonth, InvestmentSnapshot, PatrimonyPoint, PlannedEntry, Receivable, Transaction, Transfer, TransferKind } from '@/data/types'
 import { readBrokerageLedger, type BrokerageLedger } from './brokerage'
 import type { IngestEnv, SourceFile } from './io'
 import { buildInvestments, type CdiDay } from './investments'
@@ -56,8 +56,6 @@ export interface Declarations {
   receivables: Receivable[]
   budget: Budget
   goals: Goal[]
-  trips: Trip[]
-  tripExcludedCategories: readonly string[]
 }
 
 export interface IngestInput extends Declarations {
@@ -104,7 +102,6 @@ export interface IngestResult {
    * elas moram. `planned` era o único caso com transformação (`exceptions ?? {}`), e ela subiu
    * para a leitura da configuração.
    */
-  trips: TripCost[]
   investments: { snapshot: InvestmentSnapshot | null; series: PatrimonyPoint[]; income: IncomeMonth[] }
   report: IngestReport
 }
@@ -631,20 +628,6 @@ export async function runIngest(input: IngestInput): Promise<IngestResult> {
     if (!(goal.slot >= 1 && goal.slot <= 8)) goalProblems.push(`${where}: slot ${goal.slot} fora de 1..8`)
   }
 
-  // ---- Viagens: a data você declara, o custo o app calcula.
-  //
-  // As contas fixas saem da soma. Sem isso, um fim de semana fora que cai no dia do aluguel
-  // herda o aluguel inteiro e vira a viagem mais cara do ano.
-  const excluded = new Set([...input.tripExcludedCategories, 'transferencia', 'pagamento-fatura', 'investimentos'])
-  const trips: TripCost[] = input.trips
-    .map((trip) => {
-      const inWindow = transactions.filter((tx) => tx.amount < 0 && tx.date >= trip.from && tx.date <= trip.to && !excluded.has(tx.categoryId))
-      const spent = Math.round(inWindow.reduce((sum, tx) => sum - tx.amount, 0) * 100) / 100
-      const days = Math.round((Date.parse(trip.to) - Date.parse(trip.from)) / 86_400_000) + 1
-      return { ...trip, days, spent, perDay: Math.round((spent / days) * 100) / 100, transactions: inWindow.length }
-    })
-    .sort((a, b) => a.from.localeCompare(b.from))
-
   // ---- Investimentos: a carteira reconstruída a partir dos relatórios da B3 e do razão da
   // corretora. O aporte NÃO sai daqui: sai do extrato da corretora, que é o único que vê as
   // duas pontas.
@@ -655,7 +638,6 @@ export async function runIngest(input: IngestInput): Promise<IngestResult> {
     transactions,
     transfers,
     meta,
-    trips,
     investments: investments ? { snapshot: investments.snapshot, series: investments.series, income: investments.income } : { snapshot: null, series: [], income: [] },
     report: {
       filesRead: byDocument.size,

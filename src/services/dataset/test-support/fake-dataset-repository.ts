@@ -58,7 +58,6 @@ export function makeFakeRunner(result: Partial<IngestResult>): IngestRunner & { 
         transactions: base.transactions,
         transfers: base.transfers,
         meta: base.meta,
-        trips: [],
         investments: base.investments,
         report: {
           filesRead: 0,

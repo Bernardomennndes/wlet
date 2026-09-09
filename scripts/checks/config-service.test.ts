@@ -53,12 +53,6 @@ describe('serviço de configuração: validação', () => {
     await assert.rejects(() => service.savePlanned([um, { ...um }]), InvalidConfigError)
   })
 
-  it('recusa viagem que termina antes de começar', async () => {
-    // Janela invertida produz custo zero sem nenhum aviso.
-    const { service } = setup()
-    await assert.rejects(() => service.saveTrips([{ id: 't', label: 'X', from: '2026-05-10', to: '2026-05-01' }]), InvalidConfigError)
-  })
-
   it('recusa aviso de teto fora de 0..1', async () => {
     const { service } = setup()
     await assert.rejects(() => service.saveBudget({ monthlyLimit: 1000, warnAt: 75, byCategory: [] }), InvalidConfigError)

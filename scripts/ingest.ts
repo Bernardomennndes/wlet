@@ -23,7 +23,6 @@ import { nodeEnv } from './ingest-env.ts'
 import { PLANNED_ENTRIES } from './planned.config.ts'
 import { RECEIVABLES } from './receivables.config.ts'
 import { CUSTOM_RULES } from './rules.config.ts'
-import { TRIPS, TRIP_EXCLUDED_CATEGORIES } from './trips.config.ts'
 
 const ROOT = new URL('..', import.meta.url).pathname
 const DOCS_DIR = join(ROOT, 'docs')
@@ -55,8 +54,6 @@ async function main() {
     receivables: RECEIVABLES,
     budget: BUDGET,
     goals: GOALS,
-    trips: TRIPS,
-    tripExcludedCategories: TRIP_EXCLUDED_CATEGORIES,
     now: new Date().toISOString(),
     env: nodeEnv,
   })
@@ -77,7 +74,6 @@ async function main() {
   write('goals.json', GOALS)
   write('budget.json', BUDGET)
   write('receivables.json', RECEIVABLES)
-  write('trips.json', result.trips)
   write('investments.json', result.investments)
 
   // ---- Relatório

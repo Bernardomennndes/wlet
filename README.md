@@ -28,7 +28,6 @@ Outros scripts: `pnpm ingest`, `pnpm cdi` (baixa o CDI do Banco Central, para va
 | `scripts/planned.config.ts` | salário e recebíveis previstos |
 | `scripts/receivables.config.ts` | quem te deve dinheiro |
 | `scripts/goals.config.ts`, `scripts/budget.config.ts` | metas, teto de gastos e rubricas |
-| `scripts/trips.config.ts` | as viagens que você fez, com destino e datas |
 
 Cada `*.config.ts` tem um `*.config.example.ts` versionado, com a mesma forma e dados
 fictícios — é dele que o `pnpm run setup` parte. O `src/generated/` de um clone novo é escrito
@@ -86,7 +85,6 @@ docs/                    extratos e faturas (entrada)
 scripts/ingest.ts        a casca de Node sobre o pipeline: lê docs/, grava src/generated/
 scripts/setup.ts         prepara um clone novo (configs + dataset fictício)
 scripts/checks/          testes de `pnpm check`
-scripts/trips.config.ts     as viagens realizadas; o ingest calcula o custo de cada uma
 src/lib/plans.ts         planos de compra: catálogo no navegador, com envelope versionado
 src/routes/planos/       a tela de planos: grupos, situação e parcelamento
 scripts/cdi.ts           onde o cache do CDI fica no disco (a leitura mora no pipeline)

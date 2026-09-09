@@ -92,8 +92,6 @@ describe('serviço do conjunto ingerido: ingestão', () => {
     receivables: [],
     budget: { monthlyLimit: 0, warnAt: 0.75, byCategory: [] },
     goals: [],
-    trips: [],
-    tripExcludedCategories: [],
   }
 
   it('grava o conjunto produzido e devolve o relatório', async () => {
@@ -132,8 +130,6 @@ describe('serviço do conjunto ingerido: arquivos-fonte', () => {
     receivables: [],
     budget: { monthlyLimit: 0, warnAt: 0.75, byCategory: [] },
     goals: [],
-    trips: [],
-    tripExcludedCategories: [],
   }
   const arquivo = (path: string) => ({ path, bytes: new Uint8Array([1, 2, 3]) })
 

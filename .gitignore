@@ -41,7 +41,6 @@ scripts/planned.config.ts
 scripts/receivables.config.ts
 scripts/goals.config.ts
 scripts/budget.config.ts
-scripts/trips.config.ts
 
 # Ferramental local dos agentes. `.mcp.json` sai pela mesma razão que `.claude/`: é
 # configuração de ferramenta de quem trabalha aqui, não do app — e a lista nomeia um

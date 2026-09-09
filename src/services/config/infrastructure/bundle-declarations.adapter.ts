@@ -30,11 +30,9 @@ export function makeBundleDeclarations(): ConfigSeed {
         receivables: receivables.default as Receivable[],
         budget: budget.default as Budget,
         goals: goals.default as Goal[],
-        trips: [],
         accounts: [],
         rules: [],
         selfNamePatterns: [],
-        tripExcludedCategories: [],
       }
     },
   }

@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const GENERATED = join(HERE, '..', 'src', 'generated')
 
-const CONFIGS = ['accounts.config.ts', 'rules.config.ts', 'planned.config.ts', 'receivables.config.ts', 'goals.config.ts', 'budget.config.ts', 'trips.config.ts']
+const CONFIGS = ['accounts.config.ts', 'rules.config.ts', 'planned.config.ts', 'receivables.config.ts', 'goals.config.ts', 'budget.config.ts']
 
 let copied = 0
 for (const name of CONFIGS) {

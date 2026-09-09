@@ -307,36 +307,6 @@ export interface PlanGroup {
   note?: string
 }
 
-/**
- * Uma viagem realizada, declarada por você.
- *
- * Ela NÃO é um plano: plano é intenção futura e alimenta a previsão; viagem é fato passado e
- * o gasto dela já está nos extratos. Somá-la à previsão contaria o mesmo dinheiro duas vezes.
- *
- * Por que declarar em vez de detectar: passagem e hospedagem são compradas meses antes, e o
- * gasto no destino se confunde com o do dia a dia. Uma heurística de "estabelecimentos novos
- * agrupados" foi tentada e marcou dezoito janelas — a maioria eram MUDANÇAS de cidade, que
- * produzem exatamente o mesmo padrão. A data você sabe; o custo é o que o app calcula.
- */
-export interface Trip {
-  id: string
-  /** O destino, como você o chama. */
-  label: string
-  /** Primeiro e último dia, inclusive (AAAA-MM-DD). */
-  from: string
-  to: string
-  note?: string
-}
-
-/** Uma viagem com o que ela custou, calculado pelo ingest a partir dos lançamentos. */
-export interface TripCost extends Trip {
-  days: number
-  /** Gasto no destino, já sem as contas fixas que caem independentemente da viagem. */
-  spent: number
-  perDay: number
-  transactions: number
-}
-
 export interface DatasetMeta {
   generatedAt: string
   sourceFiles: { path: string; account: string; transactions: number; skippedAsDuplicate: boolean }[]

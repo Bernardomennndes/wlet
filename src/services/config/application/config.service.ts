@@ -1,4 +1,4 @@
-import type { Budget, Goal, PlannedEntry, Receivable, Trip } from '@/data/types'
+import type { Budget, Goal, PlannedEntry, Receivable } from '@/data/types'
 import { ConfigUnavailableError, InvalidConfigError } from '../domain/errors'
 import type { ConfigData, ConfigRepository, ConfigSeed } from '../domain/ports/config-repository'
 
@@ -21,7 +21,6 @@ export interface ConfigService {
   saveBudget(budget: Budget): Promise<ConfigData>
   saveReceivables(receivables: Receivable[]): Promise<ConfigData>
   saveGoals(goals: Goal[]): Promise<ConfigData>
-  saveTrips(trips: Trip[]): Promise<ConfigData>
   /** Volta ao que a semente declara, descartando o que foi editado no navegador. */
   reset(): Promise<ConfigData>
   /**
@@ -34,7 +33,6 @@ export interface ConfigService {
 }
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/
-const DATE = /^\d{4}-\d{2}-\d{2}$/
 
 function assertPlanned(entries: PlannedEntry[]): void {
   for (const entry of entries) {
@@ -57,14 +55,6 @@ function assertBudget(budget: Budget): void {
   }
 }
 
-function assertTrips(trips: Trip[]): void {
-  for (const trip of trips) {
-    if (!DATE.test(trip.from) || !DATE.test(trip.to)) throw new InvalidConfigError(`A viagem "${trip.label}" precisa de ida e volta no formato AAAA-MM-DD.`)
-    // Volta antes da ida produziria janela vazia, e o custo sairia zero sem nenhum aviso.
-    if (trip.to < trip.from) throw new InvalidConfigError(`A viagem "${trip.label}" termina antes de começar.`)
-  }
-}
-
 export function makeConfigService({ repository, seed }: ConfigServiceDeps): ConfigService {
   async function current(): Promise<ConfigData> {
     const saved = await repository.find()
@@ -78,7 +68,6 @@ export function makeConfigService({ repository, seed }: ConfigServiceDeps): Conf
   async function commit(next: ConfigData): Promise<ConfigData> {
     assertPlanned(next.planned)
     assertBudget(next.budget)
-    assertTrips(next.trips)
     await repository.save(next)
     return next
   }
@@ -89,7 +78,6 @@ export function makeConfigService({ repository, seed }: ConfigServiceDeps): Conf
     saveBudget: async (budget) => commit({ ...(await current()), budget }),
     saveReceivables: async (receivables) => commit({ ...(await current()), receivables }),
     saveGoals: async (goals) => commit({ ...(await current()), goals }),
-    saveTrips: async (trips) => commit({ ...(await current()), trips }),
 
     replace: (next) => commit(next),
 

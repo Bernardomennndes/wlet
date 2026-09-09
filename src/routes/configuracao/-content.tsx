@@ -6,7 +6,6 @@ import { GoalsSection } from './-components/goals-section'
 import { PlannedSection } from './-components/planned-section'
 import { ReceivablesSection } from './-components/receivables-section'
 import { RulesSection } from './-components/rules-section'
-import { TripsSection } from './-components/trips-section'
 import { useDeclarations } from './-components/use-declarations'
 
 /**
@@ -58,7 +57,6 @@ export function ConfiguracaoPageContent() {
       <PlannedSection entries={current.planned} disabled={saving} onChange={(planned) => save({ planned })} />
       <ReceivablesSection receivables={current.receivables} disabled={saving} onChange={(receivables) => save({ receivables })} />
       <GoalsSection goals={current.goals} disabled={saving} onChange={(goals) => save({ goals })} />
-      <TripsSection trips={current.trips} disabled={saving} onChange={(trips) => save({ trips })} />
 
       <p className="text-muted-foreground flex items-start gap-2 text-xs">
         <ArrowsClockwise className="mt-0.5 shrink-0" />

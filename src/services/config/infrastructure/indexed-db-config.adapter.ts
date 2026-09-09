@@ -25,8 +25,8 @@ const spec: EnvelopeSpec<ConfigData | null> = {
   parse: (raw) => {
     if (!raw || typeof raw !== 'object') return null
     const c = raw as Partial<ConfigData>
-    if (!Array.isArray(c.planned) || !Array.isArray(c.receivables) || !Array.isArray(c.goals) || !Array.isArray(c.trips) || !c.budget) return null
-    if (!Array.isArray(c.accounts) || !Array.isArray(c.rules) || !Array.isArray(c.selfNamePatterns) || !Array.isArray(c.tripExcludedCategories)) return null
+    if (!Array.isArray(c.planned) || !Array.isArray(c.receivables) || !Array.isArray(c.goals) || !c.budget) return null
+    if (!Array.isArray(c.accounts) || !Array.isArray(c.rules) || !Array.isArray(c.selfNamePatterns)) return null
     // `rules` e `selfNamePatterns` voltam do structured clone como RegExp de verdade. Se
     // voltassem como objeto vazio — o que aconteceria por JSON —, a categorização inteira
     // silenciaria, então a conferência é pelo TIPO e não só pela presença.
@@ -36,11 +36,9 @@ const spec: EnvelopeSpec<ConfigData | null> = {
       budget: c.budget,
       receivables: c.receivables,
       goals: c.goals,
-      trips: c.trips,
       accounts: c.accounts,
       rules: c.rules,
       selfNamePatterns: c.selfNamePatterns,
-      tripExcludedCategories: c.tripExcludedCategories,
     }
   },
 }

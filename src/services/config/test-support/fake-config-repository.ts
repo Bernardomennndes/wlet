@@ -28,10 +28,8 @@ export function seedConfig(): ConfigData {
     budget: { monthlyLimit: 9000, warnAt: 0.75, byCategory: [{ categoryId: 'mercado', amount: 900 }] },
     receivables: [],
     goals: [],
-    trips: [],
     accounts: [],
     rules: [],
     selfNamePatterns: [],
-    tripExcludedCategories: [],
   }
 }
