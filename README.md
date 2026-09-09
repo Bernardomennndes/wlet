@@ -108,7 +108,10 @@ src/lib/db.ts            IndexedDB cru, sem dependência
 src/lib/portable.ts      exportar/importar o estado em JSON, preservando RegExp e Date
 src/services/            a camada DDD: cinco contextos (dataset, config, plans, overrides,
                          preferences), cada um com domain/ports, application e infrastructure
-src/routes/dados/        a tela "Meus dados": origem do conjunto, espaço, e ler extratos
+src/routes/dados/        a tela "Meus dados": origem do conjunto, espaço, ler extratos e a cópia
+                         de segurança
+src/routes/configuracao/ a tela "Configuração": as sete declarações, editáveis
+src/services/backup.ts   exportar/importar o que só existe no navegador
 src/generated/*.json     saída gerada, NÃO versionada
 src/data/                vocabulário de domínio (tipos, listas de enum, catálogo de categorias)
 src/lib/finance.ts       recortes, agregações mensais, por categoria, recorrências
