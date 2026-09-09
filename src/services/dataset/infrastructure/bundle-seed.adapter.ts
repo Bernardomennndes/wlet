@@ -1,5 +1,6 @@
 import type { Account, Budget, DatasetMeta, Goal, PlannedEntry, Receivable, Transaction, Transfer } from '@/data/types'
-import type { Dataset } from './dataset'
+import type { Dataset } from '@/lib/dataset'
+import type { DatasetSeed } from '../domain/ports/dataset-repository'
 
 /**
  * O dataset que veio no build, lido só quando o IndexedDB está vazio.
@@ -10,7 +11,7 @@ import type { Dataset } from './dataset'
  * parte, que só é baixado no primeiro boot de um navegador sem banco; depois disso o app
  * lê do IndexedDB e a semente nunca mais é buscada.
  */
-export async function loadSeed(): Promise<Dataset> {
+async function loadSeed(): Promise<Dataset> {
   const [accounts, meta, transactions, transfers, planned, receivables, budget, goals, investments] = await Promise.all([
     import('@/generated/accounts.json'),
     import('@/generated/meta.json'),
@@ -33,4 +34,9 @@ export async function loadSeed(): Promise<Dataset> {
     goals: goals.default as Goal[],
     investments: investments.default as Dataset['investments'],
   }
+}
+
+/** A semente como porta do contexto — é isto que o serviço recebe. */
+export function makeBundleSeed(): DatasetSeed {
+  return { read: loadSeed }
 }

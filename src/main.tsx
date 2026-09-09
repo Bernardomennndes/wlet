@@ -1,5 +1,5 @@
 import { setDataset } from './lib/dataset'
-import { loadDataset } from './lib/dataset-store'
+import { createDatasetService } from './services/dataset'
 import './index.css'
 
 /**
@@ -12,7 +12,8 @@ import './index.css'
  * primeiro e só então montar o app.
  *
  * **Nada de `src/lib/` ou `src/routes/` pode ser importado estaticamente aqui.** Os dois
- * imports acima são a exceção autorizada: nenhum deles LÊ o dataset ao ser avaliado. O app
+ * imports acima são a exceção autorizada: nenhum deles LÊ o dataset ao ser avaliado — o
+ * serviço só toca o armazenamento quando `load()` é chamado. O app
  * entra por `import('./boot')`, dinâmico, depois do portão.
  */
 function fail(message: string, cause: unknown): void {
@@ -26,7 +27,7 @@ function fail(message: string, cause: unknown): void {
 }
 
 async function start(): Promise<void> {
-  const { data, origin } = await loadDataset()
+  const { data, origin } = await createDatasetService().load()
   setDataset(data)
   if (origin !== 'indexeddb') {
     // Não é erro — é o primeiro boot, ou um navegador sem IndexedDB. Fica no console porque a
