@@ -1,20 +1,21 @@
 import { setDataset } from './lib/dataset'
-import { createDatasetService } from './services/dataset'
+import { setPreloaded } from './providers/preloaded'
+import { services } from './services'
 import './index.css'
 
 /**
- * O portão de boot: carrega o dataset ANTES de qualquer módulo que o consuma.
+ * O portão de boot: carrega o que os módulos consomem ANTES de eles existirem.
  *
  * Os módulos de `src/lib/` exportam constantes (`TRANSACTIONS`, `PLANNED`, `BUDGET`) lidas por
- * 25 arquivos. Enquanto o dado vinha de `import x from '*.json'`, isso era gratuito — o
- * bundler resolvia tudo antes do primeiro render. Vindo do IndexedDB, que é assíncrono, a
- * única forma de manter aquelas constantes (e portanto os 25 consumidores) intactas é carregar
- * primeiro e só então montar o app.
+ * 25 arquivos, e os providers leem preferência e ajustes dentro de um inicializador de
+ * `useState`, que é síncrono. Enquanto tudo vinha de `import x from '*.json'` e de
+ * `localStorage`, isso era gratuito. Com IndexedDB no meio, a única forma de manter as duas
+ * coisas é carregar primeiro e montar depois.
  *
- * **Nada de `src/lib/` ou `src/routes/` pode ser importado estaticamente aqui.** Os dois
- * imports acima são a exceção autorizada: nenhum deles LÊ o dataset ao ser avaliado — o
- * serviço só toca o armazenamento quando `load()` é chamado. O app
- * entra por `import('./boot')`, dinâmico, depois do portão.
+ * **Nada que LEIA esse estado pode ser importado estaticamente aqui.** Os três imports acima
+ * são a exceção autorizada: nenhum deles toca armazenamento ao ser avaliado — `services()` só
+ * monta os adapters quando chamado. O app entra por `import('./boot')`, dinâmico e depois do
+ * portão.
  */
 function fail(message: string, cause: unknown): void {
   // Boot que falha não pode deixar tela branca. Sem isto, qualquer erro daqui vira uma página
@@ -27,13 +28,21 @@ function fail(message: string, cause: unknown): void {
 }
 
 async function start(): Promise<void> {
-  const { data, origin } = await createDatasetService().load()
-  setDataset(data)
-  if (origin !== 'indexeddb') {
+  const { dataset, preferences, overrides, plans } = services()
+
+  // Os três em paralelo: são armazenamentos independentes, e encadeá-los somaria três esperas
+  // no caminho crítico do primeiro render.
+  const [loaded, prefs, over, catalogue] = await Promise.all([dataset.load(), preferences.load(), overrides.list(), plans.list()])
+
+  setDataset(loaded.data)
+  setPreloaded({ preferences: prefs, overrides: over, plans: catalogue })
+
+  if (loaded.origin !== 'indexeddb') {
     // Não é erro — é o primeiro boot, ou um navegador sem IndexedDB. Fica no console porque a
     // origem do dado é a primeira coisa que se quer saber quando um número parece errado.
-    console.info(`[wlet] dataset carregado da origem: ${origin}`)
+    console.info(`[wlet] dataset carregado da origem: ${loaded.origin}`)
   }
+
   const { mount } = await import('./boot')
   mount()
 }

@@ -38,8 +38,11 @@ export function makeLocalStorageOverrideRepository(storage: StorageLike = browse
       // conversão acontece na primeira gravação, e até lá as duas leituras funcionam. Converter
       // na leitura tornaria uma operação de leitura uma escrita, que é o tipo de efeito que
       // surpreende num modo de navegação restrito.
+      // Os DOIS prefixos: quem não abre o app desde a renomeação tem `wallet.overrides`. O
+      // driver já copia a chave para a frente, mas depender desse efeito colateral tornaria a
+      // leitura correta por acidente — aqui ela é correta por escrito.
       try {
-        const raw = storage.getItem(`wlet.${KEY}`)
+        const raw = storage.getItem(`wlet.${KEY}`) ?? storage.getItem(`wallet.${KEY}`)
         if (!raw) return {}
         const parsed: unknown = JSON.parse(raw)
         return isOverrides(parsed) ? parsed : {}

@@ -30,6 +30,15 @@ export interface PlansService {
   setMonth(id: string, month: string | undefined): Promise<Plan>
   addGroup(input: NewGroup): Promise<PlanGroup>
   removeGroup(id: string): Promise<void>
+  /**
+   * Substitui o catálogo inteiro — é o caminho da IMPORTAÇÃO de um arquivo exportado.
+   *
+   * Não valida item a item de propósito: quem chama já passou o conteúdo por `parsePlans`, que
+   * é o mesmo parser da leitura e descarta o inválido em silêncio. Revalidar aqui produziria
+   * uma segunda opinião sobre o que é um plano válido, e as duas divergiriam no primeiro campo
+   * novo (§10).
+   */
+  replaceAll(data: PlansData): Promise<PlansData>
 }
 
 export type NewPlan = Omit<Plan, 'id' | 'status'> & { status?: PlanStatus }
@@ -132,6 +141,11 @@ export function makePlansService({ repository, ids }: PlansServiceDeps): PlansSe
      * deixou de servir, não que as compras foram canceladas. Levar os planos junto destruiria
      * pesquisa de preço por causa de uma arrumação.
      */
+    async replaceAll(data) {
+      await repository.save(data)
+      return data
+    },
+
     removeGroup(id) {
       return mutate((data) => {
         if (!data.groups.some((g) => g.id === id)) throw new PlanGroupNotFoundError()

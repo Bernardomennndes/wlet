@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import type { Plan, PlanGroup } from '@/data/types'
-import { decidedPlans, planId, readPlans, writePlans, type PlansData } from '@/lib/plans'
+import { decidedPlans, type PlansData } from '@/lib/plans'
+import { services } from '@/services'
+import { preloaded } from './preloaded'
 import { PlansContext, type PlansValue } from './use-plans'
 
 /**
@@ -8,60 +10,40 @@ import { PlansContext, type PlansValue } from './use-plans'
  *
  * Toda mutação grava na hora: não existe "salvar" nesta tela, porque não existe nada a
  * confirmar — o dado é local, e um botão de salvar só criaria a chance de perder o que foi
- * digitado. A gravação passa pelo mesmo objeto que o estado, então o que está na tela e o que
- * está no armazenamento não podem divergir.
+ * digitado.
+ *
+ * **O provider deixou de saber COMO gravar.** Ele montava o objeto novo e chamava `writePlans`,
+ * o que significava manter aqui a regra de que apagar um grupo não apaga os planos dele — regra
+ * que também precisava existir em qualquer outro lugar que mexesse no catálogo. Agora ele
+ * delega ao serviço, que é quem tem essa regra e o teste dela, e só guarda o resultado no
+ * estado do React. O que sobrou aqui é o que é de fato do React: estado e memoização.
  */
 export function PlansProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState<PlansData>(() => readPlans())
+  const [data, setData] = useState<PlansData>(() => preloaded().plans)
 
-  const commit = useCallback((next: PlansData) => {
-    setData(next)
-    writePlans(next)
+  /**
+   * A tela não espera a gravação, mas a falha não pode sumir.
+   *
+   * O serviço devolve o catálogo já alterado, então o estado sai da RESPOSTA e não de uma
+   * cópia montada aqui — é isso que impede a tela de divergir do que foi gravado. Numa falha o
+   * estado não avança, que é o comportamento certo: mostrar um plano que não foi guardado é
+   * pior do que não mostrá-lo.
+   */
+  const run = useCallback((operation: Promise<unknown>, after: () => Promise<PlansData>) => {
+    void operation
+      .then(after)
+      .then(setData)
+      .catch((cause: unknown) => console.error('[wlet] não foi possível guardar o plano:', cause))
   }, [])
 
-  const addPlan = useCallback((plan: Omit<Plan, 'id'>) => {
-    setData((prev) => {
-      const next = { ...prev, items: [...prev.items, { ...plan, id: planId('plan') }] }
-      writePlans(next)
-      return next
-    })
-  }, [])
+  const refresh = useCallback(() => services().plans.list(), [])
 
-  const updatePlan = useCallback((id: string, patch: Partial<Omit<Plan, 'id'>>) => {
-    setData((prev) => {
-      const next = { ...prev, items: prev.items.map((p) => (p.id === id ? { ...p, ...patch } : p)) }
-      writePlans(next)
-      return next
-    })
-  }, [])
-
-  const removePlan = useCallback((id: string) => {
-    setData((prev) => {
-      const next = { ...prev, items: prev.items.filter((p) => p.id !== id) }
-      writePlans(next)
-      return next
-    })
-  }, [])
-
-  const addGroup = useCallback((group: Omit<PlanGroup, 'id'>) => {
-    setData((prev) => {
-      const next = { ...prev, groups: [...prev.groups, { ...group, id: planId('group') }] }
-      writePlans(next)
-      return next
-    })
-  }, [])
-
-  const removeGroup = useCallback((id: string) => {
-    setData((prev) => {
-      // Apagar o grupo NÃO apaga os itens: eles voltam a ser avulsos. Sumir com uma viagem
-      // inteira porque alguém removeu o rótulo dela seria perda de dado sem aviso.
-      const next = { groups: prev.groups.filter((g) => g.id !== id), items: prev.items.map((p) => (p.groupId === id ? { ...p, groupId: undefined } : p)), version: prev.version }
-      writePlans(next)
-      return next
-    })
-  }, [])
-
-  const replaceAll = useCallback((next: PlansData) => commit(next), [commit])
+  const addPlan = useCallback((plan: Omit<Plan, 'id'>) => run(services().plans.addPlan(plan), refresh), [run, refresh])
+  const updatePlan = useCallback((id: string, patch: Partial<Omit<Plan, 'id'>>) => run(services().plans.updatePlan(id, patch), refresh), [run, refresh])
+  const removePlan = useCallback((id: string) => run(services().plans.removePlan(id), refresh), [run, refresh])
+  const addGroup = useCallback((group: Omit<PlanGroup, 'id'>) => run(services().plans.addGroup(group), refresh), [run, refresh])
+  const removeGroup = useCallback((id: string) => run(services().plans.removeGroup(id), refresh), [run, refresh])
+  const replaceAll = useCallback((next: PlansData) => run(services().plans.replaceAll(next), refresh), [run, refresh])
 
   const value = useMemo<PlansValue>(
     () => ({

@@ -1,5 +1,4 @@
 import { CATEGORY_MAP } from '@/data/categories'
-import { readRaw, writeStorage } from '@/lib/storage'
 import type { PaymentMode, Plan, PlanGroup, PlanStatus } from '@/data/types'
 
 /**
@@ -137,19 +136,6 @@ export function parsePlans(raw: unknown): PlansData {
     items.push({ id, label, categoryId, cash, financed, payment, status, month: at, groupId: groupId && known.has(groupId) ? groupId : undefined, note: text(p.note) })
   }
   return { version: PLANS_VERSION, groups, items }
-}
-
-export function readPlans(): PlansData {
-  try {
-    const raw = readRaw(PLANS_KEY)
-    return raw ? parsePlans(JSON.parse(raw)) : emptyPlans()
-  } catch {
-    return emptyPlans()
-  }
-}
-
-export function writePlans(data: PlansData) {
-  writeStorage(PLANS_KEY, data)
 }
 
 /** Id estável sem dependência: a hora mais um sufixo aleatório basta para uma lista local. */

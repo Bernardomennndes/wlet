@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
-import { readStorage, writeStorage } from '@/lib/storage'
+import { services } from '@/services'
+import { preloaded } from './preloaded'
 import { META, isMonth, lastMonthWithData, monthsBetween, projectionHorizon, selectTransactions, type Overrides, type Period, type Scope } from '@/lib/finance'
 import { FiltersContext, type FiltersValue } from './use-filters'
 
@@ -70,34 +71,63 @@ function clampPeriod(p: Period): Period {
 }
 
 export function FiltersProvider({ children }: { children: ReactNode }) {
-  const [scope, setScopeState] = useState<Scope>(() => readUrl().scope ?? readStorage('scope', 'all'))
+  // A LEITURA vem do que o boot já carregou, síncrona; a ESCRITA vai pelos serviços, que é
+  // onde a validação e a tradução de erro de armazenamento moram. Ler daqui é o que permite o
+  // inicializador de `useState` continuar síncrono depois de o dado migrar para o IndexedDB.
+  const saved = preloaded().preferences
+
+  const [scope, setScopeState] = useState<Scope>(() => readUrl().scope ?? saved.scope ?? 'all')
   const [period, setPeriodState] = useState<Period>(() => {
     const url = readUrl()
-    const base = readStorage('period', defaultPeriod())
+    const base = saved.period ?? defaultPeriod()
     return clampPeriod({ from: url.from ?? base.from, to: url.to ?? base.to })
   })
-  const [overrides, setOverrides] = useState<Overrides>(() => readStorage('overrides', {}))
+  const [overrides, setOverrides] = useState<Overrides>(() => preloaded().overrides)
 
-  const setScope = useCallback((s: Scope) => {
-    setScopeState(s)
-    writeStorage('scope', s)
+  /**
+   * A tela não espera a gravação, mas a falha não pode sumir.
+   *
+   * Persistir é efeito colateral do que a pessoa acabou de fazer; segurar o render até o
+   * IndexedDB responder deixaria um clique em "Empresa" travando a interface. Mas engolir o
+   * erro faria o app prometer uma persistência que não aconteceu — em janela anônima com
+   * cookies bloqueados isso é o caso NORMAL, não a exceção.
+   */
+  const persist = useCallback((promise: Promise<unknown>) => {
+    void promise.catch((cause: unknown) => console.error('[wlet] não foi possível guardar a preferência:', cause))
   }, [])
 
-  const setPeriod = useCallback((p: Period) => {
-    const normalized = clampPeriod(p)
-    setPeriodState(normalized)
-    writeStorage('period', normalized)
-  }, [])
+  const setScope = useCallback(
+    (s: Scope) => {
+      setScopeState(s)
+      persist(services().preferences.setScope(s))
+    },
+    [persist],
+  )
 
-  const setOverride = useCallback((id: string, categoryId: string | null) => {
-    setOverrides((prev) => {
-      const next = { ...prev }
-      if (categoryId) next[id] = categoryId
-      else delete next[id]
-      writeStorage('overrides', next)
-      return next
-    })
-  }, [])
+  const setPeriod = useCallback(
+    (p: Period) => {
+      // `clampPeriod` fica AQUI e não no serviço: ele resolve o que a URL pode trazer — limite
+      // invertido, período que termina antes do primeiro lançamento, janela absurda de 120
+      // meses. É política de exibição. O serviço aplica o piso de novo, e é idempotente.
+      const normalized = clampPeriod(p)
+      setPeriodState(normalized)
+      persist(services().preferences.setPeriod(normalized))
+    },
+    [persist],
+  )
+
+  const setOverride = useCallback(
+    (id: string, categoryId: string | null) => {
+      setOverrides((prev) => {
+        const next = { ...prev }
+        if (categoryId) next[id] = categoryId
+        else delete next[id]
+        return next
+      })
+      persist(services().overrides.set(id, categoryId))
+    },
+    [persist],
+  )
 
   const months = useMemo(() => monthsBetween(period.from, period.to), [period])
   const transactions = useMemo(() => selectTransactions(scope, period, overrides), [scope, period, overrides])

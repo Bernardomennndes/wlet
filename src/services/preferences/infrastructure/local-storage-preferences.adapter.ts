@@ -45,21 +45,22 @@ const spec: EnvelopeSpec<Preferences> = {
 }
 
 const KEY = 'preferences'
-const LEGACY = { scope: 'wlet.scope', period: 'wlet.period', theme: 'wlet.theme' }
+/** As três chaves antigas, em ambos os prefixos — a renomeação da marca não pode custar a preferência. */
+const LEGACY = ['scope', 'period', 'theme'] as const
 
 export function makeLocalStoragePreferencesRepository(storage: StorageLike = browserStorage() ?? volatileStorage()): PreferencesRepository {
   const driver = makeLocalStorageDriver(storage, KEY, spec)
 
   function legacy(): Preferences {
-    const read = (key: string): unknown => {
+    const read = (name: (typeof LEGACY)[number]): unknown => {
       try {
-        const raw = storage.getItem(key)
-        return raw === null ? null : (JSON.parse(raw) as unknown)
+        const raw = storage.getItem(`wlet.${name}`) ?? storage.getItem(`wallet.${name}`)
+        return raw === null || raw === undefined ? null : (JSON.parse(raw) as unknown)
       } catch {
         return null
       }
     }
-    return { scope: asScope(read(LEGACY.scope)), period: asPeriod(read(LEGACY.period)), theme: asTheme(read(LEGACY.theme)) }
+    return { scope: asScope(read('scope')), period: asPeriod(read('period')), theme: asTheme(read('theme')) }
   }
 
   return {

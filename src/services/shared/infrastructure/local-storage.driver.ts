@@ -32,6 +32,20 @@ export interface StorageDriver<T> {
 /** O prefixo de toda chave, o mesmo de `src/lib/storage.ts`. Trocar isto renomeia o armazenamento. */
 const PREFIX = 'wlet'
 
+/**
+ * O prefixo anterior, de quando o app se chamava Wallet.
+ *
+ * **Ele existe para os dados de quem já usa não sumirem**, e este driver precisa dele porque
+ * substitui `src/lib/storage.ts` no caminho de leitura. O navegador não migra chave: sem esta
+ * reserva, quem não abriu o app desde a renomeação teria `wallet.plans` gravado e o app leria
+ * `wlet.plans`, que não existe — o catálogo apareceria VAZIO, sem erro, porque ausência de
+ * chave é indistinguível de catálogo vazio.
+ *
+ * A migração COPIA em vez de mover: a chave antiga fica onde está, para uma volta de versão
+ * não virar perda de dados.
+ */
+const LEGACY_PREFIX = 'wallet'
+
 export function makeLocalStorageDriver<T>(storage: StorageLike, name: string, spec: EnvelopeSpec<T>): StorageDriver<T> {
   const key = `${PREFIX}.${name}`
 
@@ -47,6 +61,13 @@ export function makeLocalStorageDriver<T>(storage: StorageLike, name: string, sp
       let raw: string | null
       try {
         raw = storage.getItem(key)
+        if (raw === null) {
+          const legacy = storage.getItem(`${LEGACY_PREFIX}.${name}`)
+          if (legacy !== null) {
+            storage.setItem(key, legacy)
+            raw = legacy
+          }
+        }
       } catch (cause) {
         throw translateStorageError(cause)
       }
