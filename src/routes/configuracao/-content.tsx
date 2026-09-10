@@ -6,7 +6,7 @@ import { GoalsSection } from './-components/goals-section'
 import { PlannedSection } from './-components/planned-section'
 import { ReceivablesSection } from './-components/receivables-section'
 import { RulesSection } from './-components/rules-section'
-import { useDeclarations } from './-components/use-declarations'
+import { useDeclarations } from '@/hooks/use-declarations'
 
 /**
  * O que você declara ao app, editável aqui em vez de num arquivo `.ts`.

@@ -4,7 +4,11 @@ import { declarations } from '@/lib/dataset'
 import { services } from '@/services'
 
 /**
- * O estado das declarações na tela de configuração.
+ * O estado das declarações numa tela que as edita.
+ *
+ * Mora em `src/hooks/` e não no `-components/` de uma rota porque DUAS telas o usam — a
+ * Configuração e a de Rubricas —, e a §2 da organização de rotas reserva o `-components/` ao
+ * que pertence a uma tela só.
  *
  * A LEITURA inicial vem do portão de boot, síncrona — é a mesma cópia que as outras telas
  * usam, então abrir a configuração não pode mostrar um valor diferente do que a Previsão
