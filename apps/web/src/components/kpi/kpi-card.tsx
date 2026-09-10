@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { cn } from '@/lib/utils'
+import { cn } from '@wlet/lib/utils'
 import { KpiValue } from './kpi-value'
 import type { KpiTone } from './kpi-tone'
 import { MetricInfoPopover, type MetricDefinition } from './metric-info-popover'

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { Card } from '@/components/ui/card'
-import { cn } from '@/lib/utils'
+import { Card } from '@wlet/ui/components/card'
+import { cn } from '@wlet/lib/utils'
 import { KpiValue } from './kpi-value'
 import type { KpiTone } from './kpi-tone'
 import { MetricInfoPopover, type MetricDefinition } from './metric-info-popover'

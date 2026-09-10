@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react'
 import { SERIES_SWATCH } from '@/components/charts/chart-theme'
-import { BarProgress } from '@/components/ui/bar-progress'
-import { ProgressLabel, ProgressValue } from '@/components/ui/progress'
-import { formatBRL, formatPercent } from '@/lib/format'
-import { cn } from '@/lib/utils'
+import { BarProgress } from '@wlet/ui/components/bar-progress'
+import { ProgressLabel, ProgressValue } from '@wlet/ui/components/progress'
+import { formatBRL, formatPercent } from '@wlet/lib/format'
+import { cn } from '@wlet/lib/utils'
 
 export interface BarListItem {
   key: string

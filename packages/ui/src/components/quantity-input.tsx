@@ -1,7 +1,7 @@
 import { type ComponentProps, useState } from 'react'
-import { InputGroup, InputGroupInput } from '@/components/ui/input-group'
-import { formatQuantity, parseQuantity } from '@/lib/quantity-mask'
-import { cn } from '@/lib/utils'
+import { InputGroup, InputGroupInput } from './input-group'
+import { formatQuantity, parseQuantity } from '../quantity-mask'
+import { cn } from '@wlet/lib/utils'
 
 type Props = Omit<ComponentProps<typeof InputGroupInput>, 'value' | 'onChange' | 'type' | 'inputMode'> & {
   value: number

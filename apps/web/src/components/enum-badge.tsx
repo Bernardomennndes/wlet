@@ -1,6 +1,6 @@
-import { Badge } from '@/components/ui/badge'
+import { Badge } from '@wlet/ui/components/badge'
 import type { EnumOption, EnumTone } from '@wlet/domain'
-import { cn } from '@/lib/utils'
+import { cn } from '@wlet/lib/utils'
 
 /**
  * A tradução de tom em cor, num lugar só. É por existir aqui que `tone` na lista de

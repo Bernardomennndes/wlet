@@ -1,6 +1,6 @@
 import { Area, ComposedChart, Line, ResponsiveContainer, XAxis } from 'recharts'
 import { HATCH, hatchBackground, SERIES_SWATCH } from '@/components/charts/chart-theme'
-import { formatMonthShort, formatPercent } from '@/lib/format'
+import { formatMonthShort, formatPercent } from '@wlet/lib/format'
 import { benchmarkGap, type PatrimonyPoint } from '@/lib/investments'
 
 const HATCH_ID = 'benchmark-hatch'

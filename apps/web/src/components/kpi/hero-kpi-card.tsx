@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
-import { cn } from '@/lib/utils'
+import { Card, CardContent } from '@wlet/ui/components/card'
+import { cn } from '@wlet/lib/utils'
 import { MetricInfoPopover, type MetricDefinition } from './metric-info-popover'
 
 /**

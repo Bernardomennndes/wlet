@@ -1,9 +1,9 @@
 import { CaretDown, CaretLeft, CaretRight } from '@phosphor-icons/react'
 import { type ComponentProps, useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { formatMonthShort } from '@/lib/format'
-import { cn } from '@/lib/utils'
+import { Button } from './button'
+import { Popover, PopoverContent, PopoverTrigger } from './popover'
+import { formatMonthShort } from '@wlet/lib/format'
+import { cn } from '@wlet/lib/utils'
 
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 

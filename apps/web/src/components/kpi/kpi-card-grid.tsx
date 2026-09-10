@@ -1,7 +1,7 @@
 import type { ComponentProps } from 'react'
-import { Card } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
-import { cn } from '@/lib/utils'
+import { Card } from '@wlet/ui/components/card'
+import { Skeleton } from '@wlet/ui/components/skeleton'
+import { cn } from '@wlet/lib/utils'
 
 /**
  * A fileira de KPIs: um cartão ÚNICO, dividido por linhas de 1px.

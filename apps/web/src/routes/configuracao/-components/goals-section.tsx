@@ -1,9 +1,9 @@
 import { Plus, Trash } from '@phosphor-icons/react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { MoneyInput } from '@/components/ui/money-input'
-import { MonthPicker } from '@/components/ui/month-picker'
+import { Button } from '@wlet/ui/components/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
+import { Input } from '@wlet/ui/components/input'
+import { MoneyInput } from '@wlet/ui/components/money-input'
+import { MonthPicker } from '@wlet/ui/components/month-picker'
 import type { Goal, GoalSlot } from '@wlet/domain'
 
 const SLOTS: GoalSlot[] = [1, 2, 3, 4, 5, 6, 7, 8]

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { SERIES_SWATCH } from '@/components/charts/chart-theme'
 import type { LegendMark } from '@/components/charts/money-bar'
-import { cn } from '@/lib/utils'
+import { cn } from '@wlet/lib/utils'
 
 /**
  * As peças de TELA do gráfico de barras em reais por mês. O vocabulário sem JSX de componente

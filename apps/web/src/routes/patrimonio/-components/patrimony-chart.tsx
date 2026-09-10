@@ -1,8 +1,8 @@
 import { Area, ComposedChart, Line, XAxis, YAxis } from 'recharts'
 import { CHART_TOKENS } from '@/components/charts/chart-theme'
 import { ASSET_CLASS_COLOR } from '@/lib/chart-tokens'
-import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
-import { formatAxis, formatBRL, formatMonthShort } from '@/lib/format'
+import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@wlet/ui/components/chart'
+import { formatAxis, formatBRL, formatMonthShort } from '@wlet/lib/format'
 import type { PatrimonyPoint } from '@/lib/investments'
 
 // As cores das classes saem de `ASSET_CLASS_COLOR`, não escritas aqui: os tiles, a faixa de

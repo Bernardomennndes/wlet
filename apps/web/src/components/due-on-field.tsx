@@ -1,5 +1,5 @@
-import { AppCombobox } from '@/components/ui/app-combobox'
-import { Input } from '@/components/ui/input'
+import { AppCombobox } from '@wlet/ui/components/app-combobox'
+import { Input } from '@wlet/ui/components/input'
 import type { PlannedDueDate } from '@wlet/domain'
 
 const KIND_ITEMS = [

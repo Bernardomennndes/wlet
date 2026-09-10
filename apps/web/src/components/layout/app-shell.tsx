@@ -5,11 +5,11 @@ import { Breadcrumbs } from '@/components/breadcrumbs'
 import { EmptyDatasetBanner } from '@/components/empty-dataset-banner'
 import { HidingSquaresIcon } from '@/components/hiding-squares-icon'
 import { NAV } from '@/components/layout/nav'
-import { Button } from '@/components/ui/button'
-import { ButtonGroup, ButtonGroupText } from '@/components/ui/button-group'
+import { Button } from '@wlet/ui/components/button'
+import { ButtonGroup, ButtonGroupText } from '@wlet/ui/components/button-group'
 import { firstMonthWithData } from '@/lib/finance'
-import { MonthPicker } from '@/components/ui/month-picker'
-import { Separator } from '@/components/ui/separator'
+import { MonthPicker } from '@wlet/ui/components/month-picker'
+import { Separator } from '@wlet/ui/components/separator'
 import {
   Sidebar,
   SidebarContent,
@@ -27,9 +27,9 @@ import {
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
-} from '@/components/ui/sidebar'
-import { Skeleton } from '@/components/ui/skeleton'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+} from '@wlet/ui/components/sidebar'
+import { Skeleton } from '@wlet/ui/components/skeleton'
+import { ToggleGroup, ToggleGroupItem } from '@wlet/ui/components/toggle-group'
 import { entityKinds } from '@wlet/domain'
 import type { Scope } from '@/lib/finance'
 import { useFilters } from '@/providers/use-filters'

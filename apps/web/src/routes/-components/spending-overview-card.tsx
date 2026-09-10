@@ -1,12 +1,12 @@
 import { DotsThree } from '@phosphor-icons/react'
 import { Link } from 'react-router'
 import { METER_HEIGHT, SERIES_SWATCH } from '@/components/charts/chart-theme'
-import { Button } from '@/components/ui/button'
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Button } from '@wlet/ui/components/button'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@wlet/ui/components/card'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@wlet/ui/components/tooltip'
 import { NotInformed } from '@/components/not-informed'
-import { formatBRL, formatPercent } from '@/lib/format'
-import { cn } from '@/lib/utils'
+import { formatBRL, formatPercent } from '@wlet/lib/format'
+import { cn } from '@wlet/lib/utils'
 import { splitExpense, type ExpenseSegment } from '@/lib/expense-segments'
 
 interface Props {

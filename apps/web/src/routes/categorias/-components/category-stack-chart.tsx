@@ -2,9 +2,9 @@ import { useMemo } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceArea, XAxis, YAxis } from 'recharts'
 import { CHART_TOKENS, HATCH, SERIES_SWATCH } from '@/components/charts/chart-theme'
 import { ProjectionDivider, PROJECTION_MARKER_SPACE } from '@/components/charts/projection-divider'
-import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
+import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@wlet/ui/components/chart'
 import { categoryColor, OTHER_VAR } from '@/lib/chart-tokens'
-import { formatAxis, formatBRL, formatBRLCompact, formatMonthLongLabel, formatMonthShort } from '@/lib/format'
+import { formatAxis, formatBRL, formatBRLCompact, formatMonthLongLabel, formatMonthShort } from '@wlet/lib/format'
 import type { CategoryTotal } from '@/lib/finance'
 
 const MAX_SERIES = 7

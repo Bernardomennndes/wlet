@@ -1,6 +1,6 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { MoneyInput } from '@/components/ui/money-input'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
+import { Input } from '@wlet/ui/components/input'
+import { MoneyInput } from '@wlet/ui/components/money-input'
 import { Link } from 'react-router'
 import type { Budget } from '@wlet/domain'
 

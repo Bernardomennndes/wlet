@@ -1,6 +1,6 @@
-import { Badge } from '@/components/ui/badge'
+import { Badge } from '@wlet/ui/components/badge'
 import { SERIES_SWATCH } from '@/components/charts/chart-theme'
-import { cn } from '@/lib/utils'
+import { cn } from '@wlet/lib/utils'
 import { categoryLabel } from '@wlet/domain'
 import { categoryColor } from '@/lib/chart-tokens'
 

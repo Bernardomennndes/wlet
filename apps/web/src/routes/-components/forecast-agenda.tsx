@@ -2,10 +2,10 @@ import { Link } from 'react-router'
 import { CategoryBadge } from '@/components/category-badge'
 import { EnumBadge } from '@/components/enum-badge'
 import { NotInformed } from '@/components/not-informed'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@wlet/ui/components/table'
 import { forecastOrigins, type ForecastItem } from '@/lib/forecast'
-import { formatBRL, formatDayMonth } from '@/lib/format'
-import { cn } from '@/lib/utils'
+import { formatBRL, formatDayMonth } from '@wlet/lib/format'
+import { cn } from '@wlet/lib/utils'
 
 /** Fora do render: a busca na lista não depende de nenhuma prop. */
 const ORIGINS = new Map(forecastOrigins.map((option) => [option.value, option]))

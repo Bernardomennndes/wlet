@@ -1,0 +1,20 @@
+{
+  "name": "@wlet/lib",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "type:check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "cn": "^0.2.5"
+  },
+  "devDependencies": {
+    "@wlet/tsconfig": "workspace:*",
+    "typescript": "~6.0.2"
+  }
+}

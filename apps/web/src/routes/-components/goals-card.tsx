@@ -1,10 +1,10 @@
 import { DotsThree } from '@phosphor-icons/react'
 import { Link } from 'react-router'
-import { Button } from '@/components/ui/button'
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Button } from '@wlet/ui/components/button'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@wlet/ui/components/card'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@wlet/ui/components/tooltip'
 import { GOALS, goalProgress, type Goal } from '@/lib/goals'
-import { formatBRL, formatMonthShort, formatPercent } from '@/lib/format'
+import { formatBRL, formatMonthShort, formatPercent } from '@wlet/lib/format'
 
 /**
  * Quantos tiquinhos a barra tem. Fixo, e não proporcional ao valor: é o mesmo denominador

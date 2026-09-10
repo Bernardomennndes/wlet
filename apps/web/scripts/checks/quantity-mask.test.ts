@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { formatQuantity, parseQuantity } from '../../src/lib/quantity-mask.ts'
+import { formatQuantity, parseQuantity } from '@wlet/ui/quantity-mask'
 
 describe('máscara de quantidade', () => {
   it('lê inteiro pelo que ele é, e não como centavo', () => {

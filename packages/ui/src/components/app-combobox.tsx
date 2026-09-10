@@ -1,8 +1,8 @@
 import type { ComponentProps } from 'react'
 import type { Icon as PhosphorIcon } from '@phosphor-icons/react'
-import { Button } from '@/components/ui/button'
-import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList, ComboboxTrigger } from '@/components/ui/combobox'
-import { cn } from '@/lib/utils'
+import { Button } from './button'
+import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList, ComboboxTrigger } from './combobox'
+import { cn } from '@wlet/lib/utils'
 
 export interface SelectOption {
   value: string

@@ -1,8 +1,8 @@
 import { Warning } from '@phosphor-icons/react'
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Button } from '@wlet/ui/components/button'
+import { Checkbox } from '@wlet/ui/components/checkbox'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@wlet/ui/components/dialog'
 import { PACKAGE_PARTS, type PackageContents, type PackagePart } from '@/services/backup'
 
 /**

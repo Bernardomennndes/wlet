@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { BrowserRouter } from 'react-router'
-import { TooltipProvider } from '@/components/ui/tooltip'
+import { TooltipProvider } from '@wlet/ui/components/tooltip'
 import { FiltersProvider } from './filters'
 import { PlansProvider } from './plans'
 import { ThemeProvider } from './theme'

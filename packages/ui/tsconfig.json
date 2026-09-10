@@ -1,0 +1,10 @@
+{
+  "extends": "@wlet/tsconfig/react.json",
+  "compilerOptions": {
+    "paths": {
+      "@wlet/ui/*": ["./src/*"],
+      "@wlet/lib/*": ["../lib/src/*"]
+    }
+  },
+  "include": ["src"]
+}

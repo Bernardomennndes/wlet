@@ -1,7 +1,7 @@
 import { Area, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { HATCH, hatchBackground, SERIES_SWATCH } from '@/components/charts/chart-theme'
-import { formatAxis, formatBRL, formatMonthShort, formatPercent } from '@/lib/format'
-import { cn } from '@/lib/utils'
+import { formatAxis, formatBRL, formatMonthShort, formatPercent } from '@wlet/lib/format'
+import { cn } from '@wlet/lib/utils'
 import { benchmarkGap, PATRIMONY_RANGES, windowChange, type PatrimonyPoint, type PatrimonyRange } from '@/lib/investments'
 
 const HATCH_ID = 'hero-hatch'

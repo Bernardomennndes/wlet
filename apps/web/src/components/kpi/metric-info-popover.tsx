@@ -1,7 +1,7 @@
 import type { ComponentType, ReactNode } from 'react'
 import { Calculator, Info, Lightbulb, Target } from '@phosphor-icons/react'
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card'
-import { cn } from '@/lib/utils'
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@wlet/ui/components/hover-card'
+import { cn } from '@wlet/lib/utils'
 
 /**
  * A explicação do cálculo de um KPI. É campo obrigatório nos shells de `@/components/kpi`

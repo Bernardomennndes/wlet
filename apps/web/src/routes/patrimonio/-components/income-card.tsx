@@ -1,5 +1,5 @@
 import { SERIES_SWATCH } from '@/components/charts/chart-theme'
-import { formatBRL } from '@/lib/format'
+import { formatBRL } from '@wlet/lib/format'
 import type { IncomeMonth } from '@/lib/investments'
 
 /**

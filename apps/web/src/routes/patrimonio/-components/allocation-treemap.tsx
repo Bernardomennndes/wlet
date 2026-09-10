@@ -1,4 +1,4 @@
-import { formatBRL, formatPercent } from '@/lib/format'
+import { formatBRL, formatPercent } from '@wlet/lib/format'
 import { hatchBackground } from '@/components/charts/chart-theme'
 import { ASSET_CLASS_COLOR } from '@/lib/chart-tokens'
 import type { InvestmentHolding } from '@/lib/investments'

@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { Progress } from '@/components/ui/progress'
-import { cn } from '@/lib/utils'
+import { Progress } from './progress'
+import { cn } from '@wlet/lib/utils'
 
 /**
  * A variante "barra de ranking" do `Progress`: trilho fino, cantos retos e a cor do

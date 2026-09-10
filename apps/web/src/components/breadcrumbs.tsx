@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router'
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@wlet/ui/components/breadcrumb'
 import { navItemFor } from '@/components/layout/nav'
 
 export interface TrailNode {

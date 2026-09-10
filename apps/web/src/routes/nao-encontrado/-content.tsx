@@ -1,7 +1,7 @@
 import { Link } from 'react-router'
 import { Compass } from '@phosphor-icons/react'
-import { Button } from '@/components/ui/button'
-import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { Button } from '@wlet/ui/components/button'
+import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from '@wlet/ui/components/empty'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 
 export function NaoEncontradoPageContent() {

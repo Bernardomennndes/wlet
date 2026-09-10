@@ -38,6 +38,12 @@ importers:
       '@wlet/ingest':
         specifier: workspace:*
         version: link:../../packages/ingest
+      '@wlet/lib':
+        specifier: workspace:*
+        version: link:../../packages/lib
+      '@wlet/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -124,6 +130,56 @@ importers:
         specifier: workspace:*
         version: link:../domain
     devDependencies:
+      '@wlet/tsconfig':
+        specifier: workspace:*
+        version: link:../../config/tsconfig
+      typescript:
+        specifier: ~6.0.2
+        version: 6.0.3
+
+  packages/lib:
+    dependencies:
+      cn:
+        specifier: ^0.2.5
+        version: 0.2.5
+    devDependencies:
+      '@wlet/tsconfig':
+        specifier: workspace:*
+        version: link:../../config/tsconfig
+      typescript:
+        specifier: ~6.0.2
+        version: 6.0.3
+
+  packages/ui:
+    dependencies:
+      '@base-ui/react':
+        specifier: ^1.8.0
+        version: 1.8.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@phosphor-icons/react':
+        specifier: ^2.1.10
+        version: 2.1.10(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@wlet/lib':
+        specifier: workspace:*
+        version: link:../lib
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      cn:
+        specifier: ^0.2.5
+        version: 0.2.5
+      react:
+        specifier: ^19.2.8
+        version: 19.2.8
+      recharts:
+        specifier: ^3.8.0
+        version: 3.8.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react-is@19.2.8)(react@19.2.8)(redux@5.0.1)
+      tw-animate-css:
+        specifier: ^1.4.0
+        version: 1.4.0
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.18
+        version: 19.2.18
       '@wlet/tsconfig':
         specifier: workspace:*
         version: link:../../config/tsconfig

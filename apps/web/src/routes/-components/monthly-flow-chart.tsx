@@ -5,10 +5,10 @@ import { CHART_TOKENS } from '@/components/charts/chart-theme'
 import { EXPENSE_HATCH_SWATCH, expenseHatch, type LegendMark, MONEY_AXIS, MONEY_GRID, MONTH_AXIS, PROJECTION_DASH } from '@/components/charts/money-bar'
 import { ChartHeader, MarkSwatch } from '@/components/charts/money-bar-chart'
 import { PROJECTION_MARKER_SPACE, ProjectionDivider } from '@/components/charts/projection-divider'
-import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
+import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@wlet/ui/components/chart'
 import { EXPENSE_VAR, INCOME_VAR } from '@/lib/chart-tokens'
 import { type Flow, flowKinds, type MonthSummary } from '@/lib/finance'
-import { formatBRL, formatMonthLongLabel, formatPercent } from '@/lib/format'
+import { formatBRL, formatMonthLongLabel, formatPercent } from '@wlet/lib/format'
 
 /** O rótulo do enum vem da lista de domínio — o gráfico não redigita "Entradas"/"Saídas". */
 function flowLabelPlural(value: Flow): string {

@@ -1,6 +1,6 @@
 import { Lock, type Icon as PhosphorIcon } from '@phosphor-icons/react'
-import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
+import { Badge } from '@wlet/ui/components/badge'
+import { cn } from '@wlet/lib/utils'
 
 /**
  * Estabilidade de um gasto recorrente, derivada do desvio entre as cobranças. É estado de

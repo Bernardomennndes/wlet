@@ -1,5 +1,5 @@
-import { formatBRL, formatPercent } from '@/lib/format'
-import { cn } from '@/lib/utils'
+import { formatBRL, formatPercent } from '@wlet/lib/format'
+import { cn } from '@wlet/lib/utils'
 import { SERIES_SWATCH } from '@/components/charts/chart-theme'
 import { ASSET_CLASS_COLOR } from '@/lib/chart-tokens'
 import type { AssetClass } from '@/lib/investments'

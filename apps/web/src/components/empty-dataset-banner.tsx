@@ -1,6 +1,6 @@
 import { Database } from '@phosphor-icons/react'
 import { Link, useLocation } from 'react-router'
-import { Button } from '@/components/ui/button'
+import { Button } from '@wlet/ui/components/button'
 import { META } from '@/lib/finance'
 
 /**

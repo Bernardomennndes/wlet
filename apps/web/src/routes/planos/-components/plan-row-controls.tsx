@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { CalendarPlus, X } from '@phosphor-icons/react'
-import { AppCombobox, type SelectOption } from '@/components/ui/app-combobox'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { MonthPicker } from '@/components/ui/month-picker'
+import { AppCombobox, type SelectOption } from '@wlet/ui/components/app-combobox'
+import { Button } from '@wlet/ui/components/button'
+import { Input } from '@wlet/ui/components/input'
+import { MonthPicker } from '@wlet/ui/components/month-picker'
 import { paymentModes, type PaymentMode, type Plan } from '@wlet/domain'
-import { formatBRL } from '@/lib/format'
+import { formatBRL } from '@wlet/lib/format'
 import { installmentAmount, planInstallments } from '@/lib/plans'
 
 /**

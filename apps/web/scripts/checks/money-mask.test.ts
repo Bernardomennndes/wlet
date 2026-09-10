@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { maskMoney, parseMoney } from '../../src/lib/money-mask.ts'
+import { maskMoney, parseMoney } from '@wlet/ui/money-mask'
 
 /**
  * A máscara é o par de funções em que um erro NÃO quebra nada — ele só grava o valor errado.

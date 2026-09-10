@@ -5,7 +5,7 @@
   "tsx": true,
   "tailwind": {
     "config": "",
-    "css": "src/index.css",
+    "css": "../../apps/web/src/index.css",
     "baseColor": "neutral",
     "cssVariables": true,
     "prefix": ""
@@ -13,10 +13,10 @@
   "iconLibrary": "phosphor",
   "rtl": false,
   "aliases": {
-    "components": "@/components",
-    "utils": "@/lib/utils",
-    "ui": "@/components/ui",
-    "lib": "@/lib",
+    "components": "@wlet/ui/components",
+    "ui": "@wlet/ui/components",
+    "utils": "@wlet/lib/utils",
+    "lib": "@wlet/lib",
     "hooks": "@/hooks"
   },
   "menuColor": "default",

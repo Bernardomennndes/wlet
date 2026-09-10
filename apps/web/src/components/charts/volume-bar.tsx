@@ -2,8 +2,8 @@ import type { CSSProperties } from 'react'
 import { NotInformed } from '@/components/not-informed'
 import { SERIES_SWATCH } from '@/components/charts/chart-theme'
 import type { SegmentPart, VolumeParts } from '@/lib/expense-segments'
-import { formatBRL } from '@/lib/format'
-import { cn } from '@/lib/utils'
+import { formatBRL } from '@wlet/lib/format'
+import { cn } from '@wlet/lib/utils'
 
 /**
  * A barra de volume de um mês, e a amostra que a legenda dela usa.

@@ -1,5 +1,5 @@
 import { HATCH, hatchBackground } from '@/components/charts/chart-theme'
-import { formatAxis, formatMonthShort } from '@/lib/format'
+import { formatAxis, formatMonthShort } from '@wlet/lib/format'
 
 /**
  * O vocabulário comum dos gráficos de barra em REAIS por MÊS — hoje o fluxo da Visão geral e

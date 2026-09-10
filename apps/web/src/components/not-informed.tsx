@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { cn } from '@/lib/utils'
+import { cn } from '@wlet/lib/utils'
 
 /**
  * Ausência de informação, num lugar só. Itálico e esmaecido para não competir com dado

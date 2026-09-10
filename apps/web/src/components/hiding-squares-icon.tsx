@@ -1,6 +1,6 @@
 import { type ComponentProps, useEffect, useId, useRef } from 'react'
 import { type HidingSquaresOptions, hidingSquares, polygonPoints } from '@/lib/hiding-squares'
-import { cn } from '@/lib/utils'
+import { cn } from '@wlet/lib/utils'
 
 /**
  * O padrão base do ícone, calibrado por MEDIÇÃO e não a olho.

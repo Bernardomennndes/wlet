@@ -1,5 +1,5 @@
 import { CalendarDot, FileX, LinkBreak, type Icon as PhosphorIcon } from '@phosphor-icons/react'
-import { cn } from '@/lib/utils'
+import { cn } from '@wlet/lib/utils'
 
 export type Status = 'previsao' | 'sem-contraparte' | 'duplicado'
 

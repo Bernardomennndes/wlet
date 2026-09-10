@@ -1,8 +1,8 @@
 import { DataList, DataListField, DataListItem, DataListItemFields, DataListItemHeader } from '@/components/data-list/data-list'
 import { NotInformed } from '@/components/not-informed'
 import { SegmentLabel, VolumeBar } from '@/components/charts/volume-bar'
-import { formatBRL, formatMonthLong, formatMonthLongLabel, formatPercent } from '@/lib/format'
-import { cn } from '@/lib/utils'
+import { formatBRL, formatMonthLong, formatMonthLongLabel, formatPercent } from '@wlet/lib/format'
+import { cn } from '@wlet/lib/utils'
 import { splitVolume, type ExpenseSegment } from '@/lib/expense-segments'
 import type { FlowPoint } from './monthly-flow-chart'
 

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { cn } from '@/lib/utils'
+import { cn } from '@wlet/lib/utils'
 import { kpiToneClasses, type KpiTone } from './kpi-tone'
 
 /**

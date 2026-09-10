@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactNode } from 'react'
-import { cn } from '@/lib/utils'
+import { cn } from '@wlet/lib/utils'
 
 /**
  * Lista de leitura por ITEM, a alternativa à data table. A semântica é metade da razão de

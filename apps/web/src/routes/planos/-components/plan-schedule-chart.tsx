@@ -4,10 +4,10 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { CHART_TOKENS } from '@/components/charts/chart-theme'
 import { EXPENSE_HATCH_SWATCH, expenseHatch, type LegendMark, MONEY_AXIS, MONEY_GRID, MONTH_AXIS, PROJECTION_DASH } from '@/components/charts/money-bar'
 import { ChartHeader, MarkSwatch } from '@/components/charts/money-bar-chart'
-import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
+import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@wlet/ui/components/chart'
 import { planStatuses } from '@wlet/domain'
 import { forecastOrigins } from '@/lib/forecast'
-import { formatBRL, formatMonthLongLabel } from '@/lib/format'
+import { formatBRL, formatMonthLongLabel } from '@wlet/lib/format'
 /**
  * A linha do gráfico: a saída prevista aberta por ORIGEM, mais as duas fatias de plano.
  *

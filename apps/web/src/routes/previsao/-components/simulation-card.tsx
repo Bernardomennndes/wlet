@@ -1,10 +1,10 @@
 import { CategoryBadge } from '@/components/category-badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@wlet/ui/components/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
 import type { Plan, PlanGroup } from '@wlet/domain'
-import { formatBRL, formatMonthShort, plural } from '@/lib/format'
+import { formatBRL, formatMonthShort, plural } from '@wlet/lib/format'
 import { installmentAmount, planMonths, planTotal, scheduledPlans } from '@/lib/plans'
-import { cn } from '@/lib/utils'
+import { cn } from '@wlet/lib/utils'
 
 /**
  * A simulação: quais planos EM ESTUDO entram na previsão desta tela.

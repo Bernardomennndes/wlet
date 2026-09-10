@@ -23,6 +23,8 @@
     "@phosphor-icons/react": "^2.1.10",
     "@wlet/domain": "workspace:*",
     "@wlet/ingest": "workspace:*",
+    "@wlet/lib": "workspace:*",
+    "@wlet/ui": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.2.5",
     "react": "^19.2.8",

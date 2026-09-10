@@ -1,8 +1,8 @@
 import { METER_HEIGHT } from '@/components/charts/chart-theme'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@wlet/ui/components/card'
 import { BUDGET, BUDGET_STATE, budgetState } from '@/lib/budget'
-import { formatBRL, formatMonthLongLabel } from '@/lib/format'
-import { cn } from '@/lib/utils'
+import { formatBRL, formatMonthLongLabel } from '@wlet/lib/format'
+import { cn } from '@wlet/lib/utils'
 
 /**
  * A faixa de situação é markup próprio, não o `Alert` do registry: ele só tem `default` e

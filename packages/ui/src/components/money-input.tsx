@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react'
-import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '@/components/ui/input-group'
-import { maskMoney, parseMoney } from '@/lib/money-mask'
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from './input-group'
+import { maskMoney, parseMoney } from '../money-mask'
 
 type Props = Omit<ComponentProps<typeof InputGroupInput>, 'value' | 'onChange' | 'type' | 'inputMode'> & {
   value: number

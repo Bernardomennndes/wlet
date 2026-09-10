@@ -1,8 +1,8 @@
 import { Plus, Trash } from '@phosphor-icons/react'
-import { AppCombobox } from '@/components/ui/app-combobox'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { AppCombobox } from '@wlet/ui/components/app-combobox'
+import { Button } from '@wlet/ui/components/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
+import { Input } from '@wlet/ui/components/input'
 import { CATEGORIES } from '@wlet/domain'
 import type { Rule } from '@wlet/ingest/rules'
 
