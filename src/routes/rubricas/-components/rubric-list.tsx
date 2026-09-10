@@ -1,6 +1,7 @@
 import { ListBullets, Plus, Trash } from '@phosphor-icons/react'
 import { CategoryBadge } from '@/components/category-badge'
 import { DataList, DataListField, DataListItem, DataListItemFields, DataListItemHeader } from '@/components/data-list/data-list'
+import { useState } from 'react'
 import { NotInformed } from '@/components/not-informed'
 import { BarProgress } from '@/components/ui/bar-progress'
 import { Button } from '@/components/ui/button'
@@ -54,6 +55,31 @@ interface Props {
  * estoura o trilho não tem como ser comparada com a da rubrica vizinha — mesma decisão do
  * cartão de orçamento da Visão geral.
  */
+/**
+ * O valor de uma rubrica sem composição.
+ *
+ * É componente próprio porque precisa de estado — o rascunho que só sobe no blur — e um hook
+ * não pode viver dentro do `map` da lista. Mesmo motivo e mesmo remédio da linha de item: com
+ * a gravação por tecla, `saving` desabilitava o campo e o foco ia para o `body`.
+ */
+function RubricAmountField({ rubric, onCommit }: { rubric: Rubric; onCommit: (amount: number) => void }) {
+  const [draft, setDraft] = useState<number | null>(null)
+  return (
+    <MoneyInput
+      aria-label={`Planejado para ${rubric.label}`}
+      value={draft ?? rubric.amount}
+      onValueChange={setDraft}
+      onBlur={() => {
+        if (draft !== null && draft !== rubric.amount) onCommit(draft)
+        setDraft(null)
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.currentTarget.blur()
+      }}
+    />
+  )
+}
+
 export function RubricList({ rubrics, windowLabel, disabled, onChange, onRemove }: Props) {
   if (rubrics.length === 0) {
     return <NotInformed>Nenhuma rubrica declarada</NotInformed>
@@ -86,7 +112,7 @@ export function RubricList({ rubrics, windowLabel, disabled, onChange, onRemove 
                   <span className="w-32 text-right font-mono tabular-nums">{formatBRL(rubric.amount)}</span>
                 ) : (
                   <div className="w-32">
-                    <MoneyInput aria-label={`Planejado para ${rubric.label}`} value={rubric.amount} disabled={disabled} onValueChange={(v) => onChange(rubric.categoryId, { amount: v })} />
+                    <RubricAmountField rubric={rubric} onCommit={(amount) => onChange(rubric.categoryId, { amount })} />
                   </div>
                 )}
                 <Button

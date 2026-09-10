@@ -1,3 +1,4 @@
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { Trash } from '@phosphor-icons/react'
 import { AppCombobox } from '@/components/ui/app-combobox'
 import { Button } from '@/components/ui/button'
@@ -7,6 +8,7 @@ import { MoneyInput } from '@/components/ui/money-input'
 import { QuantityInput } from '@/components/ui/quantity-input'
 import { budgetCadences, type BudgetCadence, type BudgetItem } from '@/data/types'
 import { formatBRL } from '@/lib/format'
+import { useFieldDraft } from '@/hooks/use-field-draft'
 import { itemAmount } from '@/lib/rubric'
 
 /** Do enum para o que o `AppCombobox` recebe — a mesma conversão de `plan-row-controls`. */
@@ -14,6 +16,7 @@ const CADENCE_OPTIONS = budgetCadences.map((cadence) => ({ value: cadence.value,
 
 interface Props {
   item: BudgetItem
+  /** Só a REMOÇÃO desabilita durante a gravação: campo desabilitado perde o foco. */
   disabled: boolean
   onChange: (patch: Partial<BudgetItem>) => void
   onRemove: () => void
@@ -37,7 +40,19 @@ interface Props {
  * campos e 24px no botão. O grupo impõe uma altura só.
  */
 export function RubricItemRow({ item, disabled, onChange, onRemove, canRemove }: Props) {
-  const nome = item.label || 'item sem nome'
+  /**
+   * O que se digita sobe no BLUR, não a cada tecla.
+   *
+   * Gravar por tecla levantava `saving`, que a tela repassava como `disabled` — e campo
+   * desabilitado perde o foco. Adiar até o blur tira a gravação do caminho da digitação, e de
+   * quebra deixa de mandar uma escrita por caractere ao IndexedDB.
+   */
+  const { shown, edit, flush } = useFieldDraft(item, onChange)
+  const nome = shown.label || 'item sem nome'
+  /** Enter vale como sair do campo: quem digita um número e confirma espera que ele conte. */
+  const onKeyDown = (event: ReactKeyboardEvent) => {
+    if (event.key === 'Enter') flush()
+  }
   return (
     <ButtonGroup className="w-fit">
       <InputGroup className="w-64 flex-none">
@@ -48,23 +63,25 @@ export function RubricItemRow({ item, disabled, onChange, onRemove, canRemove }:
           // item" no campo afirmaria um nome que ninguém digitou — a mesma
           // regra do plano que nasce sem mês e da célula que fica vazia.
           placeholder="Nome do item"
-          disabled={disabled}
-          value={item.label}
-          onChange={(e) => onChange({ label: e.target.value })}
+          value={shown.label}
+          onChange={(e) => edit({ label: e.target.value })}
+          onBlur={flush}
+          onKeyDown={onKeyDown}
         />
       </InputGroup>
       <QuantityInput
         groupClassName="w-32 flex-none"
         aria-label={`Quantidade de ${nome}`}
-        disabled={disabled}
-        value={item.quantity}
-        onValueChange={(quantity) => onChange({ quantity })}
-        unit={item.unit}
-        onUnitChange={(unit) => onChange({ unit })}
+        value={shown.quantity}
+        onValueChange={(quantity) => edit({ quantity })}
+        onBlur={flush}
+        onKeyDown={onKeyDown}
+        unit={shown.unit}
+        onUnitChange={(unit) => edit({ unit })}
       />
       <AppCombobox
         items={CADENCE_OPTIONS}
-        value={item.cadence ?? 'month'}
+        value={shown.cadence ?? 'month'}
         onValueChange={(cadence) => onChange({ cadence: cadence as BudgetCadence })}
         aria-label={`Frequência de ${nome}`}
         // Sem `rounded-none`: o `ButtonGroup` já zera os raios internos por CSS,
@@ -72,14 +89,21 @@ export function RubricItemRow({ item, disabled, onChange, onRemove, canRemove }:
         className="w-28 flex-none"
         variant="outline"
       />
-      <MoneyInput groupClassName="w-32 flex-none" aria-label={`Preço unitário de ${nome}`} disabled={disabled} value={item.unitAmount} onValueChange={(unitAmount) => onChange({ unitAmount })} />
+      <MoneyInput
+        groupClassName="w-32 flex-none"
+        aria-label={`Preço unitário de ${nome}`}
+        value={shown.unitAmount}
+        onValueChange={(unitAmount) => edit({ unitAmount })}
+        onBlur={flush}
+        onKeyDown={onKeyDown}
+      />
       {/*
                     O subtotal é sempre MENSAL, mesmo num item semanal, e é por isso que ele
                     precisa da legenda: sem o "/mês" a linha "2 kg /semana × R$ 22" ao lado
                     de "R$ 191,19" pareceria erro de conta.
                   */}
       <ButtonGroupText className="w-32 flex-none justify-end font-mono tabular-nums">
-        {formatBRL(itemAmount(item))}
+        {formatBRL(itemAmount(shown))}
         <span className="text-muted-foreground font-sans">/mês</span>
       </ButtonGroupText>
       <Button
