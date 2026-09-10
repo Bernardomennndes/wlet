@@ -5,7 +5,7 @@ import type { MetricDefinition } from '@/components/kpi'
  * `settlePlanned` produz uma ocorrência por conta e por mês, e as rubricas de
  * `budget.config.ts` são medidas contra o gasto do mês.
  */
-export const PAGAMENTOS_METRICS: Record<'dueThisMonth' | 'overdue' | 'rubricUse', MetricDefinition> = {
+export const PAGAMENTOS_METRICS: Record<'dueThisMonth' | 'overdue', MetricDefinition> = {
   dueThisMonth: {
     title: 'A pagar no mês',
     whatItIs: 'Quanto ainda falta sair das contas declaradas que vencem no mês em curso.',
@@ -21,18 +21,5 @@ export const PAGAMENTOS_METRICS: Record<'dueThisMonth' | 'overdue' | 'rubricUse'
       '"Já venceu" é medido contra a última data COM DADO nos extratos, não contra o relógio: uma conta paga ontem e ainda não exportada do banco não pode ser declarada atrasada. Regra sem dia de vencimento nunca entra aqui — sem dia não há prazo a vencer.',
     whatItIsFor: 'Separa o esquecimento do atraso real. Uma conta em aberto dentro do prazo não aparece.',
     formula: 'Σ esperado das ocorrências com vencimento passado e nada pago',
-  },
-  rubricUse: {
-    title: 'Rubricas no mês',
-    whatItIs: 'Quanto já foi gasto do que se planejou para as categorias sem credor único.',
-    howItIsCalculated:
-      'Soma das saídas do mês em curso nas categorias declaradas em `budget.config.ts`, contra a soma dos valores planejados. As saídas são líquidas de reembolso, como no resto do app.',
-    example: {
-      scenario: 'Uma rubrica de R$ 1.000 para mercado, com R$ 640 já gastos no mês.',
-      calculation: ['640 ÷ 1.000 = 64% do planejado', 'ainda cabem R$ 360'],
-    },
-    whatItIsFor:
-      'É o teto do que não tem vencimento. Alimentação não é uma conta a pagar — não existe "a conta do mercado" —, então a pergunta certa não é "paguei?" e sim "estourei?". Nos meses futuros esse mesmo número vira previsão de saída.',
-    formula: 'Σ gasto do mês nas categorias com rubrica ÷ Σ rubricas',
   },
 }

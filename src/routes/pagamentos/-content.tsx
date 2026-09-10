@@ -9,18 +9,13 @@ import { PayableStatusBadge } from '@/components/payable-status-badge'
 import { SettlementHistory } from '@/components/settlement-history'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
-import { categoryLabel } from '@/data/categories'
 import { useDocumentTitle } from '@/hooks/use-document-title'
-import { BUDGET } from '@/lib/budget'
-import { rubricAmount } from '@/lib/rubric'
 import { ACCOUNT_MAP, lastDateWithData, lastMonthWithData, sum } from '@/lib/finance'
 import { formatBRL, formatDate, formatDayMonth, formatMonthLongLabel, formatMonthShort, plural } from '@/lib/format'
 import { CONCILIATED, settlePlanned } from '@/lib/planned'
 import type { Settlement } from '@/lib/settlement'
 import { useFilters } from '@/providers/use-filters'
 import { PAGAMENTOS_METRICS } from './-metric-definitions'
-
-import { RubricList } from './-components/rubric-list'
 
 /** Quantos meses de histórico cada conta mostra. */
 const HISTORY_MONTHS = 12
@@ -62,39 +57,20 @@ export function PagamentosPageContent() {
   const overdue = inScope.filter((o) => o.status === 'overdue')
   const overdueTotal = sum(overdue.map((o) => o.expected))
 
-  // Rubricas: gasto do mês em curso contra o planejado. Lê `history` e não `transactions`
-  // porque o cartão mede o MÊS, e estreitar o período do cabeçalho não pode encolher o gasto.
-  const rubrics = useMemo(() => {
-    const declared = BUDGET.byCategory ?? []
-    return declared.map((rubric) => {
-      const spent = sum(
-        history
-          .filter((tx) => tx.month === currentMonth && tx.displayCategoryId === rubric.categoryId && (tx.flow === 'expense' || tx.flow === 'reimbursement'))
-          .map((tx) => (tx.flow === 'reimbursement' ? -Math.abs(tx.amount) : Math.abs(tx.amount))),
-      )
-      // O `amount` é SOBRESCRITO pelo valor resolvido: uma rubrica com composição guarda a
-      // lista, e o total dela é a soma dos itens. A lista abaixo recebe um objeto de view já
-      // resolvido e por isso não precisa conhecer a composição.
-      return { ...rubric, amount: rubricAmount(rubric), label: categoryLabel(rubric.categoryId), spent: Math.max(0, spent) }
-    })
-  }, [history, currentMonth])
-  const rubricPlanned = sum(rubrics.map((r) => r.amount))
-  const rubricSpent = sum(rubrics.map((r) => r.spent))
-
   return (
     <div className="flex flex-col gap-5">
       <header>
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Pagamentos</h1>
-            <p className="text-xs text-muted-foreground">
-              Uma <strong className="font-medium">conta</strong> tem credor e vencimento; uma <strong className="font-medium">rubrica</strong> não tem credor único. Quem responde as duas é o extrato.
-            </p>
+            {/* As rubricas saíram para a tela própria: aqui só o que tem credor e vencimento,
+                que é a pergunta desta tela. */}
+            <p className="text-xs text-muted-foreground">Uma conta tem credor e vencimento, e quem responde se ela foi paga é o extrato.</p>
           </div>
         </div>
       </header>
 
-      <KpiCardGrid columns={3}>
+      <KpiCardGrid columns={2}>
         <KpiCard
           label="A pagar no mês"
           definition={PAGAMENTOS_METRICS.dueThisMonth}
@@ -113,13 +89,6 @@ export function PagamentosPageContent() {
               ? `${overdue.length} ${plural(overdue.length, 'mês', 'meses')} ${plural(overdue.length, 'vencido', 'vencidos')} sem pagamento`
               : `Vencimentos conferidos até ${formatDate(today)}`
           }
-        />
-        <KpiCard
-          label="Rubricas no mês"
-          definition={PAGAMENTOS_METRICS.rubricUse}
-          value={rubricPlanned > 0 ? `${formatBRL(rubricSpent)} de ${formatBRL(rubricPlanned)}` : null}
-          emptyLabel="Nenhuma rubrica"
-          hint={rubricPlanned > 0 ? `${rubrics.length} ${plural(rubrics.length, 'categoria', 'categorias')} planejadas` : 'Declare em scripts/budget.config.ts'}
         />
       </KpiCardGrid>
 
@@ -188,16 +157,6 @@ export function PagamentosPageContent() {
               })}
             </DataList>
           )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Rubricas de gasto</CardTitle>
-          <CardDescription>O mesmo número é teto no mês em curso e previsão nos futuros — e na projeção é piso, não soma.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <RubricList rubrics={rubrics} month={currentMonth} />
         </CardContent>
       </Card>
     </div>
