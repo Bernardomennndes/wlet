@@ -1,4 +1,5 @@
 import type { Budget, Goal, PlannedEntry, Receivable } from '@/data/types'
+import { rubricAmount } from '@/lib/rubric'
 import { InvalidConfigError } from '../domain/errors'
 import type { ConfigData, ConfigRepository, ConfigSeed } from '../domain/ports/config-repository'
 
@@ -52,6 +53,14 @@ function assertBudget(budget: Budget): void {
   if (!(budget.warnAt > 0 && budget.warnAt <= 1)) throw new InvalidConfigError('O aviso do teto deve ser uma fração entre 0 e 1.')
   for (const rubrica of budget.byCategory ?? []) {
     if (!(rubrica.amount >= 0)) throw new InvalidConfigError(`A rubrica de "${rubrica.categoryId}" não pode ser negativa.`)
+    for (const item of rubrica.items ?? []) {
+      if (!item.label?.trim()) throw new InvalidConfigError(`Um item da rubrica de "${rubrica.categoryId}" está sem nome.`)
+      // Quantidade ZERO é recusada, e não tratada como "item desligado": um item que não entra
+      // na conta e continua na lista é um número que some sem explicação. Para tirá-lo da
+      // conta, tire-o da lista.
+      if (!(item.quantity > 0)) throw new InvalidConfigError(`A quantidade de "${item.label}" precisa ser maior que zero.`)
+      if (!(item.unitAmount >= 0)) throw new InvalidConfigError(`O valor unitário de "${item.label}" não pode ser negativo.`)
+    }
   }
 }
 
@@ -68,6 +77,19 @@ function assertBudget(budget: Budget): void {
  * ninguém declarou não pode acusar estouro. O `warnAt` é o único com valor, porque a validação
  * exige uma fração entre 0 e 1 e ele só passa a significar algo depois que houver teto.
  */
+/**
+ * Deixa o `amount` de toda rubrica composta igual à soma dos itens ANTES de gravar.
+ *
+ * A leitura já ignora o `amount` quando há composição (`rubricAmount`), então isto não é o que
+ * mantém as contas certas — é o que impede o dado GRAVADO de carregar um total obsoleto. Sem
+ * isso, um pacote exportado levaria um número que ninguém lê e que contradiz a lista ao lado
+ * dele, e a primeira pessoa a abrir o JSON acreditaria no errado.
+ */
+function normalizeBudget(config: ConfigData): ConfigData {
+  const byCategory = config.budget.byCategory?.map((rubrica) => (rubrica.items?.length ? { ...rubrica, amount: rubricAmount(rubrica) } : rubrica))
+  return { ...config, budget: { ...config.budget, byCategory } }
+}
+
 export function emptyConfig(): ConfigData {
   return { planned: [], receivables: [], budget: { monthlyLimit: 0, warnAt: 0.75, byCategory: [] }, goals: [], accounts: [], rules: [], selfNamePatterns: [] }
 }
@@ -83,8 +105,9 @@ export function makeConfigService({ repository, seed }: ConfigServiceDeps): Conf
   async function commit(next: ConfigData): Promise<ConfigData> {
     assertPlanned(next.planned)
     assertBudget(next.budget)
-    await repository.save(next)
-    return next
+    const normalized = normalizeBudget(next)
+    await repository.save(normalized)
+    return normalized
   }
 
   return {

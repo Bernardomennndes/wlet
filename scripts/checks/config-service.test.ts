@@ -70,3 +70,35 @@ describe('serviço de configuração: validação', () => {
     assert.equal(snap.planned.length, 1, 'o resto da config veio junto')
   })
 })
+
+describe('serviço de configuração: composição de rubrica', () => {
+  const comItens = (items: { label: string; quantity: number; unitAmount: number }[]) => ({
+    monthlyLimit: 5000,
+    warnAt: 0.75,
+    byCategory: [{ categoryId: 'suplementacao', amount: 0, items }],
+  })
+
+  it('grava o total DERIVADO da composição, não o que veio junto', async () => {
+    // A leitura já ignora o `amount` quando há itens; normalizar na escrita é o que impede o
+    // dado gravado — e o pacote exportado — de carregar um total que contradiz a lista.
+    const { repository, service } = setup()
+    await service.saveBudget(comItens([{ label: 'Whey', quantity: 2, unitAmount: 180 }]))
+    assert.equal(repository.snapshot()?.budget.byCategory?.[0].amount, 360)
+  })
+
+  it('recusa item sem nome', async () => {
+    const { service } = setup()
+    await assert.rejects(() => service.saveBudget(comItens([{ label: '  ', quantity: 1, unitAmount: 10 }])), InvalidConfigError)
+  })
+
+  it('recusa quantidade zero em vez de tratá-la como item desligado', async () => {
+    // Um item que fica na lista sem entrar na conta é um número que some sem explicação.
+    const { service } = setup()
+    await assert.rejects(() => service.saveBudget(comItens([{ label: 'Whey', quantity: 0, unitAmount: 180 }])), InvalidConfigError)
+  })
+
+  it('recusa valor unitário negativo', async () => {
+    const { service } = setup()
+    await assert.rejects(() => service.saveBudget(comItens([{ label: 'Whey', quantity: 1, unitAmount: -1 }])), InvalidConfigError)
+  })
+})
