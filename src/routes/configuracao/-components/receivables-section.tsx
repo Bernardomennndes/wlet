@@ -7,7 +7,7 @@ import { MoneyInput } from '@/components/ui/money-input'
 import { MonthPicker } from '@/components/ui/month-picker'
 import { CATEGORIES } from '@/data/categories'
 import { plannedRecurrences, type Receivable, type Recurrence } from '@/data/types'
-import { DueOnField } from './due-on-field'
+import { DueOnField } from '@/components/due-on-field'
 
 const EXPENSE_ITEMS = CATEGORIES.filter((c) => c.kind === 'expense').map((c) => ({ value: c.id, label: c.label, description: c.description }))
 const RECURRENCE_ITEMS = plannedRecurrences.map((r) => ({ value: r.value, label: r.label }))

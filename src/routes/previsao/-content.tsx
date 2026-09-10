@@ -1,11 +1,14 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
+import { useDeclarations } from '@/hooks/use-declarations'
 import { useDocumentTitle } from '@/hooks/use-document-title'
-import { CalendarDot } from '@phosphor-icons/react'
+import { PlannedSheet } from './-components/planned-sheet'
+import { CalendarDot, PencilSimple, Plus, Trash, Warning } from '@phosphor-icons/react'
 import { CategoryBadge } from '@/components/category-badge'
 import { DataList, DataListField, DataListItem, DataListItemFields, DataListItemHeader } from '@/components/data-list/data-list'
 import { EntityBadge } from '@/components/entity-badge'
 import { FlowBadge } from '@/components/flow-badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { categoryLabel } from '@/data/categories'
@@ -17,7 +20,7 @@ import { receivablesInScope } from '@/lib/receivables'
 import { useFilters } from '@/providers/use-filters'
 import { usePlans } from '@/providers/use-plans'
 import { formatBRL, formatDayMonth, formatMonthShort, plural } from '@/lib/format'
-import { PLANNED, dueDateOf, lastOccurrence, occursIn, pendingIn, plannedInScope } from '@/lib/planned'
+import { dueDateOf, lastOccurrence, occursIn, pendingIn } from '@/lib/planned'
 import { SimulationCard } from './-components/simulation-card'
 import { ForecastList, type ForecastRow } from './-components/forecast-list'
 
@@ -63,7 +66,19 @@ function describeDueDay(entry: PlannedEntry, window: string[]): string | null {
 
 export function PrevisaoPageContent() {
   useDocumentTitle('Previsão')
-  const { history, scope, period } = useFilters()
+  const { history, scope, period, monthsWithData } = useFilters()
+  /**
+   * As regras vêm do estado EDITÁVEL, não de `PLANNED`.
+   *
+   * `PLANNED` é o retrato do boot, e enquanto esta tela só o lia isso bastava. Agora que ela
+   * edita, ler o retrato faria a lista mostrar R$ 1.800 e o gráfico logo abaixo continuar em
+   * R$ 1.500 — a mesma tela afirmando dois números para o mesmo lançamento até um refresh.
+   * Com o estado, os três pontos que dependem das regras se movem juntos.
+   */
+  const { current, saving, error, save } = useDeclarations()
+  const planned = current.planned
+  const [editing, setEditing] = useState<PlannedEntry | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
   // A janela da prévia sai das próprias regras, não do filtro do cabeçalho: começa no mês
   // seguinte ao último com lançamentos e vai até a última ocorrência conhecida. Mínimo de
   // 12 meses para dar contexto, máximo de 24 para não virar tabela infinita quando houver
@@ -72,7 +87,7 @@ export function PrevisaoPageContent() {
   // dia 25 num extrato que vai até o dia 2 é previsão, não passado.
   const partialMonth = lastMonthWithData()
   const cutoff = lastDateWithData()
-  const partialHasPending = useMemo(() => PLANNED.some((entry) => pendingIn(entry, partialMonth, cutoff)), [partialMonth, cutoff])
+  const partialHasPending = useMemo(() => planned.some((entry) => pendingIn(entry, partialMonth, cutoff)), [planned, partialMonth, cutoff])
 
   /**
    * Os meses que esta tela projeta, RECORTADOS pelo período do cabeçalho.
@@ -132,7 +147,27 @@ export function PrevisaoPageContent() {
   // número que se usa para decidir e o número que se está testando fica explícita.
   const plans = useMemo(() => [...decided, ...considering.filter((p) => simulated.has(p.id))], [decided, considering, simulated])
 
-  const input = useMemo(() => ({ history, planned: plannedInScope(scope), receivables: receivablesInScope(scope, (id) => ACCOUNT_MAP[id]?.entity), plans }), [history, scope, plans])
+  const input = useMemo(
+    () => ({ history, planned: scope === 'all' ? planned : planned.filter((e) => e.entity === scope), receivables: receivablesInScope(scope, (id) => ACCOUNT_MAP[id]?.entity), plans }),
+    [history, scope, planned, plans],
+  )
+
+  /** Uma escrita só: a lista inteira volta pelo serviço, que valida o agregado. */
+  const writePlanned = useCallback((next: PlannedEntry[]) => save({ planned: next }), [save])
+  const removeEntry = useCallback((id: string) => writePlanned(planned.filter((e) => e.id !== id)), [planned, writePlanned])
+  const submitEntry = useCallback(
+    (values: Omit<PlannedEntry, 'id'>) => {
+      // Editar preserva o id; criar inventa um que não colide com nenhum existente — a
+      // validação do serviço recusa ids repetidos, e um contador sobre o TAMANHO da lista
+      // repetiria assim que alguém apagasse uma regra do meio.
+      if (editing) return writePlanned(planned.map((e) => (e.id === editing.id ? { ...values, id: editing.id } : e)))
+      const usados = new Set(planned.map((e) => e.id))
+      let n = planned.length + 1
+      while (usados.has(`regra-${n}`)) n += 1
+      writePlanned([...planned, { ...values, id: `regra-${n}` }])
+    },
+    [editing, planned, writePlanned],
+  )
 
   const preview = useMemo<ForecastRow[]>(() => {
     const toSegments = (byCategory: Map<string, number>): ExpenseSegment[] =>
@@ -177,14 +212,27 @@ export function PrevisaoPageContent() {
       </header>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Lançamentos previstos</CardTitle>
-          <CardDescription>
-            Declarado por você e guardado NESTE navegador — <code className="font-mono">scripts/planned.config.ts</code> só semeia um navegador que ainda não tem nada.
-          </CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
+          <div className="space-y-1.5">
+            <CardTitle>Lançamentos previstos</CardTitle>
+            <CardDescription>
+              Declarado por você e guardado NESTE navegador — <code className="font-mono">scripts/planned.config.ts</code> só semeia um navegador que ainda não tem nada.
+            </CardDescription>
+          </div>
+          <Button
+            size="sm"
+            className="shrink-0"
+            disabled={saving}
+            onClick={() => {
+              setEditing(null)
+              setSheetOpen(true)
+            }}
+          >
+            <Plus /> Adicionar
+          </Button>
         </CardHeader>
         <CardContent>
-          {PLANNED.length === 0 ? (
+          {planned.length === 0 ? (
             <Empty className="border">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -196,7 +244,7 @@ export function PrevisaoPageContent() {
             </Empty>
           ) : (
             <DataList aria-label="Lançamentos previstos">
-              {PLANNED.map((entry) => {
+              {planned.map((entry) => {
                 const exceptions = Object.entries(entry.exceptions ?? {}).sort()
                 const due = describeDueDay(entry, futureMonths)
                 return (
@@ -205,6 +253,28 @@ export function PrevisaoPageContent() {
                       <span className="min-w-0 truncate">{entry.label}</span>
                       <EntityBadge entity={entry.entity} />
                       <FlowBadge value={entry.kind} />
+                      {/* As ações ficam à direita da linha, empurradas pelo `ml-auto`, e são
+                          `ghost`: com uma lista de regras na tela, um par de botões emoldurados
+                          por linha pesaria mais que o nome da própria regra — a decisão escrita
+                          em `plan-row-controls.tsx`. Aqui elas estão fora de qualquer
+                          `ButtonGroup`, então o argumento vale inteiro. */}
+                      <div className="ml-auto flex shrink-0 items-center gap-1">
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label={`Editar ${entry.label}`}
+                          disabled={saving}
+                          onClick={() => {
+                            setEditing(entry)
+                            setSheetOpen(true)
+                          }}
+                        >
+                          <PencilSimple />
+                        </Button>
+                        <Button size="icon-sm" variant="ghost" aria-label={`Excluir ${entry.label}`} disabled={saving} onClick={() => removeEntry(entry.id)}>
+                          <Trash />
+                        </Button>
+                      </div>
                     </DataListItemHeader>
                     <DataListItemFields>
                       <DataListField label="Valor" separator={false}>
@@ -226,6 +296,17 @@ export function PrevisaoPageContent() {
           )}
         </CardContent>
       </Card>
+
+      {error && (
+        <p className="text-destructive flex items-start gap-2 text-xs">
+          <Warning className="mt-0.5 shrink-0" /> {error}
+        </p>
+      )}
+      {/* Não há aviso de "recarregue a página": esta tela LÊ o estado editável, então o
+          gráfico e a tabela já se moveram junto com a lista. O aviso só faz sentido onde o
+          efeito de fato espera um refresh. */}
+
+      <PlannedSheet open={sheetOpen} onOpenChange={setSheetOpen} editing={editing} defaultMonth={shiftMonth(partialMonth, 1)} minMonth={monthsWithData[0] ?? partialMonth} onSubmit={submitEntry} />
 
       <SimulationCard groups={groups} considering={considering} simulated={simulated} onToggle={toggleSimulated} />
 

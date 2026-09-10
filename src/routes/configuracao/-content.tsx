@@ -3,7 +3,6 @@ import { useDocumentTitle } from '@/hooks/use-document-title'
 import { AccountsSection } from './-components/accounts-section'
 import { BudgetSection } from './-components/budget-section'
 import { GoalsSection } from './-components/goals-section'
-import { PlannedSection } from './-components/planned-section'
 import { ReceivablesSection } from './-components/receivables-section'
 import { RulesSection } from './-components/rules-section'
 import { useDeclarations } from '@/hooks/use-declarations'
@@ -14,6 +13,10 @@ import { useDeclarations } from '@/hooks/use-declarations'
  * As telas leem constantes fixadas no BOOT, então uma alteração aqui não muda a Previsão na
  * mesma hora. A tela diz isso em vez de fingir: prometer efeito imediato e não entregar é pior
  * do que pedir um recarregamento.
+ *
+ * **Os lançamentos previstos saíram daqui** para a tela de Previsão, onde eles se leem: lá a
+ * lista fica ao lado do gráfico e da tabela que eles alimentam, e editar move os três na hora.
+ * Aqui a lista era um formulário cego para o próprio efeito.
  *
  * E há uma segunda distinção, que não é óbvia: perfil de conta e regra de categoria agem
  * durante a LEITURA dos arquivos, então elas não bastam recarregar — precisam de reprocessar,
@@ -54,7 +57,6 @@ export function ConfiguracaoPageContent() {
           conta e regras por último — os dois que quase nunca mudam e que, quando mudam, pedem
           reprocessamento. */}
       <BudgetSection budget={current.budget} disabled={saving} onChange={(budget) => save({ budget })} />
-      <PlannedSection entries={current.planned} disabled={saving} onChange={(planned) => save({ planned })} />
       <ReceivablesSection receivables={current.receivables} disabled={saving} onChange={(receivables) => save({ receivables })} />
       <GoalsSection goals={current.goals} disabled={saving} onChange={(goals) => save({ goals })} />
 

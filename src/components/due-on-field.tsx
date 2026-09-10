@@ -8,6 +8,10 @@ const KIND_ITEMS = [
 ]
 
 /**
+ * Mora em `src/components/` e não no `-components/` de uma rota porque DUAS telas o usam — a
+ * gaveta de lançamento previsto, em Previsão, e a seção de cobranças, em Configuração. É a §2
+ * da organização de rotas: o `-components/` é do que pertence a uma tela só.
+ *
  * O dia em que uma declaração vence.
  *
  * Extraído porque `PlannedEntry` e `Receivable` usam o MESMO `PlannedDueDate`, e as duas telas
