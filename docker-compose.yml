@@ -1,0 +1,22 @@
+services:
+  # O Postgres de desenvolvimento. A porta é 5433 e não 5432 de propósito: quem já tem um
+  # Postgres local não precisa derrubá-lo para trabalhar neste projeto.
+  db:
+    image: postgres:17-alpine
+    container_name: wlet-db
+    environment:
+      POSTGRES_USER: wlet
+      POSTGRES_PASSWORD: wlet
+      POSTGRES_DB: wlet
+    ports:
+      - '5433:5432'
+    volumes:
+      - wlet-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U wlet']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  wlet-db:

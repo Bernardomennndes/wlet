@@ -31,6 +31,50 @@ O repositório é um workspace pnpm orquestrado por Turborepo, no molde da Selfi
 - A Vercel constrói com `pnpm --filter @wlet/web run setup && pnpm build`, e o `outputDirectory`
   aponta para `apps/web/dist`.
 
+## O servidor e o contrato
+
+- **`packages/api` é o CONTRATO oRPC, e ele é a única declaração da forma do fio.** Servidor e
+  cliente o consomem: `apps/api` o implementa com `@orpc/server`, o app o consome com
+  `@orpc/client`. Um campo que muda ali quebra os dois em COMPILAÇÃO — é o ganho de ser
+  contract-first, e a razão de não haver um "tipo de resposta" escrito à mão de cada lado. O
+  molde é o `@blips/api`: `domains/<x>/{routes,shape}.ts`, composição em `contracts/`, cliente
+  em `clients/` com `OpenAPILink` e `ResponseValidationPlugin`.
+- **As rotas declaram `method` e `path`**, então o que sai é REST de verdade (`GET /dataset`,
+  `PATCH /plans/{id}`) — legível no navegador, testável com curl, e a especificação OpenAPI é
+  GERADA do contrato em `/v1/openapi.json`. Documentação que não pode divergir da implementação,
+  porque as duas leem o mesmo objeto.
+- **`apps/api` é Hono**, não Express: ele fala `Request`/`Response` do padrão web, que é a mesma
+  API que o `@orpc/server` consome — sem adaptador no meio — e roda igual em Node, Bun ou borda.
+- **`RegExp` não existe em JSON**, e as regras de categoria carregam dezenas. No fio elas viajam
+  como `{source, flags}` (`regexWire`) e são remontadas dos dois lados. É a mesma razão de
+  `config` nunca ter cabido em `localStorage`.
+- **Dinheiro é `numeric` no banco e chega como STRING.** A conversão acontece na fronteira
+  (`shared/wire.ts`), uma vez: um `double` não representa centavo exatamente, e este app já foi
+  mordido por isso — fev/26 tinha entradas 12973.399999999999 contra saídas 12973.400000000001,
+  iguais nos centavos, e o mês era pintado de vermelho por um `>` que comparava float.
+- **O `userId` entra pelo CONTEXTO, não por parâmetro.** Este app guarda extrato bancário, e uma
+  consulta que esqueça o filtro devolve a vida financeira de outra pessoa. Por parâmetro seria
+  possível omiti-lo sem o compilador reclamar; as chaves compostas começam por ele, e um índice
+  que não comece pelo tenant convida a varredura global.
+- **CORS com origem declarada, nunca `*`** — as respostas carregam extrato e as chamadas levam
+  credencial.
+- **`packages/db`: tabela para o que tem volume ou se edita item a item; JSONB para o que se
+  edita em bloco.** Transações e contas são tabela (5.694 linhas, índice por data e categoria);
+  previstos, cobranças, metas e planos são tabela (cada um tem tela com editar e excluir por
+  linha); teto, perfis de conta e regras são JSONB em `settings`, porque se editam juntos e não
+  se consultam por valor. O id da transação é chave NATURAL — o `sha1` determinístico do ingest,
+  e não um `uuid`: um id gerado mudaria a cada reingestão e apagaria todo ajuste manual de
+  categoria em silêncio.
+- **`prepare: false` na conexão** — o pool em modo transação (Neon, Supabase, PgBouncer) não
+  sobrevive a prepared statements, e o sintoma é um erro intermitente que só aparece sob
+  concorrência.
+- **O composition root é do APP, não do pacote.** `@wlet/services` exporta as PEÇAS; quem monta é
+  quem sabe onde roda — o app com IndexedDB e a semente que o Vite empacotou, o servidor com
+  Postgres e sem semente nenhuma. Enquanto a fábrica morava no pacote, ele importava
+  `import.meta.glob` e o servidor não compilaria.
+- `docker compose up -d` sobe o Postgres de desenvolvimento na porta **5433**, para não brigar
+  com um Postgres local já instalado. `pnpm --filter @wlet/db db:push` cria as tabelas.
+
 ## Comandos
 
 - `scripts/seed.ts` roda o MESMO casamento do ingest (`src/lib/ingest/matching.ts`) antes de gravar, e os `*.config.example.ts` declaram os nomes que ele inventa. Sem isso o dataset fictício nasce sem `plannedId` nem `receivableId`, e um clone novo abre a tela de Pagamentos dizendo que nove meses de aluguel estão vencidos — num conjunto que paga o aluguel todo mês. Mudou um estabelecimento no seed? O `.example` acompanha.

@@ -1,6 +1,6 @@
 import type { Account, DatasetMeta, Transaction, Transfer } from '@wlet/domain'
-import type { Dataset } from '@/lib/dataset'
-import type { DatasetSeed } from '../domain/ports/dataset-repository'
+import type { Dataset } from '@wlet/domain'
+import type { DatasetSeed } from '@wlet/services'
 
 /**
  * O conjunto que veio no build — quando veio.

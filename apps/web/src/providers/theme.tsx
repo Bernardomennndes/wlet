@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { services } from '@wlet/services'
+import { services } from '@/services'
 import { preloaded } from './preloaded'
 import { ThemeContext, type ThemeValue } from './use-theme'
 

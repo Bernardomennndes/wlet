@@ -63,3 +63,7 @@ apps/web/scripts/budget.config.ts
 # `.gitignore` inteiro existe para evitar, só que por uma porta que o `dist` sozinho não fecha.
 .turbo/
 **/.turbo/
+
+# Credenciais locais. O `.env.example` é o que viaja.
+.env
+.env.local

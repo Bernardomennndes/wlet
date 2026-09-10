@@ -1,4 +1,4 @@
-import { emptyDataset, type Dataset } from '@/lib/dataset'
+import { emptyDataset, type Dataset } from '@wlet/domain'
 import type { SourceFile } from '@wlet/ingest/io'
 import type { Declarations, IngestReport } from '@wlet/ingest/pipeline'
 import { IncompleteDatasetError, NoSourcesError } from '../domain/errors'

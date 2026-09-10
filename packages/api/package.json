@@ -1,0 +1,25 @@
+{
+  "name": "@wlet/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./contract": "./src/contracts/wlet.ts",
+    "./client": "./src/clients/wlet.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "type:check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@orpc/client": "^1.14.13",
+    "@orpc/contract": "^1.14.13",
+    "@orpc/openapi-client": "^1.14.13",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@wlet/tsconfig": "workspace:*",
+    "typescript": "~6.0.2"
+  }
+}

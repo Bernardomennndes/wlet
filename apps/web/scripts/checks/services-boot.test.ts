@@ -15,7 +15,7 @@ import { describe, it } from 'node:test'
  */
 describe('portão de boot', () => {
   it('importar @wlet/services não lê o dataset', async () => {
-    await assert.doesNotReject(() => import('@wlet/services'))
+    await assert.doesNotReject(() => import('../../src/services.ts'))
   })
 
   it('e o módulo do portão em si também não', async () => {
@@ -29,7 +29,7 @@ describe('portão de boot', () => {
   it('montar os serviços não lê o dataset', async () => {
     // `services()` monta os cinco adapters. Nenhum deles pode tocar o dataset ao ser criado —
     // só quando um caso de uso for chamado.
-    const { services, resetServices } = await import('@wlet/services')
+    const { services, resetServices } = await import('../../src/services.ts')
     resetServices()
     assert.doesNotThrow(() => services())
     resetServices()
@@ -52,11 +52,11 @@ describe('portão de boot', () => {
 describe('a semente é opcional', () => {
   it('nenhum adapter importa @/generated por caminho fixo', async () => {
     const { readFileSync } = await import('node:fs')
-    const arquivos = ['dataset/infrastructure/bundle-seed.adapter.ts', 'config/infrastructure/bundle-declarations.adapter.ts']
+    const arquivos = ['bundle-seed.adapter.ts', 'bundle-declarations.adapter.ts']
     for (const arquivo of arquivos) {
       // Os comentários CITAM a forma proibida para explicá-la; procurar nela acusaria a
       // explicação em vez do código.
-      const fonte = readFileSync(new URL(`../../../../packages/services/src/${arquivo}`, import.meta.url), 'utf8')
+      const fonte = readFileSync(new URL(`../../src/${arquivo}`, import.meta.url), 'utf8')
         .replace(/\/\*[\s\S]*?\*\//g, '')
         .replace(/\/\/.*$/gm, '')
       const fixo = fonte.match(/import\(\s*['"]@\/generated\/[^'"]+['"]\s*\)/g)
@@ -66,8 +66,8 @@ describe('a semente é opcional', () => {
 
   it('sem semente, as duas devolvem null em vez de estourar', async () => {
     // Fora do Vite `import.meta.glob` não existe, então este ambiente REPRODUZ a ausência.
-    const { makeBundleSeed } = await import('@wlet/services/dataset/infrastructure/bundle-seed.adapter')
-    const { makeBundleDeclarations } = await import('@wlet/services/config/infrastructure/bundle-declarations.adapter')
+    const { makeBundleSeed } = await import('../../src/bundle-seed.adapter.ts')
+    const { makeBundleDeclarations } = await import('../../src/bundle-declarations.adapter.ts')
     assert.equal(await makeBundleSeed().read(), null)
     assert.equal(await makeBundleDeclarations().read(), null)
   })

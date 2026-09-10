@@ -1,5 +1,5 @@
-import type { Account, DatasetMeta, IncomeMonth, InvestmentSnapshot, PatrimonyPoint, Transaction, Transfer } from '@wlet/domain'
 import type { Declarations } from '@wlet/ingest/pipeline'
+import type { Dataset } from '@wlet/domain'
 
 /**
  * O que o app carrega antes de existir — e o PORTÃO que separa carregar de consumir.
@@ -16,26 +16,13 @@ import type { Declarations } from '@wlet/ingest/pipeline'
  * nada de `src/lib/` que LEIA isto**, senão o módulo é avaliado antes do portão.
  */
 
-/**
- * O que foi MEDIDO: o que os extratos disseram, depois de passar pelo pipeline.
- *
- * São cinco partes, e não nove. As declarações — previsões, cobranças, teto, metas — saíram
- * daqui: elas voltavam do pipeline e o app as lia do conjunto, o que criava DUAS cópias do
- * mesmo dado e fazia editar a configuração não mudar tela nenhuma até reingerir.
- */
-export interface Dataset {
-  accounts: Account[]
-  meta: DatasetMeta
-  transactions: Transaction[]
-  transfers: Transfer[]
-  investments: { snapshot: InvestmentSnapshot | null; series: PatrimonyPoint[]; income: IncomeMonth[] }
-}
-
+export type { Dataset } from '@wlet/domain'
+export { emptyDataset } from '@wlet/domain'
 /**
  * O que foi DECLARADO: o que você disse ao app.
  *
- * Mesma forma que o pipeline recebe (`Declarations`, no kernel), porque é a mesma coisa — e é
- * essa identidade que impede as duas de divergirem.
+ * Mesma forma que o pipeline recebe, porque é a mesma coisa — e é essa identidade que impede as
+ * duas de divergirem.
  */
 export type { Declarations }
 
@@ -85,12 +72,3 @@ export function hasDataset(): boolean {
  * `months` vazio é o que as telas consultam para saber que não há o que desenhar, e por isso
  * `finance.ts` precisa aguentá-lo — ver `lastMonthWithData`.
  */
-export function emptyDataset(): Dataset {
-  return {
-    accounts: [],
-    meta: { generatedAt: new Date().toISOString(), sourceFiles: [], totals: { transactions: 0, transfers: 0, accounts: 0 }, months: [] },
-    transactions: [],
-    transfers: [],
-    investments: { snapshot: null, series: [], income: [] },
-  }
-}

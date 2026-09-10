@@ -1,4 +1,4 @@
-import type { Dataset } from '@/lib/dataset'
+import type { Dataset } from '@wlet/domain'
 import type { IngestResult } from '@wlet/ingest/pipeline'
 import type { SourceFile } from '@wlet/ingest/io'
 import type { DatasetRepository, DatasetSeed } from '../domain/ports/dataset-repository'

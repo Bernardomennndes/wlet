@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
-import { services } from '@wlet/services'
+import { services } from '@/services'
 import { preloaded } from './preloaded'
 import { META, firstMonthWithData, isMonth, lastMonthWithData, monthsBetween, projectionHorizon, selectTransactions, type Overrides, type Period, type Scope } from '@/lib/finance'
 import { FiltersContext, type FiltersValue } from './use-filters'

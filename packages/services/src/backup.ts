@@ -1,11 +1,10 @@
 import type { Overrides } from '@wlet/domain'
-import type { Dataset } from '@/lib/dataset'
+import type { Dataset } from '@wlet/domain'
 import type { Declarations } from '@wlet/ingest/pipeline'
 import type { SourceFile } from '@wlet/ingest/io'
 import { parsePlans, type PlansData } from '@wlet/domain/plans'
 import { fromBase64, fromJson, toBase64, toJson } from '@wlet/lib/portable'
 import type { Preferences } from './preferences'
-import { services, type Services } from './index'
 
 /**
  * O pacote: TUDO que existe neste navegador, num arquivo.
@@ -43,7 +42,28 @@ export interface BackupPayload extends Record<string, unknown> {
   sources: StoredSource[]
 }
 
-export async function exportState(deps: Services = services()): Promise<string> {
+import type { ConfigService } from './config'
+import type { DatasetService } from './dataset'
+import type { OverridesService } from './overrides'
+import type { PlansService } from './plans'
+import type { PreferencesService } from './preferences'
+
+/**
+ * Os serviços de que o pacote precisa — recebidos, não montados.
+ *
+ * Antes ele chamava a fábrica `services()` como padrão do parâmetro, e isso o amarrava ao
+ * composition root do APP. Recebendo-os, o mesmo backup serve o servidor, onde os adapters são
+ * outros e a fábrica não existe.
+ */
+export interface BackupDeps {
+  dataset: DatasetService
+  config: ConfigService
+  plans: PlansService
+  overrides: OverridesService
+  preferences: PreferencesService
+}
+
+export async function exportState(deps: BackupDeps): Promise<string> {
   const { dataset, config, plans, overrides, preferences } = deps
   const [loaded, declarations, catalogue, adjustments, prefs, sources] = await Promise.all([dataset.load(), config.load(), plans.list(), overrides.list(), preferences.load(), dataset.readSources()])
   const payload: BackupPayload = {
@@ -117,7 +137,7 @@ export interface ImportSummary {
  * manuais de categoria em silêncio. O diálogo avisa; aqui a ordem garante o caso em que os
  * dois foram escolhidos.
  */
-export async function importState(payload: Partial<BackupPayload>, parts: readonly PackagePart[], deps: Services = services()): Promise<ImportSummary> {
+export async function importState(payload: Partial<BackupPayload>, parts: readonly PackagePart[], deps: BackupDeps): Promise<ImportSummary> {
   const { dataset, config, plans, overrides, preferences } = deps
   const want = new Set(parts)
   const summary: ImportSummary = { imported: [], overrides: 0 }

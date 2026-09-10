@@ -1,6 +1,6 @@
 import type { Budget, Goal, PlannedEntry, Receivable } from '@wlet/domain'
 import type { Declarations } from '@wlet/ingest/pipeline'
-import type { ConfigSeed } from '../domain/ports/config-repository'
+import type { ConfigSeed } from '@wlet/services'
 
 /**
  * As declarações que vieram no build — a semente da primeira abertura.

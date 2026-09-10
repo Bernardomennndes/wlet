@@ -1,4 +1,4 @@
-import type { Dataset } from '@/lib/dataset'
+import type { Dataset } from '@wlet/domain'
 
 /** De onde o conjunto ingerido é lido e onde ele é gravado. */
 export interface DatasetRepository {

@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import type { Declarations } from '@wlet/ingest/pipeline'
 import { declarations } from '@/lib/dataset'
-import { services } from '@wlet/services'
+import { services } from '@/services'
 
 /**
  * O estado das declarações numa tela que as edita.

@@ -1,5 +1,5 @@
 import { dbClear, dbGet, dbKeys } from '../../shared/infrastructure/db'
-import type { Dataset } from '@/lib/dataset'
+import type { Dataset } from '@wlet/domain'
 import { translateStorageError } from '../../shared/domain/errors'
 import { writeManyAtomic } from '../../shared/infrastructure/indexed-db.driver'
 import { DATASET_PARTS } from '../application/dataset.service'

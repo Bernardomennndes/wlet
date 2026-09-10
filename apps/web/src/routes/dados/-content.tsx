@@ -8,7 +8,7 @@ import type { IngestReport } from '@wlet/ingest/pipeline'
 import { preloaded } from '@/providers/preloaded'
 import { exportState, importState, inspectPackage, type ImportSummary, type PackageContents, type PackagePart } from '@wlet/services/backup'
 import { ImportDialog } from './-components/import-dialog'
-import { services } from '@wlet/services'
+import { services } from '@/services'
 import { requestPersistence, storageEstimate } from '@wlet/services/shared/infrastructure/db'
 
 /**
@@ -100,7 +100,7 @@ export function DadosPageContent() {
    * memória da aba até ela fechar.
    */
   const download = useCallback(async () => {
-    const json = await exportState()
+    const json = await exportState(services())
     const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
     const link = document.createElement('a')
     link.href = url
@@ -136,7 +136,7 @@ export function DadosPageContent() {
       const payload = pending.payload
       setPending(null)
       try {
-        setBackup({ kind: 'done', summary: await importState(payload, parts) })
+        setBackup({ kind: 'done', summary: await importState(payload, parts, services()) })
         refreshStorage()
       } catch (cause) {
         setBackup({ kind: 'failed', message: cause instanceof Error ? cause.message : String(cause) })
