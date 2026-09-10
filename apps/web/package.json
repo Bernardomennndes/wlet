@@ -12,8 +12,6 @@
     "preview": "vite preview",
     "ingest": "tsx scripts/ingest.ts && biome format --write src/generated",
     "package": "tsx scripts/package.ts",
-    "format": "biome format --write .",
-    "format:check": "biome format .",
     "type:check": "tsc -b"
   },
   "dependencies": {
