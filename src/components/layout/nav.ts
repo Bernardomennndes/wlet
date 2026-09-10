@@ -58,6 +58,7 @@ export const NAV: NavGroup[] = [
     label: 'Planejamento',
     items: [
       { to: '/previsao', label: 'Previsão' },
+      { to: '/rubricas', label: 'Rubricas' },
       { to: '/planos', label: 'Planos' },
     ],
   },

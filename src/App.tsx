@@ -15,6 +15,7 @@ const Planos = lazy(() => import('./routes/planos'))
 const Pagamentos = lazy(() => import('./routes/pagamentos'))
 const Cobrancas = lazy(() => import('./routes/cobrancas'))
 const Previsao = lazy(() => import('./routes/previsao'))
+const Rubricas = lazy(() => import('./routes/rubricas'))
 const Dados = lazy(() => import('./routes/dados'))
 const Configuracao = lazy(() => import('./routes/configuracao'))
 
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="/configuracao" element={<Configuracao />} />
         <Route path="/patrimonio" element={<Patrimonio />} />
         <Route path="/planos" element={<Planos />} />
+        <Route path="/rubricas" element={<Rubricas />} />
         <Route path="/pagamentos" element={<Pagamentos />} />
         <Route path="/cobrancas" element={<Cobrancas />} />
         <Route path="/previsao" element={<Previsao />} />
