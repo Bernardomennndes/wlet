@@ -72,3 +72,25 @@ export function declarations(): Declarations {
 export function hasDataset(): boolean {
   return currentDataset !== null
 }
+
+/**
+ * O conjunto de quem ainda não tem conjunto nenhum.
+ *
+ * Não é o mesmo que ausência: `dataset()` continua LANÇANDO quando é chamado antes do boot,
+ * porque aquilo é erro de ordem e precisa aparecer. Isto aqui é um estado legítimo do app —
+ * `pnpm ingest` nunca rodou, `src/generated/` não veio no build, e o navegador está vazio.
+ * Antes ele não existia: o app prometia que os dados vêm do navegador e mesmo assim o build
+ * exigia os JSON gerados, então apagar `src/generated/` derrubava a compilação inteira.
+ *
+ * `months` vazio é o que as telas consultam para saber que não há o que desenhar, e por isso
+ * `finance.ts` precisa aguentá-lo — ver `lastMonthWithData`.
+ */
+export function emptyDataset(): Dataset {
+  return {
+    accounts: [],
+    meta: { generatedAt: new Date().toISOString(), sourceFiles: [], totals: { transactions: 0, transfers: 0, accounts: 0 }, months: [] },
+    transactions: [],
+    transfers: [],
+    investments: { snapshot: null, series: [], income: [] },
+  }
+}

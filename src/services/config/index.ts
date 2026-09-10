@@ -14,8 +14,8 @@ export function createConfigService(seed: ConfigSeed): ConfigService {
   return makeConfigService({ repository: makeIndexedDbConfigRepository(), seed })
 }
 
-export { makeConfigService, type ConfigService, type ConfigServiceDeps } from './application/config.service'
-export { ConfigUnavailableError, InvalidConfigError } from './domain/errors'
+export { emptyConfig, makeConfigService, type ConfigService, type ConfigServiceDeps } from './application/config.service'
+export { InvalidConfigError } from './domain/errors'
 export type { ConfigData, ConfigRepository, ConfigSeed } from './domain/ports/config-repository'
 export { makeBundleDeclarations } from './infrastructure/bundle-declarations.adapter'
 export { makeIndexedDbConfigRepository } from './infrastructure/indexed-db-config.adapter'

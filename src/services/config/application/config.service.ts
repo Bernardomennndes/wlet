@@ -1,5 +1,5 @@
 import type { Budget, Goal, PlannedEntry, Receivable } from '@/data/types'
-import { ConfigUnavailableError, InvalidConfigError } from '../domain/errors'
+import { InvalidConfigError } from '../domain/errors'
 import type { ConfigData, ConfigRepository, ConfigSeed } from '../domain/ports/config-repository'
 
 /**
@@ -55,13 +55,28 @@ function assertBudget(budget: Budget): void {
   }
 }
 
+/**
+ * A configuração de quem ainda não declarou nada.
+ *
+ * Ela existe porque a semente é OPCIONAL: ela vem de `src/generated/`, que `pnpm ingest`
+ * escreve e o repositório não versiona, então um clone novo não a tem. Antes a ausência era
+ * tratada como erro de montagem e derrubava o boot — o app não abria por falta de um arquivo
+ * que ele mesmo promete não precisar.
+ *
+ * Todo campo é vazio, e nenhum é inventado. O teto em zero é lido como "não há teto"
+ * (`budgetState`, em `src/lib/budget.ts`), não como "você estourou": um limite de gastos que
+ * ninguém declarou não pode acusar estouro. O `warnAt` é o único com valor, porque a validação
+ * exige uma fração entre 0 e 1 e ele só passa a significar algo depois que houver teto.
+ */
+export function emptyConfig(): ConfigData {
+  return { planned: [], receivables: [], budget: { monthlyLimit: 0, warnAt: 0.75, byCategory: [] }, goals: [], accounts: [], rules: [], selfNamePatterns: [] }
+}
+
 export function makeConfigService({ repository, seed }: ConfigServiceDeps): ConfigService {
   async function current(): Promise<ConfigData> {
     const saved = await repository.find()
     if (saved) return saved
-    const seeded = await seed.read()
-    if (!seeded) throw new ConfigUnavailableError()
-    return seeded
+    return (await seed.read()) ?? emptyConfig()
   }
 
   /** Único caminho de escrita: valida o agregado INTEIRO e grava de uma vez (§3, §10). */
@@ -82,9 +97,8 @@ export function makeConfigService({ repository, seed }: ConfigServiceDeps): Conf
     replace: (next) => commit(next),
 
     async reset() {
-      const seeded = await seed.read()
-      if (!seeded) throw new ConfigUnavailableError()
-      return commit(seeded)
+      // Sem semente, voltar ao início é voltar ao branco — que é onde este app começa.
+      return commit((await seed.read()) ?? emptyConfig())
     },
   }
 }

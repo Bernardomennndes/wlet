@@ -3,32 +3,38 @@ import type { Dataset } from '@/lib/dataset'
 import type { DatasetSeed } from '../domain/ports/dataset-repository'
 
 /**
- * O dataset que veio no build, lido só quando o IndexedDB está vazio.
+ * O conjunto que veio no build — quando veio.
  *
- * Os `import()` são DINÂMICOS de propósito. Estáticos, os 4,1 MB de `src/generated/` entram
- * no chunk principal — é o que acontece hoje, e foi assim que um `dist/` chegou a carregar
- * 5.315 lançamentos reais dentro do JavaScript. Dinâmicos, o Vite os separa num chunk à
- * parte, que só é baixado no primeiro boot de um navegador sem banco; depois disso o app
- * lê do IndexedDB e a semente nunca mais é buscada.
+ * Ele é lido só num navegador cujo IndexedDB está vazio, e por isso é OPCIONAL: `pnpm ingest`
+ * pode nunca ter rodado, e apagar `src/generated/` não pode derrubar o app. Devolve `null`
+ * nesse caso, e quem chama decide — o serviço abre com um conjunto vazio e a tela manda a
+ * pessoa para "Meus dados".
+ *
+ * O `import()` é dinâmico e o módulo alvo usa `import.meta.glob`: as duas coisas juntas são o
+ * que mantém o build possível sem os arquivos E o runner de testes, que roda fora do Vite,
+ * capaz de importar esta cadeia.
  */
-async function loadSeed(): Promise<Dataset> {
-  const [accounts, meta, transactions, transfers, investments] = await Promise.all([
-    import('@/generated/accounts.json'),
-    import('@/generated/meta.json'),
-    import('@/generated/transactions.json'),
-    import('@/generated/transfers.json'),
-    import('@/generated/investments.json'),
-  ])
-  return {
-    accounts: accounts.default as Account[],
-    meta: meta.default as DatasetMeta,
-    transactions: transactions.default as Transaction[],
-    transfers: transfers.default as Transfer[],
-    investments: investments.default as Dataset['investments'],
-  }
-}
-
-/** A semente como porta do contexto — é isto que o serviço recebe. */
 export function makeBundleSeed(): DatasetSeed {
-  return { read: loadSeed }
+  return {
+    async read(): Promise<Dataset | null> {
+      try {
+        const { readGenerated } = await import('@/lib/generated-files')
+        const [accounts, meta, transactions, transfers, investments] = await Promise.all([
+          readGenerated<Account[]>('accounts'),
+          readGenerated<DatasetMeta>('meta'),
+          readGenerated<Transaction[]>('transactions'),
+          readGenerated<Transfer[]>('transfers'),
+          readGenerated<Dataset['investments']>('investments'),
+        ])
+        // Meia semente não é semente: um conjunto sem `meta` não tem meses, e sem meses as
+        // telas não sabem o que desenhar. Ou vieram os cinco, ou não veio nada.
+        if (!accounts || !meta || !transactions || !transfers || !investments) return null
+        return { accounts, meta, transactions, transfers, investments }
+      } catch {
+        // Fora do Vite (runner de testes) `import.meta.glob` não existe. Sem semente é um
+        // estado previsto, não uma falha.
+        return null
+      }
+    },
+  }
 }

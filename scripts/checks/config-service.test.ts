@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { makeConfigService } from '../../src/services/config/application/config.service.ts'
-import { ConfigUnavailableError, InvalidConfigError } from '../../src/services/config/domain/errors/index.ts'
+import { InvalidConfigError } from '../../src/services/config/domain/errors/index.ts'
 import { makeFakeConfigRepository, makeFakeSeed, seedConfig } from '../../src/services/config/test-support/fake-config-repository.ts'
 
 function setup(saved = null as null | ReturnType<typeof seedConfig>) {
@@ -24,10 +24,14 @@ describe('serviço de configuração: semente', () => {
     assert.equal((await service.load()).budget.monthlyLimit, 4000)
   })
 
-  it('sem gravado E sem semente, GRITA em vez de devolver vazio', async () => {
-    // Config vazia faria o app projetar zero e parecer que a pessoa não tem conta nenhuma.
+  it('sem gravado E sem semente, abre em BRANCO em vez de recusar', async () => {
+    // A semente vem de `src/generated/`, que não é versionado: um clone novo simplesmente não
+    // a tem, e isso é o estado inicial do app, não um erro de montagem. Enquanto ele gritava,
+    // apagar aquela pasta derrubava o boot inteiro.
     const service = makeConfigService({ repository: makeFakeConfigRepository(), seed: makeFakeSeed(null) })
-    await assert.rejects(() => service.load(), ConfigUnavailableError)
+    const config = await service.load()
+    assert.deepEqual(config.planned, [])
+    assert.equal(config.budget.monthlyLimit, 0, 'teto zero é lido como "não há teto"')
   })
 
   it('reset volta ao que a semente declara', async () => {

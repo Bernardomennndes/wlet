@@ -1,4 +1,4 @@
-import type { Dataset } from '@/lib/dataset'
+import { emptyDataset, type Dataset } from '@/lib/dataset'
 import type { SourceFile } from '@/lib/ingest/io'
 import type { Declarations, IngestReport } from '@/lib/ingest/pipeline'
 import { IncompleteDatasetError, NoSourcesError } from '../domain/errors'
@@ -22,7 +22,7 @@ import type { SourceStore } from '../domain/ports/source-store'
  */
 export const DATASET_PARTS = ['accounts', 'meta', 'transactions', 'transfers', 'investments'] as const
 
-export type DatasetOrigin = 'indexeddb' | 'seed'
+export type DatasetOrigin = 'indexeddb' | 'seed' | 'empty'
 
 export interface DatasetServiceDeps {
   repository: DatasetRepository
@@ -88,7 +88,12 @@ export function makeDatasetService({ repository, seed, runner, sources: sourceSt
       } catch {
         // cai na semente
       }
-      return { data: await seed.read(), origin: 'seed' as const }
+      // Sem nada gravado E sem semente no build, o app abre VAZIO em vez de recusar-se a
+      // abrir: é exatamente a situação de quem acabou de clonar, e a tela que ele precisa
+      // alcançar — "Meus dados" — é a que resolve o problema.
+      const planted = await seed.read()
+      if (!planted) return { data: emptyDataset(), origin: 'empty' as const }
+      return { data: planted, origin: 'seed' as const }
     },
 
     async replace(data) {
@@ -118,7 +123,9 @@ export function makeDatasetService({ repository, seed, runner, sources: sourceSt
     writeSources: (sources) => sourceStore.save(sources),
 
     async reset() {
-      const fresh = await seed.read()
+      // Sem semente no build, voltar ao início é voltar ao VAZIO — que é literalmente o
+      // estado de origem deste app.
+      const fresh = (await seed.read()) ?? emptyDataset()
       await repository.clear()
       await sourceStore.clear()
       return fresh

@@ -10,6 +10,11 @@ import type { ConfigSeed } from '../domain/ports/config-repository'
  * `import()` é dinâmico — sem consumidor no caminho crítico, o Vite os separa num chunk que só
  * é buscado no primeiro boot.
  *
+ * E é por isso que a leitura passa por `readGenerated`, e não por `import('@/generated/x.json')`
+ * direto: o segundo é resolvido em tempo de BUILD, então a semente — que deveria ser opcional —
+ * fazia o projeto inteiro deixar de compilar quando `src/generated/` não existia. Sem os
+ * arquivos ela devolve `null`, e o serviço abre com a configuração vazia.
+ *
  * `accounts`, `rules` e `selfNames` nascem VAZIOS, e isso não é lacuna: é o que o pipeline
  * espera de quem não configurou nada. Sem perfil, ele CRIA a conta a partir dos metadados do
  * arquivo e avisa no relatório; sem regra sua, valem as genéricas, que estão no código; sem
@@ -18,21 +23,20 @@ import type { ConfigSeed } from '../domain/ports/config-repository'
  */
 export function makeBundleDeclarations(): ConfigSeed {
   return {
-    async read(): Promise<Declarations> {
-      const [planned, receivables, budget, goals] = await Promise.all([
-        import('@/generated/planned.json'),
-        import('@/generated/receivables.json'),
-        import('@/generated/budget.json'),
-        import('@/generated/goals.json'),
-      ])
-      return {
-        planned: planned.default as PlannedEntry[],
-        receivables: receivables.default as Receivable[],
-        budget: budget.default as Budget,
-        goals: goals.default as Goal[],
-        accounts: [],
-        rules: [],
-        selfNamePatterns: [],
+    async read(): Promise<Declarations | null> {
+      try {
+        const { readGenerated } = await import('@/lib/generated-files')
+        const [planned, receivables, budget, goals] = await Promise.all([
+          readGenerated<PlannedEntry[]>('planned'),
+          readGenerated<Receivable[]>('receivables'),
+          readGenerated<Budget>('budget'),
+          readGenerated<Goal[]>('goals'),
+        ])
+        if (!planned || !receivables || !budget || !goals) return null
+        return { planned, receivables, budget, goals, accounts: [], rules: [], selfNamePatterns: [] }
+      } catch {
+        // Fora do Vite (runner de testes) `import.meta.glob` não existe.
+        return null
       }
     },
   }

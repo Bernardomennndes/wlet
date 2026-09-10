@@ -35,3 +35,40 @@ describe('portão de boot', () => {
     resetServices()
   })
 })
+
+/**
+ * O build NÃO pode depender de `src/generated/`.
+ *
+ * Aquela pasta é escrita por `pnpm ingest` e não é versionada: um clone novo não a tem, e o app
+ * promete que os dados vêm do navegador. Mesmo assim as duas sementes a liam por
+ * `import('@/generated/x.json')` — caminho fixo, que o Vite resolve em tempo de BUILD. O
+ * resultado é que apagar a pasta derrubava a compilação inteira com nove TS2307, num app cujo
+ * conteúdo daquela pasta é só um fallback opcional.
+ *
+ * `import.meta.glob` resolve o padrão em build também, mas devolve `{}` quando nada casa. A
+ * diferença entre os dois é exatamente a diferença entre "opcional" e "obrigatório", e é ela
+ * que este teste tranca — a regressão é silenciosa até alguém sem a pasta tentar compilar.
+ */
+describe('a semente é opcional', () => {
+  it('nenhum adapter importa @/generated por caminho fixo', async () => {
+    const { readFileSync } = await import('node:fs')
+    const arquivos = ['src/services/dataset/infrastructure/bundle-seed.adapter.ts', 'src/services/config/infrastructure/bundle-declarations.adapter.ts']
+    for (const arquivo of arquivos) {
+      // Os comentários CITAM a forma proibida para explicá-la; procurar nela acusaria a
+      // explicação em vez do código.
+      const fonte = readFileSync(new URL(`../../${arquivo}`, import.meta.url), 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\/\/.*$/gm, '')
+      const fixo = fonte.match(/import\(\s*['"]@\/generated\/[^'"]+['"]\s*\)/g)
+      assert.equal(fixo, null, `${arquivo} voltou a exigir os arquivos gerados em tempo de build: ${fixo?.join(', ')}`)
+    }
+  })
+
+  it('sem semente, as duas devolvem null em vez de estourar', async () => {
+    // Fora do Vite `import.meta.glob` não existe, então este ambiente REPRODUZ a ausência.
+    const { makeBundleSeed } = await import('../../src/services/dataset/infrastructure/bundle-seed.adapter.ts')
+    const { makeBundleDeclarations } = await import('../../src/services/config/infrastructure/bundle-declarations.adapter.ts')
+    assert.equal(await makeBundleSeed().read(), null)
+    assert.equal(await makeBundleDeclarations().read(), null)
+  })
+})
