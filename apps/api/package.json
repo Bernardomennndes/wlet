@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "start": "tsx src/main.ts",
-    "type:check": "tsc --noEmit"
+    "type:check": "tsc --noEmit",
+    "check": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",

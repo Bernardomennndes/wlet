@@ -7,7 +7,8 @@
       "outputs": ["dist/**"]
     },
     "check": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "env": ["DATABASE_URL", "TEST_DATABASE_URL"]
     },
     "format:check": {},
     "type:check": {

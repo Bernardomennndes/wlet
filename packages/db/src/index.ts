@@ -14,7 +14,14 @@ export { and, asc, count, desc, eq, gt, gte, inArray, lt, lte, sql } from 'drizz
  * descobre em desenvolvimento.
  */
 export function createDb(url: string) {
-  return drizzle(postgres(url, { prepare: false }), { schema })
+  const client = postgres(url, { prepare: false })
+  const db = drizzle(client, { schema })
+  /**
+   * O pool NÃO fecha sozinho, e um processo que termina o trabalho fica pendurado esperando por
+   * ele — foi o que travou a suíte do servidor. `close` é exposto no próprio objeto para quem
+   * tem um fim (teste, script, tarefa) poder encerrá-lo sem alcançar o cliente por baixo.
+   */
+  return Object.assign(db, { close: () => client.end({ timeout: 5 }) })
 }
 
 export type Db = ReturnType<typeof createDb>

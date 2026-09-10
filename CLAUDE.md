@@ -92,6 +92,20 @@ O repositório é um workspace pnpm orquestrado por Turborepo, no molde da Selfi
   na porta. Sem sessão válida a requisição para no middleware, antes de qualquer handler: um
   `userId` vazio chegando ao banco devolveria lista vazia em vez de negar, e "vazio" é
   indistinguível de "não tem nada".
+- **O servidor tem suíte própria, contra um Postgres DE VERDADE — não contra dublês.** São 15
+  testes em `apps/api/tests`, e a escolha é deliberada: metade dos defeitos deste servidor foram
+  de serialização e de `onConflict`, coisas que um fake nunca teria mostrado. Os handlers são
+  exercitados por `call` do oRPC, sem subir HTTP — transporte é biblioteca, e testá-lo seria
+  testar o oRPC e o Hono.
+- **Cada teste cria o próprio usuário, e o isolamento vem do `userId`.** Não é atalho: é
+  exercitar justamente a garantia que mais importa aqui, e há um teste que verifica que o ajuste
+  de uma pessoa não aparece para outra.
+- **O pool do `postgres.js` NÃO fecha sozinho** e segura o processo do Node — a primeira versão da
+  suíte simplesmente pendurou. `createDb` devolve um `close` para quem tem fim (teste, script,
+  tarefa) poder encerrá-lo sem alcançar o cliente por baixo.
+- `pnpm check` roda as duas suítes pelo turbo (183 testes). A do servidor precisa de
+  `DATABASE_URL`; a do app não depende de nada.
+
 - `docker compose up -d` sobe o Postgres de desenvolvimento na porta **5433**, para não brigar
   com um Postgres local já instalado. `pnpm --filter @wlet/db db:push` cria as tabelas.
 
