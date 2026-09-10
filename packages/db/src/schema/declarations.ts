@@ -70,7 +70,8 @@ export const goals = pgTable(
     target: numeric('target', { precision: 14, scale: 2 }).notNull(),
     saved: numeric('saved', { precision: 14, scale: 2 }).notNull(),
     slot: numeric('slot').notNull(),
-    until: text('until'),
+    /** O mês em que se quer chegar lá. */
+    targetMonth: text('target_month').notNull(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.id] })],
 )

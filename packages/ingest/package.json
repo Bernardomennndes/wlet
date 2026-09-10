@@ -14,6 +14,7 @@
     "@wlet/domain": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "^24.13.3",
     "@wlet/tsconfig": "workspace:*",
     "typescript": "~6.0.2"
   }

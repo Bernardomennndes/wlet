@@ -5,6 +5,8 @@ import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4'
 import { createDb } from '@wlet/db'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { configRouter } from './routers/config'
+import { datasetRouter } from './routers/dataset'
 import { overridesRouter } from './routers/overrides'
 import { plansRouter } from './routers/plans'
 import { preferencesRouter } from './routers/preferences'
@@ -32,6 +34,8 @@ if (!url) {
 const db = createDb(url)
 
 const router = {
+  dataset: datasetRouter(db),
+  config: configRouter(db),
   preferences: preferencesRouter(db),
   overrides: overridesRouter(db),
   plans: plansRouter(db),
@@ -45,7 +49,10 @@ const handler = new OpenAPIHandler(router, {
       try {
         return await next()
       } catch (cause) {
-        console.error('[wlet-api] erro no handler:', cause)
+        // As `issues` do Zod são o que diz QUAL campo divergiu; sem expandi-las, o log
+        // mostra `[Object]` e o erro fica indistinguível de qualquer outro.
+        const issues = (cause as { cause?: { issues?: unknown[] } })?.cause?.issues
+        console.error('[wlet-api] erro no handler:', (cause as Error)?.message, issues ? JSON.stringify(issues.slice(0, 4), null, 2) : '')
         throw cause
       }
     },

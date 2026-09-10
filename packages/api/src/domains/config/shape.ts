@@ -51,12 +51,30 @@ export const budget = z.object({
   byCategory: z.array(z.object({ categoryId: z.string(), amount: z.number(), items: z.array(budgetItem).optional() })).optional(),
 })
 
-export const goal = z.object({ id: z.string(), label: z.string(), target: z.number(), saved: z.number(), slot: z.number().int(), until: month.optional() })
+export const goal = z.object({ id: z.string(), label: z.string(), saved: z.number(), target: z.number(), /** O mês em que se quer chegar lá. */ targetMonth: month, slot: z.number().int() })
 
-export const accountProfile = z.object({ id: z.string(), label: z.string(), entity, type: z.string(), bankCode: z.string().optional(), numbers: z.array(z.string()).optional() })
+/**
+ * O perfil de uma conta: é ele que faz um arquivo ser reconhecido como desta conta, e não de
+ * outra. `match.externalId` aceita `RegExp` no domínio — daí o `union` com `regexWire`.
+ */
+export const accountProfile = z.object({
+  id: z.string(),
+  name: z.string(),
+  bank: z.string(),
+  bankCode: z.string(),
+  type: z.enum(['checking', 'credit-card', 'investment']),
+  entity,
+  holder: z.string(),
+  match: z.object({
+    bankCode: z.string().optional(),
+    externalId: z.union([z.string(), regexWire]).optional(),
+    accountType: z.enum(['checking', 'credit-card', 'investment']).optional(),
+    pathIncludes: z.string().optional(),
+  }),
+})
 
 /** A regra de categoria, com o `test` no formato do fio — ver `regexWire`. */
-export const rule = z.object({ id: z.string(), test: regexWire, category: z.string(), merchant: z.string().optional() })
+export const rule = z.object({ id: z.string(), test: regexWire, category: z.string(), merchant: z.string().optional(), sign: z.enum(['in', 'out']).optional() })
 
 /**
  * As SETE declarações, num agregado só.

@@ -26,7 +26,7 @@
     "enabled": false
   },
   "files": {
-    "includes": ["**", "!**/dist/**", "!**/node_modules/**", "!pnpm-lock.yaml", "!**/docs/**", "!wlet-*.json", "!**/.turbo/**"],
+    "includes": ["**", "!**/dist/**", "!**/node_modules/**", "!pnpm-lock.yaml", "!**/docs/**", "!wlet-*.json", "!**/.turbo/**", "!**/drizzle/**"],
     "maxSize": 16777216
   },
   "css": {
