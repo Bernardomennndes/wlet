@@ -5,6 +5,14 @@ import { maskMoney, parseMoney } from '@/lib/money-mask'
 type Props = Omit<ComponentProps<typeof InputGroupInput>, 'value' | 'onChange' | 'type' | 'inputMode'> & {
   value: number
   onValueChange: (value: number) => void
+  /**
+   * Classe do INVÓLUCRO, não do campo.
+   *
+   * Existe porque `className` cai no `<input>` interno, e largura passada a ele não alcança
+   * quem de fato ocupa espaço — a armadilha já documentada no `CLAUDE.md`. Quem precisa
+   * dimensionar o campo, ou encaixá-lo num `ButtonGroup`, escreve aqui.
+   */
+  groupClassName?: string
 }
 
 /**
@@ -26,9 +34,9 @@ type Props = Omit<ComponentProps<typeof InputGroupInput>, 'value' | 'onChange' |
  * `inputMode="numeric"` traz o teclado numérico no celular sem transformar o campo num
  * `type="number"` — a máscara é uma string, e um campo numérico a recusaria por inteiro.
  */
-export function MoneyInput({ value, onValueChange, ...props }: Props) {
+export function MoneyInput({ value, onValueChange, groupClassName, ...props }: Props) {
   return (
-    <InputGroup>
+    <InputGroup className={groupClassName}>
       <InputGroupAddon>
         <InputGroupText>R$</InputGroupText>
       </InputGroupAddon>
