@@ -86,19 +86,20 @@ describe('serviço de configuração: composição de rubrica', () => {
     assert.equal(repository.snapshot()?.budget.byCategory?.[0].amount, 360)
   })
 
-  it('recusa item sem nome', async () => {
-    const { service } = setup()
-    await assert.rejects(() => service.saveBudget(comItens([{ label: '  ', quantity: 1, unitAmount: 10 }])), InvalidConfigError)
+  it('ACEITA item incompleto, porque todo item nasce assim', async () => {
+    // A tela grava a cada tecla. Recusar nome em branco fazia o gesto de apagar para renomear
+    // acender um erro vermelho no meio da digitação, e recusar quantidade zero impedia a
+    // própria adição de um item — foi o que me levou a inventar "Novo item" no lugar do nome
+    // que a pessoa ainda não tinha escrito.
+    const { repository, service } = setup()
+    await service.saveBudget(comItens([{ label: '', quantity: 0, unitAmount: 0 }]))
+    assert.equal(repository.snapshot()?.budget.byCategory?.[0].items?.length, 1)
+    assert.equal(repository.snapshot()?.budget.byCategory?.[0].amount, 0, 'incompleto vale zero, e zero não estraga soma nenhuma')
   })
 
-  it('recusa quantidade zero em vez de tratá-la como item desligado', async () => {
-    // Um item que fica na lista sem entrar na conta é um número que some sem explicação.
-    const { service } = setup()
-    await assert.rejects(() => service.saveBudget(comItens([{ label: 'Whey', quantity: 0, unitAmount: 180 }])), InvalidConfigError)
-  })
-
-  it('recusa valor unitário negativo', async () => {
+  it('recusa o que é IMPOSSÍVEL: valor negativo', async () => {
     const { service } = setup()
     await assert.rejects(() => service.saveBudget(comItens([{ label: 'Whey', quantity: 1, unitAmount: -1 }])), InvalidConfigError)
+    await assert.rejects(() => service.saveBudget(comItens([{ label: 'Whey', quantity: -1, unitAmount: 10 }])), InvalidConfigError)
   })
 })

@@ -54,12 +54,18 @@ function assertBudget(budget: Budget): void {
   for (const rubrica of budget.byCategory ?? []) {
     if (!(rubrica.amount >= 0)) throw new InvalidConfigError(`A rubrica de "${rubrica.categoryId}" não pode ser negativa.`)
     for (const item of rubrica.items ?? []) {
-      if (!item.label?.trim()) throw new InvalidConfigError(`Um item da rubrica de "${rubrica.categoryId}" está sem nome.`)
-      // Quantidade ZERO é recusada, e não tratada como "item desligado": um item que não entra
-      // na conta e continua na lista é um número que some sem explicação. Para tirá-lo da
-      // conta, tire-o da lista.
-      if (!(item.quantity > 0)) throw new InvalidConfigError(`A quantidade de "${item.label}" precisa ser maior que zero.`)
-      if (!(item.unitAmount >= 0)) throw new InvalidConfigError(`O valor unitário de "${item.label}" não pode ser negativo.`)
+      // Só o que é IMPOSSÍVEL é recusado — valor negativo, que quebraria a soma. Nome em
+      // branco e quantidade zero são recusados por NINGUÉM, e a versão anterior errava aqui:
+      // um item recém-adicionado é necessariamente incompleto, então exigir nome e quantidade
+      // fazia a lista recusar a própria adição. Foi o que me levou a inventar um rótulo
+      // "Novo item" e uma quantidade 1 — afirmando por quem não tinha digitado nada, contra a
+      // regra que este projeto aplica ao plano sem mês e à célula vazia. E como a tela grava a
+      // cada tecla, apagar o nome para trocá-lo acendia um erro vermelho no meio da digitação.
+      //
+      // Item incompleto não some da lista nem estraga a conta: `quantity × unitAmount` com
+      // zero de um lado dá zero, que é exatamente o que um item ainda não preenchido vale.
+      if (item.quantity < 0) throw new InvalidConfigError(`A quantidade de "${item.label || 'um item'}" não pode ser negativa.`)
+      if (item.unitAmount < 0) throw new InvalidConfigError(`O valor unitário de "${item.label || 'um item'}" não pode ser negativo.`)
     }
   }
 }
