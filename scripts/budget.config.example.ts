@@ -22,9 +22,24 @@ export const BUDGET: Budget = {
    * A projeção é PISO, não soma: se a categoria já tem parcela de cartão contratada ou conta
    * declarada naquele mês, a rubrica projeta só a diferença — senão o mesmo gasto entraria
    * duas vezes.
+   *
+   * Uma rubrica pode ser um número digitado OU uma composição de itens, e aí o valor é a soma
+   * deles (`quantity` × `unitAmount`) — o `amount` deixa de ser lido. Serve para o gasto que
+   * você conhece item a item: dieta, suplementação, ração. O ganho não é precisão, é MEMÓRIA:
+   * daqui a três meses o total continua dizendo de onde saiu, e quando o preço de um item
+   * subir você sabe exatamente quanto mexer.
    */
   byCategory: [
     { categoryId: 'mercado', amount: 900 },
+    {
+      categoryId: 'suplementacao',
+      // Ignorado, porque há composição: quem manda é a soma dos itens.
+      amount: 0,
+      items: [
+        { label: 'Whey 900 g', quantity: 2, unitAmount: 180 },
+        { label: 'Creatina 300 g', quantity: 1, unitAmount: 120 },
+      ],
+    },
     { categoryId: 'restaurantes', amount: 600 },
     { categoryId: 'transporte', amount: 300 },
   ],
