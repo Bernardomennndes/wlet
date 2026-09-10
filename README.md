@@ -108,7 +108,8 @@ src/services/            a camada DDD: cinco contextos (dataset, config, plans, 
                          preferences), cada um com domain/ports, application e infrastructure
 src/routes/dados/        a tela "Meus dados": origem do conjunto, espaço, ler extratos e a cópia
                          de segurança
-src/routes/configuracao/ a tela "Configuração": as declarações, editáveis (o teto do mês entre elas)
+src/routes/configuracao/ a tela "Configuração": teto, cobranças, metas, contas e regras
+src/routes/previsao/      a tela "Previsão": os lançamentos previstos, editáveis ao lado do que alimentam
 src/routes/rubricas/      a tela "Rubricas": o gasto esperado por categoria, medido e editado junto
 src/services/backup.ts   o pacote: exportar tudo, importar as partes escolhidas
 scripts/package.ts       gera o pacote a partir de docs/, para importar no navegador
