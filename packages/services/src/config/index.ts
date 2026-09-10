@@ -18,3 +18,4 @@ export { emptyConfig, makeConfigService, type ConfigService, type ConfigServiceD
 export { InvalidConfigError } from './domain/errors'
 export type { ConfigData, ConfigRepository, ConfigSeed } from './domain/ports/config-repository'
 export { makeIndexedDbConfigRepository } from './infrastructure/indexed-db-config.adapter'
+export { makeOrpcConfigRepository } from './infrastructure/orpc-config.adapter'

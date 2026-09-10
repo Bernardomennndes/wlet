@@ -12,7 +12,8 @@ import { month, scope } from '../../shared/shape'
 export const preferencesShape = z.object({
   scope: scope.nullable(),
   period: z.object({ from: month, to: month }).nullable(),
-  theme: z.enum(['claro', 'escuro']).nullable(),
+  /** `light`/`dark` como o domínio guarda — o `?tema=claro|escuro` é da URL, não daqui. */
+  theme: z.enum(['light', 'dark']).nullable(),
 })
 
 export const preferencesRoutes = {

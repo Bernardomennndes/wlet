@@ -17,6 +17,7 @@
     "type:check": "tsc --noEmit"
   },
   "dependencies": {
+    "@wlet/api": "workspace:*",
     "@wlet/domain": "workspace:*",
     "@wlet/ingest": "workspace:*",
     "@wlet/lib": "workspace:*"

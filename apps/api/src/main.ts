@@ -3,6 +3,7 @@ import { OpenAPIGenerator } from '@orpc/openapi'
 import { OpenAPIHandler } from '@orpc/openapi/fetch'
 import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4'
 import { createDb } from '@wlet/db'
+import { createSession, resolveSession } from './shared/auth'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { configRouter } from './routers/config'
@@ -86,14 +87,39 @@ app.use(
 
 app.get('/health', (c) => c.json({ ok: true }))
 
+/**
+ * A entrada de DESENVOLVIMENTO: troca um e-mail por uma sessão.
+ *
+ * Fica fora do contrato oRPC de propósito — autenticação não é um domínio do WLET, é a fronteira
+ * que o precede, e um provedor de identidade a substituirá inteira. Só existe fora de produção:
+ * `NODE_ENV=production` a desliga, porque um endpoint que cria sessão sem senha é uma porta
+ * aberta com nome.
+ */
+if (process.env.NODE_ENV !== 'production') {
+  app.post('/auth/dev-session', async (c) => {
+    const { email } = await c.req.json<{ email?: string }>()
+    if (!email) return c.json({ error: 'e-mail é obrigatório' }, 400)
+    return c.json(await createSession(db, email))
+  })
+}
+
 app.get('/v1/openapi.json', async (c) => c.json(await openapi.generate(router, { info: { title: 'WLET', version: '0.1.0' }, servers: [{ url: '/v1' }] })))
 
 app.use('/v1/*', async (c, next) => {
+  /**
+   * O `userId` sai do TOKEN, e não de um header que o cliente escolhe.
+   *
+   * Enquanto era `x-user-id`, qualquer um lia o extrato de qualquer pessoa mudando um cabeçalho
+   * — o eixo de isolamento existia no schema e não na porta. Sem sessão válida a requisição para
+   * aqui, antes de qualquer handler: um `userId` vazio chegando ao banco devolveria lista vazia
+   * em vez de negar, e "vazio" é indistinguível de "não tem nada".
+   */
+  const userId = await resolveSession(db, c.req.header('authorization'))
+  if (!userId) return c.json({ error: 'não autenticado' }, 401)
+
   const { matched, response } = await handler.handle(c.req.raw, {
     prefix: '/v1',
-    // O `userId` virá do token quando `@wlet/auth` entrar. Enquanto isso ele é explícito e
-    // obrigatório, para nenhum handler nascer sem o eixo de isolamento.
-    context: { userId: c.req.header('x-user-id') ?? '' },
+    context: { userId },
   })
   if (matched) return response
   await next()

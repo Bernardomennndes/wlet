@@ -27,3 +27,4 @@ export { makePreferencesService, type PreferencesService, type PreferencesServic
 export { InvalidPeriodError } from './domain/errors'
 export type { Preferences, PreferencesRepository, Theme } from './domain/ports/preferences-repository'
 export { makeLocalStoragePreferencesRepository } from './infrastructure/local-storage-preferences.adapter'
+export { makeOrpcPreferencesRepository } from './infrastructure/orpc-preferences.adapter'

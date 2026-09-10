@@ -28,7 +28,8 @@ export function configRouter(db: ReturnType<typeof createDb>) {
             accountProfiles: input.accounts,
             rules: input.rules.map((r) => ({ ...r, test: r.test })),
             selfNamePatterns: input.selfNamePatterns,
-            preferences: {},
+            // Nulo é "nunca escolheu", e é o que o contrato declara — `{}` não tem os campos.
+            preferences: { scope: null, period: null, theme: null },
           })
           .onConflictDoUpdate({
             target: settings.userId,

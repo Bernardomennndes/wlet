@@ -18,3 +18,4 @@ export { makeOverridesService, type OverridesService, type OverridesServiceDeps 
 export { UnknownCategoryError } from './domain/errors'
 export type { OverrideRepository } from './domain/ports/override-repository'
 export { makeLocalStorageOverrideRepository } from './infrastructure/local-storage-override.adapter'
+export { makeOrpcOverrideRepository } from './infrastructure/orpc-override.adapter'

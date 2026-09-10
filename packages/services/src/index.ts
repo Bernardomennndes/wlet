@@ -6,20 +6,22 @@
  * sem semente nenhuma. Se a fábrica morasse aqui, ela teria de conhecer os dois — e o pacote
  * passaria a depender do Vite para o servidor compilar.
  */
-export { createConfigService, emptyConfig, InvalidConfigError, makeConfigService, makeIndexedDbConfigRepository } from './config'
+export { makeOrpcConfigRepository, createConfigService, emptyConfig, InvalidConfigError, makeConfigService, makeIndexedDbConfigRepository } from './config'
 export type { ConfigData, ConfigRepository, ConfigSeed, ConfigService } from './config'
 
-export { createDatasetService, DATASET_PARTS, IncompleteDatasetError, makeDatasetService, NoSourcesError } from './dataset'
+export { makeOrpcDatasetRepository, makeOrpcIngestRunner, makeOrpcSourceStore, createDatasetService, DATASET_PARTS, IncompleteDatasetError, makeDatasetService, NoSourcesError } from './dataset'
 export type { DatasetOrigin, DatasetRepository, DatasetSeed, DatasetService, DatasetServiceDeps } from './dataset'
 
-export { createOverridesService, makeOverridesService } from './overrides'
+export { makeOrpcOverrideRepository, createOverridesService, makeOverridesService } from './overrides'
 export type { OverridesService } from './overrides'
 
-export { createPlansService, makePlansService } from './plans'
+export { makeOrpcPlanRepository, createPlansService, makePlansService } from './plans'
 export type { PlansService } from './plans'
 
-export { createPreferencesService, makePreferencesService } from './preferences'
+export { makeOrpcPreferencesRepository, createPreferencesService, makePreferencesService } from './preferences'
 export type { PreferencesService } from './preferences'
 
 export { exportState, importState, inspectPackage, PACKAGE_PARTS } from './backup'
 export type { BackupPayload, ImportSummary, PackageContents, PackagePart } from './backup'
+
+export type { RemoteDeps } from './shared/infrastructure/orpc'

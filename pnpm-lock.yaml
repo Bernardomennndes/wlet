@@ -84,6 +84,9 @@ importers:
       '@phosphor-icons/react':
         specifier: ^2.1.10
         version: 2.1.10(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@wlet/api':
+        specifier: workspace:*
+        version: link:../../packages/api
       '@wlet/domain':
         specifier: workspace:*
         version: link:../../packages/domain
@@ -254,6 +257,9 @@ importers:
 
   packages/services:
     dependencies:
+      '@wlet/api':
+        specifier: workspace:*
+        version: link:../api
       '@wlet/domain':
         specifier: workspace:*
         version: link:../domain

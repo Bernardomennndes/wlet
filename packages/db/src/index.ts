@@ -3,7 +3,7 @@ import postgres from 'postgres'
 import * as schema from './schema/index'
 
 export * from './schema/index'
-export { and, asc, count, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm'
+export { and, asc, count, desc, eq, gt, gte, inArray, lt, lte, sql } from 'drizzle-orm'
 
 /**
  * A conexão.

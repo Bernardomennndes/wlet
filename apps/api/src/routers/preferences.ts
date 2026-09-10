@@ -14,7 +14,10 @@ export function preferencesRouter(db: ReturnType<typeof createDb>) {
   return {
     get: os.preferences.get.handler(async ({ context }) => {
       const [row] = await db.select({ preferences: settings.preferences }).from(settings).where(eq(settings.userId, context.userId))
-      return (row?.preferences as typeof vazio) ?? vazio
+      // Mesclado com o VAZIO, e não devolvido cru: a linha pode existir com `{}` — é assim que
+      // ela nasce quando a configuração é gravada antes de qualquer preferência —, e um `{}`
+      // não tem os três campos que o contrato exige. A validação de saída pegou isto.
+      return { ...vazio, ...((row?.preferences as Partial<typeof vazio>) ?? {}) }
     }),
 
     set: os.preferences.set.handler(async ({ context, input }) => {

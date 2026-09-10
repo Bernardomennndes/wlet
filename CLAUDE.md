@@ -72,6 +72,26 @@ O repositório é um workspace pnpm orquestrado por Turborepo, no molde da Selfi
   quem sabe onde roda — o app com IndexedDB e a semente que o Vite empacotou, o servidor com
   Postgres e sem semente nenhuma. Enquanto a fábrica morava no pacote, ele importava
   `import.meta.glob` e o servidor não compilaria.
+- **O app tem DOIS MODOS, e os dois são definitivos.** Com `VITE_API_URL` ele fala com o
+  servidor; sem ela, com o próprio navegador. Não é bandeira temporária: o local é o que mantém a
+  promessa de que nada sai da máquina, e o remoto é o que permite abrir a mesma conta em dois
+  aparelhos. **Os MESMOS serviços rodam nos dois** — só muda quem responde às portas, e nenhuma
+  tela sabe a diferença. É o que a camada hexagonal comprou, e a prova é que os 168 testes não
+  mudaram uma linha.
+- **`import.meta.env` não existe fora do Vite**, e o runner dos testes roda por tsx: o acesso é
+  `(import.meta.env as ... | undefined)?.VITE_API_URL`. Sem o `?.`, importar `services.ts` estoura
+  em Node com "Cannot read properties of undefined" — foi o que quebrou o teste do portão de
+  boot. Mesma armadilha do `import.meta.glob` em `generated-files.ts`.
+- **A sessão é um token OPACO em tabela, não um JWT.** Um JWT não se revoga sem lista de bloqueio
+  — que é uma consulta por requisição, exatamente o que ele prometia evitar. Aqui o token é chave
+  de linha: apagar a linha encerra a sessão na hora, e para um app que guarda extrato bancário
+  isso vale mais que economizar uma consulta. O prazo é conferido no BANCO, e o `/auth/dev-session`
+  só existe fora de produção.
+- **O `userId` sai do TOKEN, nunca de um header.** Enquanto era `x-user-id`, qualquer um lia o
+  extrato de qualquer pessoa mudando um cabeçalho — o eixo de isolamento existia no schema e não
+  na porta. Sem sessão válida a requisição para no middleware, antes de qualquer handler: um
+  `userId` vazio chegando ao banco devolveria lista vazia em vez de negar, e "vazio" é
+  indistinguível de "não tem nada".
 - `docker compose up -d` sobe o Postgres de desenvolvimento na porta **5433**, para não brigar
   com um Postgres local já instalado. `pnpm --filter @wlet/db db:push` cria as tabelas.
 
