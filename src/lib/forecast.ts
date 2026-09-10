@@ -3,6 +3,7 @@ import type { EnumOption, Plan } from '@/data/types'
 import type { ViewTransaction } from './finance'
 import { shiftMonth, toCents } from './finance'
 import { BUDGET } from './budget'
+import { rubricAmount } from './rubric'
 import { amountAt, dueDateOf, occursIn, pendingIn, settlePlanned, type PlannedEntry } from './planned'
 import { installmentAmount, planInstallments, planMonths, planOccursIn } from './plans'
 import { dueDateOf as receivableDueDateOf, occursIn as receivableOccursIn, settle, type Receivable } from './receivables'
@@ -260,12 +261,13 @@ function expenseByCategory(input: Input, month: string, committedByCat: Map<stri
   }
 
   for (const rubrica of BUDGET.byCategory ?? []) {
+    const planejado = rubricAmount(rubrica)
     const already = out.get(rubrica.categoryId) ?? 0
-    if (rubrica.amount <= already) continue
+    if (planejado <= already) continue
     // Só o que ela ACRESCENTA entra na origem: a rubrica é piso, então a parte já coberta por
     // parcela ou por conta declarada pertence àquelas origens, não a esta.
-    sources.rubric += rubrica.amount - already
-    out.set(rubrica.categoryId, rubrica.amount)
+    sources.rubric += planejado - already
+    out.set(rubrica.categoryId, planejado)
   }
 
   for (const receivable of input.receivables) {
@@ -434,10 +436,11 @@ export function forecastItems(input: Omit<Input, 'targets'>, month: string, pend
 
   if (!partial) {
     for (const rubrica of BUDGET.byCategory ?? []) {
+      const planejado = rubricAmount(rubrica)
       const already = gross.get(rubrica.categoryId) ?? 0
-      if (rubrica.amount <= already) continue
-      const extra = rubrica.amount - already
-      gross.set(rubrica.categoryId, rubrica.amount)
+      if (planejado <= already) continue
+      const extra = planejado - already
+      gross.set(rubrica.categoryId, planejado)
       items.push({ key: `rubric-${rubrica.categoryId}`, date: null, label: 'Gasto planejado', categoryId: rubrica.categoryId, amount: -extra, origin: 'rubric' })
     }
   }

@@ -420,9 +420,36 @@ export interface Receivable {
  * declarada naquele mês, a rubrica projeta só a diferença. Somar contaria o mesmo gasto duas
  * vezes — a parcela do Airbnb já é viagem, e a rubrica de viagem não a acrescenta.
  */
+/**
+ * Um item da composição de uma rubrica: o que é, quanto por mês e a quanto a unidade.
+ *
+ * Existe para a rubrica guardar DE ONDE o número saiu. Sem isso, "R$ 1.200 de dieta" é um
+ * total sem memória: três meses depois ninguém sabe se ele veio de 4 kg de whey ou de outra
+ * coisa, e quando o preço de um item sobe não há como saber quanto mexer no total.
+ *
+ * `quantity` é fracionário de propósito — meio quilo de suplemento por mês é uma quantidade
+ * legítima, e arredondá-la para 1 mentiria sobre o consumo.
+ */
+export interface BudgetItem {
+  label: string
+  quantity: number
+  /** Preço de UMA unidade. O que entra na conta é `quantity * unitAmount`. */
+  unitAmount: number
+}
+
 export interface BudgetCategory {
   categoryId: string
+  /**
+   * O valor da rubrica QUANDO NÃO HÁ composição.
+   *
+   * Com `items` preenchido, quem manda é a soma deles e este campo não é lido — ver
+   * `rubricAmount`, em `src/lib/rubric.ts`. Guardar os dois e ler ora um ora outro é como
+   * duas somas paralelas para o mesmo mês divergirem, que é o erro que este projeto já
+   * cometeu uma vez; aqui só um dos dois é a verdade, e é sempre o mesmo.
+   */
   amount: number
+  /** A composição, quando você quer que o número seja conferível em vez de decorado. */
+  items?: BudgetItem[]
 }
 
 export interface Budget {

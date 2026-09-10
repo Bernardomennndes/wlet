@@ -12,6 +12,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { categoryLabel } from '@/data/categories'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { BUDGET } from '@/lib/budget'
+import { rubricAmount } from '@/lib/rubric'
 import { ACCOUNT_MAP, lastDateWithData, lastMonthWithData, sum } from '@/lib/finance'
 import { formatBRL, formatDate, formatDayMonth, formatMonthLongLabel, formatMonthShort, plural } from '@/lib/format'
 import { CONCILIATED, settlePlanned } from '@/lib/planned'
@@ -71,7 +72,10 @@ export function PagamentosPageContent() {
           .filter((tx) => tx.month === currentMonth && tx.displayCategoryId === rubric.categoryId && (tx.flow === 'expense' || tx.flow === 'reimbursement'))
           .map((tx) => (tx.flow === 'reimbursement' ? -Math.abs(tx.amount) : Math.abs(tx.amount))),
       )
-      return { ...rubric, label: categoryLabel(rubric.categoryId), spent: Math.max(0, spent) }
+      // O `amount` é SOBRESCRITO pelo valor resolvido: uma rubrica com composição guarda a
+      // lista, e o total dela é a soma dos itens. A lista abaixo recebe um objeto de view já
+      // resolvido e por isso não precisa conhecer a composição.
+      return { ...rubric, amount: rubricAmount(rubric), label: categoryLabel(rubric.categoryId), spent: Math.max(0, spent) }
     })
   }, [history, currentMonth])
   const rubricPlanned = sum(rubrics.map((r) => r.amount))
