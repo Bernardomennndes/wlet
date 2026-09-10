@@ -1,7 +1,6 @@
-import { Check, Warning, type Icon as PhosphorIcon } from '@phosphor-icons/react'
 import { METER_HEIGHT } from '@/components/charts/chart-theme'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { BUDGET, budgetState, type BudgetState } from '@/lib/budget'
+import { BUDGET, BUDGET_STATE, budgetState } from '@/lib/budget'
 import { formatBRL, formatMonthLongLabel } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -13,26 +12,6 @@ import { cn } from '@/lib/utils'
  * Ela é montada SEMPRE, mudando de texto e de tom — some-la no estado bom faria o cartão
  * mudar de altura conforme o mês avança.
  */
-const STATE: Record<BudgetState, { message: string; Icon: PhosphorIcon; bar: string; banner: string }> = {
-  ok: {
-    message: 'Dentro do limite do mês',
-    Icon: Check,
-    bar: 'var(--series-expense)',
-    banner: 'border-border text-muted-foreground',
-  },
-  warning: {
-    message: 'Perto do limite do mês',
-    Icon: Warning,
-    bar: 'var(--status-warning)',
-    banner: 'border-[var(--status-warning)]/40 text-[var(--status-warning)]',
-  },
-  over: {
-    message: 'O limite do mês foi ultrapassado',
-    Icon: Warning,
-    bar: 'var(--status-critical)',
-    banner: 'border-[var(--status-critical)]/40 text-[var(--status-critical)]',
-  },
-}
 
 interface Props {
   /** Saídas medidas do mês corrente, no recorte selecionado. */
@@ -44,7 +23,7 @@ interface Props {
 
 export function BudgetCard({ spent, month, className }: Props) {
   const state = budgetState(spent)
-  const { message, Icon, bar, banner } = STATE[state]
+  const { message, Icon, bar, banner } = BUDGET_STATE[state]
   // A barra para em 100%: o excedente é dito pela cor e pela faixa, porque uma barra que
   // estoura o trilho não tem como ser comparada com a de outro mês.
   const share = BUDGET.monthlyLimit > 0 ? Math.min(spent / BUDGET.monthlyLimit, 1) : 0
