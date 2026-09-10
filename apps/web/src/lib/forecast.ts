@@ -1,5 +1,5 @@
 import { ArrowUUpLeft, CalendarDot, CreditCard, ShoppingBag, Target } from '@phosphor-icons/react'
-import type { EnumOption, Plan } from '@/data/types'
+import type { EnumOption, Plan } from '@wlet/domain'
 import type { ViewTransaction } from './finance'
 import { shiftMonth, toCents } from './finance'
 import { BUDGET } from './budget'

@@ -8,7 +8,7 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "check": "turbo check",
-    "lint": "turbo lint",
+    "lint": "oxlint",
     "type:check": "turbo type:check",
     "format": "biome format --write .",
     "format:check": "biome format .",
@@ -20,6 +20,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",
+    "oxlint": "^1.79.0",
     "turbo": "^2.5.6"
   },
   "packageManager": "pnpm@10.28.1"

@@ -1,4 +1,4 @@
-import type { IncomeMonth } from '@/data/types'
+import type { IncomeMonth } from '@wlet/domain'
 import type { IngestEnv, SourceFile } from './io'
 import { readSheet, serialDate } from './xlsx'
 

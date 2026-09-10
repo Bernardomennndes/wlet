@@ -1,5 +1,5 @@
 import { EnumBadge } from '@/components/enum-badge'
-import { flowKinds, type Flow, type PlannedEntry } from '@/data/types'
+import { flowKinds, type Flow, type PlannedEntry } from '@wlet/domain'
 
 /** Fora do render: a busca na lista não depende de nenhuma prop. */
 const OPTIONS = new Map(flowKinds.map((option) => [option.value, option]))

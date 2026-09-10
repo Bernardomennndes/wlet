@@ -1,13 +1,13 @@
 import { dataset } from './dataset'
-import { CATEGORY_MAP } from '@/data/categories'
+import { CATEGORY_MAP } from '@wlet/domain'
 import { offsetCategoryOf } from './receivables'
-import type { Account, DatasetMeta, Flow, Transaction, Transfer } from '@/data/types'
+import type { Account, DatasetMeta, Flow, Transaction, Transfer } from '@wlet/domain'
 
-// `Flow` e `flowKinds` moram em `@/data/types` com os outros pares de enum; reexportados
+// `Flow` e `flowKinds` moram em `@wlet/domain` com os outros pares de enum; reexportados
 // aqui porque este é o módulo que decide o fluxo de uma transação e quase todo consumidor
 // chega por ele.
 export type { Flow }
-export { flowKinds } from '@/data/types'
+export { flowKinds } from '@wlet/domain'
 
 const data = dataset()
 

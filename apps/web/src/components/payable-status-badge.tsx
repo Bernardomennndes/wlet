@@ -1,5 +1,5 @@
 import { EnumBadge } from '@/components/enum-badge'
-import { payableStatuses, type SettlementStatus } from '@/data/types'
+import { payableStatuses, type SettlementStatus } from '@wlet/domain'
 
 /** Fora do render: a busca na lista não depende de nenhuma prop. */
 const OPTIONS = new Map(payableStatuses.map((option) => [option.value, option]))

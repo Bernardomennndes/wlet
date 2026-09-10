@@ -1,0 +1,20 @@
+{
+  "name": "@wlet/domain",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "type:check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@phosphor-icons/react": "^2.1.10"
+  },
+  "devDependencies": {
+    "@wlet/tsconfig": "workspace:*",
+    "typescript": "~6.0.2"
+  }
+}

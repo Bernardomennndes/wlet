@@ -1,4 +1,4 @@
-import { CATEGORY_MAP } from '@/data/categories'
+import { CATEGORY_MAP } from '@wlet/domain'
 import { accountInScope, displayCategoryId, flowOf, TRANSACTIONS, type Scope } from './finance'
 
 /**

@@ -12,7 +12,7 @@ import type { Rule } from '../src/lib/ingest/rules.ts'
  * uma regra própria, porque o `MERCADO ` genérico casaria primeiro.
  *
  * O texto testado é a descrição normalizada: maiúsculas, sem acentos, sem prefixo de
- * adquirente (IFD, DM, MP, DL). Categorias válidas estão em `src/data/categories.ts`.
+ * adquirente (IFD, DM, MP, DL). Categorias válidas estão em `packages/domain/src/categories.ts`.
  * Depois de editar, rode `pnpm ingest` — o relatório lista o que ficou sem categoria.
  */
 export const CUSTOM_RULES: Rule[] = [

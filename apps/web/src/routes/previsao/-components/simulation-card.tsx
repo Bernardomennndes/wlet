@@ -1,7 +1,7 @@
 import { CategoryBadge } from '@/components/category-badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import type { Plan, PlanGroup } from '@/data/types'
+import type { Plan, PlanGroup } from '@wlet/domain'
 import { formatBRL, formatMonthShort, plural } from '@/lib/format'
 import { installmentAmount, planMonths, planTotal, scheduledPlans } from '@/lib/plans'
 import { cn } from '@/lib/utils'

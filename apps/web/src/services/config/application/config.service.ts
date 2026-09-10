@@ -1,4 +1,4 @@
-import type { Budget, Goal, PlannedEntry, Receivable } from '@/data/types'
+import type { Budget, Goal, PlannedEntry, Receivable } from '@wlet/domain'
 import { rubricAmount } from '@/lib/rubric'
 import { InvalidConfigError } from '../domain/errors'
 import type { ConfigData, ConfigRepository, ConfigSeed } from '../domain/ports/config-repository'

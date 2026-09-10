@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import type { BudgetCategory } from '../../src/data/types.ts'
+import type { BudgetCategory } from '@wlet/domain'
 import { hasComposition, itemAmount, itemAmountPerCadence, monthRange, rubricAmount, rubricSpent, weekRange } from '../../src/lib/rubric.ts'
 
 describe('valor de uma rubrica', () => {

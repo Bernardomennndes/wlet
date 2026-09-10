@@ -1,8 +1,8 @@
 import { Check, Warning, type Icon as PhosphorIcon } from '@phosphor-icons/react'
 import { declarations } from './dataset'
-import type { Budget } from '@/data/types'
+import type { Budget } from '@wlet/domain'
 
-export type { Budget } from '@/data/types'
+export type { Budget } from '@wlet/domain'
 
 /**
  * Teto de gastos, gerado pelo `pnpm ingest` a partir de `scripts/budget.config.ts`. É

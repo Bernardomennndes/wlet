@@ -1,7 +1,7 @@
 import { dataset } from './dataset'
-import type { IncomeMonth, InvestmentSnapshot, PatrimonyPoint } from '@/data/types'
+import type { IncomeMonth, InvestmentSnapshot, PatrimonyPoint } from '@wlet/domain'
 
-export type { InvestmentHolding, InvestmentSnapshot, IncomeMonth, PatrimonyPoint } from '@/data/types'
+export type { InvestmentHolding, InvestmentSnapshot, IncomeMonth, PatrimonyPoint } from '@wlet/domain'
 
 /**
  * A carteira reconstruída pelo `pnpm ingest` a partir dos relatórios da B3, do extrato da

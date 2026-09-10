@@ -10,8 +10,8 @@ import { MoneyInput } from '@/components/ui/money-input'
 import { MonthPicker } from '@/components/ui/month-picker'
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { CATEGORIES } from '@/data/categories'
-import { entityKinds, flowKinds, plannedRecurrences, type Entity, type PlannedEntry, type Recurrence } from '@/data/types'
+import { CATEGORIES } from '@wlet/domain'
+import { entityKinds, flowKinds, plannedRecurrences, type Entity, type PlannedEntry, type Recurrence } from '@wlet/domain'
 import { DueOnField } from '@/components/due-on-field'
 
 const CATEGORY_ITEMS = CATEGORIES.map((c) => ({ value: c.id, label: c.label, description: c.description }))

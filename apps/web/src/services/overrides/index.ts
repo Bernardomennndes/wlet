@@ -1,4 +1,4 @@
-import { CATEGORY_MAP } from '@/data/categories'
+import { CATEGORY_MAP } from '@wlet/domain'
 import { makeOverridesService, type OverridesService } from './application/overrides.service'
 import { makeLocalStorageOverrideRepository } from './infrastructure/local-storage-override.adapter'
 

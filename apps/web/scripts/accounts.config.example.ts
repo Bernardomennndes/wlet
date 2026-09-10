@@ -1,4 +1,4 @@
-import type { AccountType, Entity } from '../src/data/types.ts'
+import type { AccountType, Entity } from '@wlet/domain'
 
 /**
  * MODELO — copie para `accounts.config.ts` (que é ignorado pelo git) e troque pelos seus

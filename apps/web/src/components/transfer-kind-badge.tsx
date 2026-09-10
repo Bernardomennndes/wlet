@@ -1,5 +1,5 @@
 import { EnumBadge } from '@/components/enum-badge'
-import { transfersKinds, type TransferKind } from '@/data/types'
+import { transfersKinds, type TransferKind } from '@wlet/domain'
 
 /** Fora do render: a busca na lista não depende de nenhuma prop. */
 const OPTIONS = new Map(transfersKinds.map((option) => [option.value, option]))

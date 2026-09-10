@@ -1,4 +1,4 @@
-import type { AccountType } from '@/data/types'
+import type { AccountType } from '@wlet/domain'
 import type { IngestEnv, SourceFile } from './io'
 
 /**

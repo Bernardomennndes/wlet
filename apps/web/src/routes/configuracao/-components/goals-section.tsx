@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { MoneyInput } from '@/components/ui/money-input'
 import { MonthPicker } from '@/components/ui/month-picker'
-import type { Goal, GoalSlot } from '@/data/types'
+import type { Goal, GoalSlot } from '@wlet/domain'
 
 const SLOTS: GoalSlot[] = [1, 2, 3, 4, 5, 6, 7, 8]
 

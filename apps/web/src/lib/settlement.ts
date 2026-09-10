@@ -1,5 +1,5 @@
 import { dayOfMonth, nthBusinessDay } from './business-days'
-import type { PlannedDueDate, Recurrence, SettlementStatus } from '@/data/types'
+import type { PlannedDueDate, Recurrence, SettlementStatus } from '@wlet/domain'
 
 /**
  * Conciliação de uma regra declarada contra o extrato — quem cumpriu, quando, e o que falta.

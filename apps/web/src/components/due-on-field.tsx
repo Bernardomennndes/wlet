@@ -1,6 +1,6 @@
 import { AppCombobox } from '@/components/ui/app-combobox'
 import { Input } from '@/components/ui/input'
-import type { PlannedDueDate } from '@/data/types'
+import type { PlannedDueDate } from '@wlet/domain'
 
 const KIND_ITEMS = [
   { value: 'day', label: 'Dia fixo', description: 'Todo dia 25, por exemplo.' },

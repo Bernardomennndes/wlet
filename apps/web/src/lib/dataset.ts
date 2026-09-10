@@ -1,4 +1,4 @@
-import type { Account, DatasetMeta, IncomeMonth, InvestmentSnapshot, PatrimonyPoint, Transaction, Transfer } from '@/data/types'
+import type { Account, DatasetMeta, IncomeMonth, InvestmentSnapshot, PatrimonyPoint, Transaction, Transfer } from '@wlet/domain'
 import type { Declarations } from '@/lib/ingest/pipeline'
 
 /**

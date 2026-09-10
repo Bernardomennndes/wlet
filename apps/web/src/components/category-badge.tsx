@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge'
 import { SERIES_SWATCH } from '@/components/charts/chart-theme'
 import { cn } from '@/lib/utils'
-import { categoryLabel } from '@/data/categories'
+import { categoryLabel } from '@wlet/domain'
 import { categoryColor } from '@/lib/chart-tokens'
 
 /**

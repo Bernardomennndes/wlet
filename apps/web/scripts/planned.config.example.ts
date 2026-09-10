@@ -1,4 +1,4 @@
-import type { PlannedEntry } from '../src/data/types.ts'
+import type { PlannedEntry } from '@wlet/domain'
 
 /**
  * MODELO — copie para `planned.config.ts` (ignorado pelo git). `pnpm run setup` faz isso.

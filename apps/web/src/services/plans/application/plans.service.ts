@@ -1,4 +1,4 @@
-import type { Plan, PlanGroup, PlanStatus, PaymentMode } from '@/data/types'
+import type { Plan, PlanGroup, PlanStatus, PaymentMode } from '@wlet/domain'
 import { type PlansData, planScheduleByMonth, type PlanScheduleMonth, scheduledPlans } from '@/lib/plans'
 import { InvalidPlanError, PlanGroupNotFoundError, PlanNotFoundError } from '../domain/errors'
 import type { IdGenerator, PlanRepository } from '../domain/ports/plan-repository'

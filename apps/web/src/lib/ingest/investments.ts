@@ -1,4 +1,4 @@
-import type { InvestmentHolding, InvestmentSnapshot, PatrimonyPoint, IncomeMonth } from '@/data/types'
+import type { InvestmentHolding, InvestmentSnapshot, PatrimonyPoint, IncomeMonth } from '@wlet/domain'
 import { cashAt, contributionsByDate, incomeByMonth, readBrokerageLedger, type BrokerageLedger } from './brokerage'
 import type { IngestEnv, SourceFile } from './io'
 import { decodeText } from './io'
@@ -48,7 +48,7 @@ const TICKER = /^([A-Z0-9]{4,6})\s*-/
  * Uma linha da série do CDI: dia útil e a taxa daquele dia, já em fração (0.05166% →
  * 0.0005166).
  *
- * O tipo é declarado aqui, e não importado de `@/data/types`, porque ele nunca foi vocabulário
+ * O tipo é declarado aqui, e não importado de `@wlet/domain`, porque ele nunca foi vocabulário
  * de domínio da aplicação: a série do CDI é insumo do ingest, some antes de `investments.json`
  * e nenhuma tela a conhece. No Node ele mora em `scripts/cdi.ts`, ao lado do cache.
  */

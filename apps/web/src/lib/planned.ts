@@ -1,9 +1,9 @@
 import { declarations } from './dataset'
 import { shiftMonth } from './finance'
 import { dueDateOf, occursIn, settleAll, type Settlement } from './settlement'
-import type { PlannedEntry } from '@/data/types'
+import type { PlannedEntry } from '@wlet/domain'
 
-export type { PlannedDueDate, PlannedEntry, Recurrence } from '@/data/types'
+export type { PlannedDueDate, PlannedEntry, Recurrence } from '@wlet/domain'
 
 // Não há cópia destas três aqui. `PlannedEntry` satisfaz `SettlementRule` por forma, então a
 // regra de "incide neste mês", "qual o valor" e "que dia vence" é a MESMA da conciliação.

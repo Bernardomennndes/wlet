@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
-import type { Plan, PlanGroup } from '@/data/types'
+import type { Plan, PlanGroup } from '@wlet/domain'
 import { decidedPlans, type PlansData } from '@/lib/plans'
 import { services } from '@/services'
 import { preloaded } from './preloaded'

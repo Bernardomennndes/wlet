@@ -1,4 +1,4 @@
-import type { Account, DatasetMeta, Transaction, Transfer } from '@/data/types'
+import type { Account, DatasetMeta, Transaction, Transfer } from '@wlet/domain'
 import type { Dataset } from '@/lib/dataset'
 import type { DatasetSeed } from '../domain/ports/dataset-repository'
 

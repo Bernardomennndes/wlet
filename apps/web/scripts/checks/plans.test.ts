@@ -14,7 +14,7 @@ import {
   scheduledPlans,
   PLANS_VERSION,
 } from '../../src/lib/plans.ts'
-import type { Plan } from '../../src/data/types.ts'
+import type { Plan } from '@wlet/domain'
 
 /**
  * `parsePlans` é a fronteira de confiança do único dado do app que não vem de arquivo: ele

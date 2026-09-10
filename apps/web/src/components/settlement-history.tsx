@@ -1,5 +1,5 @@
 import { EnumBadge } from '@/components/enum-badge'
-import { payableStatuses, receivableStatuses } from '@/data/types'
+import { payableStatuses, receivableStatuses } from '@wlet/domain'
 import { formatBRL, formatMonthShort } from '@/lib/format'
 import type { Settlement } from '@/lib/settlement'
 

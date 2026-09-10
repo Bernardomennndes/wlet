@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge'
-import type { EnumOption, EnumTone } from '@/data/types'
+import type { EnumOption, EnumTone } from '@wlet/domain'
 import { cn } from '@/lib/utils'
 
 /**

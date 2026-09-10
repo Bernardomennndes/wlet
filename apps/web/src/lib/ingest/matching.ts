@@ -12,7 +12,7 @@
  * só percorre lançamentos em memória não tem o que esperar, e envolvê-la numa Promise só para
  * uniformizar a assinatura cobraria de todo chamador um `await` dentro de laço.
  */
-import type { MatchRule, PlannedEntry, Receivable, Transaction } from '@/data/types'
+import type { MatchRule, PlannedEntry, Receivable, Transaction } from '@wlet/domain'
 import { normalizeForRules } from './rules'
 
 function addMonths(isoDate: string, months: number): string {

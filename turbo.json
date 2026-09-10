@@ -9,7 +9,6 @@
     "check": {
       "dependsOn": ["^build"]
     },
-    "lint": {},
     "format:check": {},
     "type:check": {
       "dependsOn": ["^build"]

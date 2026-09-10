@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { entityKinds } from '@/data/types'
+import { entityKinds } from '@wlet/domain'
 import type { Scope } from '@/lib/finance'
 import { useFilters } from '@/providers/use-filters'
 import { useTheme } from '@/providers/use-theme'

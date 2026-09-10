@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { Plan, PlanGroup } from '@/data/types'
+import type { Plan, PlanGroup } from '@wlet/domain'
 import type { PlansData } from '@/lib/plans'
 
 export interface PlansValue {

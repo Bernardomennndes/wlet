@@ -12,10 +12,10 @@ import { MoneyInput } from '@/components/ui/money-input'
 import { MonthPicker } from '@/components/ui/month-picker'
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { CATEGORIES } from '@/data/categories'
-import { paymentModes, planStatuses, type PaymentMode, type Plan, type PlanStatus } from '@/data/types'
+import { CATEGORIES } from '@wlet/domain'
+import { paymentModes, planStatuses, type PaymentMode, type Plan, type PlanStatus } from '@wlet/domain'
 import { formatBRL } from '@/lib/format'
-import type { PlanGroup } from '@/data/types'
+import type { PlanGroup } from '@wlet/domain'
 
 // A descrição do catálogo entra como texto secundário — e, com ela, na busca: procurar
 // "padaria" passa a encontrar "Mercado". O ícone da situação sai da lista de enum do domínio.

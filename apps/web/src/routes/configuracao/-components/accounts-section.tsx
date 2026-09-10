@@ -3,7 +3,7 @@ import { AppCombobox } from '@/components/ui/app-combobox'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { accountsTypes, entityKinds, type AccountType, type Entity } from '@/data/types'
+import { accountsTypes, entityKinds, type AccountType, type Entity } from '@wlet/domain'
 import type { AccountProfile } from '@/lib/ingest/pipeline'
 
 const TYPE_ITEMS = accountsTypes.map((t) => ({ value: t.value, label: t.label }))

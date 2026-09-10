@@ -1,4 +1,4 @@
-import type { BudgetCadence, BudgetCategory, BudgetItem, Flow } from '@/data/types'
+import type { BudgetCadence, BudgetCategory, BudgetItem, Flow } from '@wlet/domain'
 
 /**
  * Quanto uma rubrica vale — a ÚNICA resposta a essa pergunta no app inteiro.

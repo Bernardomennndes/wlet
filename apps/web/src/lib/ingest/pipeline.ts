@@ -1,5 +1,5 @@
-import { CATEGORY_MAP } from '@/data/categories'
-import type { Account, Budget, DatasetMeta, Goal, IncomeMonth, InvestmentSnapshot, PatrimonyPoint, PlannedEntry, Receivable, Transaction, Transfer, TransferKind } from '@/data/types'
+import { CATEGORY_MAP } from '@wlet/domain'
+import type { Account, Budget, DatasetMeta, Goal, IncomeMonth, InvestmentSnapshot, PatrimonyPoint, PlannedEntry, Receivable, Transaction, Transfer, TransferKind } from '@wlet/domain'
 import { readBrokerageLedger, type BrokerageLedger } from './brokerage'
 import type { IngestEnv, SourceFile } from './io'
 import { buildInvestments, type CdiDay } from './investments'

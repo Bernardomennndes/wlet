@@ -1,7 +1,7 @@
 import { declarations } from './dataset'
-import type { Goal } from '@/data/types'
+import type { Goal } from '@wlet/domain'
 
-export type { Goal } from '@/data/types'
+export type { Goal } from '@wlet/domain'
 
 /**
  * Metas, geradas pelo `pnpm ingest` a partir de `scripts/goals.config.ts`. É configuração

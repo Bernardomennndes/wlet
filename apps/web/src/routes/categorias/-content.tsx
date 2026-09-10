@@ -13,7 +13,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { categoryColor } from '@/lib/chart-tokens'
-import { CATEGORIES, CATEGORY_MAP, categoryGroupLabel, type Category } from '@/data/categories'
+import { CATEGORIES, CATEGORY_MAP, categoryGroupLabel, type Category } from '@wlet/domain'
 import { ACCOUNT_MAP, detectRecurring, lastMonthWithData, sum, summarizeByCategory, summarizeByMerchant } from '@/lib/finance'
 import { buildCategoryForecast } from '@/lib/forecast'
 import { plannedInScope } from '@/lib/planned'

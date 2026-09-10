@@ -8,7 +8,7 @@ import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { MonthPicker } from '@/components/ui/month-picker'
 import { Textarea } from '@/components/ui/textarea'
-import type { PlanGroup } from '@/data/types'
+import type { PlanGroup } from '@wlet/domain'
 
 const MONTH = /^\d{4}-\d{2}$/
 

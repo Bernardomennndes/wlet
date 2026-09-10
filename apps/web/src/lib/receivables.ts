@@ -1,11 +1,11 @@
 import { declarations } from './dataset'
 import { dueDateOf, occursIn, settleAll, type Settlement } from './settlement'
-import type { Receivable } from '@/data/types'
+import type { Receivable } from '@wlet/domain'
 
-export type { Receivable, SettlementStatus } from '@/data/types'
+export type { Receivable, SettlementStatus } from '@wlet/domain'
 export type { Settlement } from './settlement'
 export { dueDateOf, occursIn }
-export { receivableStatuses } from '@/data/types'
+export { receivableStatuses } from '@wlet/domain'
 
 /**
  * Cobranças, geradas pelo `pnpm ingest` a partir de `scripts/receivables.config.ts`.

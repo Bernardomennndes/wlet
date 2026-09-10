@@ -1,4 +1,4 @@
-import type { Receivable } from '../src/data/types.ts'
+import type { Receivable } from '@wlet/domain'
 
 /**
  * MODELO — copie para `receivables.config.ts` (ignorado pelo git). `pnpm run setup` faz isso.

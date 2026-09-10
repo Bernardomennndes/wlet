@@ -4,7 +4,7 @@ import { AppCombobox, type SelectOption } from '@/components/ui/app-combobox'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MonthPicker } from '@/components/ui/month-picker'
-import { paymentModes, type PaymentMode, type Plan } from '@/data/types'
+import { paymentModes, type PaymentMode, type Plan } from '@wlet/domain'
 import { formatBRL } from '@/lib/format'
 import { installmentAmount, planInstallments } from '@/lib/plans'
 

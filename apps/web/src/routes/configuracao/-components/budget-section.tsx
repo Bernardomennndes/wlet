@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { MoneyInput } from '@/components/ui/money-input'
 import { Link } from 'react-router'
-import type { Budget } from '@/data/types'
+import type { Budget } from '@wlet/domain'
 
 /**
  * O teto do mês e o limiar do aviso — e SÓ eles.

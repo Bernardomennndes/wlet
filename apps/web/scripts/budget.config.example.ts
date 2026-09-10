@@ -1,4 +1,4 @@
-import type { Budget } from '../src/data/types.ts'
+import type { Budget } from '@wlet/domain'
 
 /**
  * MODELO — copie para `budget.config.ts` (ignorado pelo git). `pnpm run setup` faz isso.

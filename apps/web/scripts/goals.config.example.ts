@@ -1,4 +1,4 @@
-import type { Goal } from '../src/data/types.ts'
+import type { Goal } from '@wlet/domain'
 
 /**
  * MODELO — copie para `goals.config.ts` (ignorado pelo git). `pnpm run setup` faz isso.

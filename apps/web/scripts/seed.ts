@@ -14,7 +14,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { Account, DatasetMeta, Transaction, Transfer } from '../src/data/types.ts'
+import type { Account, DatasetMeta, Transaction, Transfer } from '@wlet/domain'
 import { BUDGET } from './budget.config.ts'
 import { GOALS } from './goals.config.ts'
 import { matchPlanned, matchReceivables } from '../src/lib/ingest/matching.ts'

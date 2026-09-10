@@ -12,7 +12,7 @@
  */
 
 /**
- * O tipo é declarado aqui, e não em `@/data/types`, porque ele não é vocabulário de domínio:
+ * O tipo é declarado aqui, e não em `@wlet/domain`, porque ele não é vocabulário de domínio:
  * é o contrato desta lista, e é dele que os `*.config` de regra dependem. Mesma posição do
  * original.
  */

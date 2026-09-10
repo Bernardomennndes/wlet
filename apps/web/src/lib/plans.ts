@@ -1,5 +1,5 @@
-import { CATEGORY_MAP } from '@/data/categories'
-import type { PaymentMode, Plan, PlanGroup, PlanStatus } from '@/data/types'
+import { CATEGORY_MAP } from '@wlet/domain'
+import type { PaymentMode, Plan, PlanGroup, PlanStatus } from '@wlet/domain'
 
 /**
  * Os planos: o catálogo de intenções de compra, guardado no navegador.
