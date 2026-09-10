@@ -26,27 +26,27 @@ dist-ssr
 # ─────────────────────────────────────────────────────────────────────────────
 # Dado pessoal. NADA daqui pode entrar num commit.
 #
-# `docs/` são os extratos e faturas crus; `src/generated/` é o que o ingest
+# `docs/` são os extratos e faturas crus; `apps/web/src/generated/` é o que o ingest
 # produz deles — e contém TODA transação: estabelecimento, valor, data,
 # descrição e conta. Os `*.config.ts` carregam nome, número de conta, salário e
 # metas — e `receivables.config.ts` nomeia quem te deve dinheiro. Cada um tem um
 # `.example` versionado com a mesma forma e dados
 # fictícios; `pnpm setup` copia os que faltarem.
 # ─────────────────────────────────────────────────────────────────────────────
-docs/
-src/generated/
+apps/web/docs/
+apps/web/src/generated/
 
 # O pacote de exportação: conjunto INTEIRO mais os extratos originais em base64.
 # É o arquivo mais sensível que este projeto produz — 18 MB com toda transação — e ele nasce
 # na raiz, onde um `git add .` o pegaria. `pnpm package` o escreve; ele nunca entra num commit.
 wlet-*.json
 
-scripts/accounts.config.ts
-scripts/rules.config.ts
-scripts/planned.config.ts
-scripts/receivables.config.ts
-scripts/goals.config.ts
-scripts/budget.config.ts
+apps/web/scripts/accounts.config.ts
+apps/web/scripts/rules.config.ts
+apps/web/scripts/planned.config.ts
+apps/web/scripts/receivables.config.ts
+apps/web/scripts/goals.config.ts
+apps/web/scripts/budget.config.ts
 
 # Ferramental local dos agentes. `.mcp.json` sai pela mesma razão que `.claude/`: é
 # configuração de ferramenta de quem trabalha aqui, não do app — e a lista nomeia um
@@ -57,3 +57,9 @@ scripts/budget.config.ts
 # daqui vieram de outro repositório e carregam nome de pacote, caminho de rota e URL de
 # Confluence de um projeto interno — material que não é deste app nem é para ser público.
 .claude/
+
+# O CACHE DO TURBO GUARDA O BUILD, e o build embute `src/generated/` — as 5.694 transações com
+# estabelecimento, valor e descrição. Num repositório público isso é o mesmo vazamento que o
+# `.gitignore` inteiro existe para evitar, só que por uma porta que o `dist` sozinho não fecha.
+.turbo/
+**/.turbo/

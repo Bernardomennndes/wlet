@@ -7,6 +7,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Controle financeiro PF + PJ. Extratos e faturas em `docs/` viram JSON em `src/data/` via script; a SPA (Vite, React 19, Tailwind v4, React Router, Recharts) só lê esses JSON. Sem banco de dados, sem backend. Modelo de dados e regras de negócio: @README.md
 
+## Monorepo
+
+O repositório é um workspace pnpm orquestrado por Turborepo, no molde da Selfie (`apps/*`,
+`packages/*`, `config/*`). Hoje há um app; a estrutura existe porque o `api` vem a seguir.
+
+- **`apps/web`** — a SPA Vite, com `src/`, `scripts/`, `docs/` e `public/`. Tudo o que era raiz
+  mora aqui; a raiz ficou com orquestração, Biome e as regras.
+- **`config/tsconfig`** (`@wlet/tsconfig`) — `base.json` e `react.json`, que todo pacote estende.
+  **`erasableSyntaxOnly` mora na base**, e é ele que proíbe parameter property, enum e namespace
+  no repositório inteiro — a razão de não haver uma classe fora dos erros.
+- **`turbo.json`** — `build` e `check` declaram `dependsOn: ["^build"]`, para um pacote nunca ser
+  compilado contra a versão anterior de outro. `dev` é `persistent` e sem cache.
+- **Formatação e testes não passam pelo turbo.** O Biome varre a árvore inteira a partir da raiz;
+  se cada pacote formatasse só a si mesmo, a raiz ficaria sem dono.
+- **Os `paths` do `@/` ficam em `apps/web/tsconfig.json`, não só no `tsconfig.app.json`.** Quem
+  os lê não é só o `tsc`: o `tsx` resolve `@/` por aquele arquivo ao rodar `scripts/checks/`, e
+  sem eles o import de `@/services` estoura em EXECUÇÃO, não em compilação — foi o que quebrou
+  os testes na mudança de lugar.
+- **O Biome só admite comentário em JSON que reconhece como `tsconfig*.json`.** As bases de
+  `config/tsconfig` carregam as explicações de cada flag, então há um `override` no `biome.json`
+  ligando `allowComments` para elas.
+- A Vercel constrói com `pnpm --filter @wlet/web run setup && pnpm build`, e o `outputDirectory`
+  aponta para `apps/web/dist`.
+
 ## Comandos
 
 - `scripts/seed.ts` roda o MESMO casamento do ingest (`src/lib/ingest/matching.ts`) antes de gravar, e os `*.config.example.ts` declaram os nomes que ele inventa. Sem isso o dataset fictício nasce sem `plannedId` nem `receivableId`, e um clone novo abre a tela de Pagamentos dizendo que nove meses de aluguel estão vencidos — num conjunto que paga o aluguel todo mês. Mudou um estabelecimento no seed? O `.example` acompanha.
