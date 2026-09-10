@@ -430,11 +430,46 @@ export interface Receivable {
  * `quantity` é fracionário de propósito — meio quilo de suplemento por mês é uma quantidade
  * legítima, e arredondá-la para 1 mentiria sobre o consumo.
  */
+/**
+ * Com que frequência o item é consumido. Ausente significa MENSAL.
+ *
+ * A ausência é o padrão de propósito: todo item escrito antes desta opção existir descrevia um
+ * consumo mensal, e lê-lo como mensal preserva o valor dele sem migração nenhuma — a mesma
+ * razão pela qual tornar mês e forma de pagamento opcionais num plano não pediu uma versão
+ * nova do envelope. Migração cuja regra é a identidade só acrescenta um ramo que apodrece.
+ */
+export type BudgetCadence = 'day' | 'week' | 'month'
+
+/**
+ * As cadências como a pessoa as lê — declaradas AQUI, ao lado do tipo, e não na tela que as
+ * desenha primeiro. É a §1 da `enum-display`: com o rótulo montado no JSX, acrescentar um
+ * valor ao tipo não quebraria nada e a segunda tela a exibi-lo escreveria outra grafia.
+ *
+ * O rótulo é a forma CURTA ("/semana"), porque ele vive dentro da linha de um item, ao lado de
+ * quantidade, unidade e preço — "por semana" gastaria o dobro da largura para dizer o mesmo.
+ * A forma longa fica em `labelPlural`, para quem precisar dela numa legenda.
+ */
+export const budgetCadences: EnumOption<BudgetCadence>[] = [
+  { value: 'day', label: '/dia', labelPlural: 'Todo dia', tone: 'neutral' },
+  { value: 'week', label: '/semana', labelPlural: 'Toda semana', tone: 'neutral' },
+  { value: 'month', label: '/mês', labelPlural: 'Todo mês', tone: 'neutral' },
+]
+
 export interface BudgetItem {
   label: string
   quantity: number
-  /** Preço de UMA unidade. O que entra na conta é `quantity * unitAmount`. */
+  /** Preço de UMA unidade — de um quilo, de um pote, de uma dose. */
   unitAmount: number
+  /**
+   * A unidade da quantidade: `kg`, `un`, `L`, `dose`, o que descrever a compra.
+   *
+   * É TEXTO LIVRE e não uma lista fechada. Uma lista teria de adivinhar de antemão tudo o que
+   * cabe numa dieta — grama, dose, sachê, bandeja — e a primeira ausência obrigaria a pessoa a
+   * mentir sobre o que compra. Ela não entra em conta nenhuma: é rótulo, e serve para o número
+   * continuar legível daqui a três meses.
+   */
+  unit?: string
+  cadence?: BudgetCadence
 }
 
 export interface BudgetCategory {

@@ -4,12 +4,11 @@ import { DataList, DataListField, DataListItem, DataListItemFields, DataListItem
 import { NotInformed } from '@/components/not-informed'
 import { BarProgress } from '@/components/ui/bar-progress'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { MoneyInput } from '@/components/ui/money-input'
+import { RubricItemRow } from './rubric-item-row'
 import type { BudgetCategory, BudgetItem } from '@/data/types'
-import { BUDGET, budgetState, type BudgetState } from '@/lib/budget'
-import { formatBRL, formatMonthLongLabel, formatPercent } from '@/lib/format'
-import { itemAmount } from '@/lib/rubric'
+import { BUDGET, BUDGET_STATE, budgetState } from '@/lib/budget'
+import { formatBRL, formatPercent } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 export interface Rubric {
@@ -21,16 +20,15 @@ export interface Rubric {
   items?: BudgetItem[]
 }
 
-/** A mesma tradução de situação em cor do cartão de orçamento — uma régua só nas duas telas. */
-const BAR_COLOR: Record<BudgetState, string> = {
-  ok: 'var(--series-expense)',
-  warning: 'var(--status-warning)',
-  over: 'var(--status-critical)',
-}
-
 interface Props {
   rubrics: Rubric[]
-  month: string
+  /**
+   * A janela JÁ COM a preposição: "em setembro de 2026" ou "de 31 ago a 06 set".
+   *
+   * Ela vem pronta porque a regência muda com a base — um intervalo em português pede
+   * "de … a …", não "em … a …" —, e quem sabe qual é a janela é a tela. A lista só interpola.
+   */
+  windowLabel: string
   disabled: boolean
   onChange: (categoryId: string, patch: Partial<BudgetCategory>) => void
   onRemove: (categoryId: string) => void
@@ -56,7 +54,7 @@ interface Props {
  * estoura o trilho não tem como ser comparada com a da rubrica vizinha — mesma decisão do
  * cartão de orçamento da Visão geral.
  */
-export function RubricList({ rubrics, month, disabled, onChange, onRemove }: Props) {
+export function RubricList({ rubrics, windowLabel, disabled, onChange, onRemove }: Props) {
   if (rubrics.length === 0) {
     return <NotInformed>Nenhuma rubrica declarada</NotInformed>
   }
@@ -78,14 +76,17 @@ export function RubricList({ rubrics, month, disabled, onChange, onRemove }: Pro
             <DataListItemHeader>
               <CategoryBadge value={rubric.categoryId} />
               <div className="flex items-center gap-2">
-                <span className={cn('tabular-nums', state === 'over' && 'text-[var(--status-critical)]', state === 'warning' && 'text-[var(--status-warning-text)]')}>{formatPercent(share, 0)}</span>
+                {/* A cor sai da lista única de `BudgetState`, e não de um ternário local: era
+                    assim que `--status-warning-text` — token que nunca existiu — sobrevivia
+                    aqui deixando "perto do limite" sem cor nenhuma. */}
+                <span className={cn('tabular-nums', BUDGET_STATE[state].text)}>{formatPercent(share, 0)}</span>
                 {/* Com composição o total vira TEXTO: um campo desabilitado convida a editar o
                     que não se edita, e aqui o total é consequência da lista abaixo. */}
                 {composed ? (
                   <span className="w-32 text-right font-mono tabular-nums">{formatBRL(rubric.amount)}</span>
                 ) : (
                   <div className="w-32">
-                    <MoneyInput value={rubric.amount} disabled={disabled} onValueChange={(v) => onChange(rubric.categoryId, { amount: v ?? 0 })} />
+                    <MoneyInput aria-label={`Planejado para ${rubric.label}`} value={rubric.amount} disabled={disabled} onValueChange={(v) => onChange(rubric.categoryId, { amount: v })} />
                   </div>
                 )}
                 <Button
@@ -97,7 +98,7 @@ export function RubricList({ rubrics, month, disabled, onChange, onRemove }: Pro
                       ? // Largar a composição PRESERVA o total: desfazer não é apagar.
                         onChange(rubric.categoryId, { items: undefined, amount: rubric.amount })
                       : // E detalhar herda o valor que já existia, pelo mesmo motivo.
-                        onChange(rubric.categoryId, { items: [{ label: 'Novo item', quantity: 1, unitAmount: rubric.amount }] })
+                        onChange(rubric.categoryId, { items: [{ label: '', quantity: 1, unitAmount: rubric.amount }] })
                   }
                 >
                   <ListBullets /> {composed ? 'Usar valor único' : 'Detalhar'}
@@ -111,14 +112,14 @@ export function RubricList({ rubrics, month, disabled, onChange, onRemove }: Pro
             <BarProgress
               value={Math.min(rubric.spent, rubric.amount)}
               max={rubric.amount}
-              color={BAR_COLOR[state]}
+              color={BUDGET_STATE[state].bar}
               getAriaValueText={() => `${formatBRL(rubric.spent)} de ${formatBRL(rubric.amount)}`}
             >
               <span className="sr-only">{rubric.label}</span>
             </BarProgress>
 
             <DataListItemFields>
-              <DataListField label={`Gasto em ${formatMonthLongLabel(month).toLowerCase()}`} separator={false}>
+              <DataListField label={`Gasto ${windowLabel}`} separator={false}>
                 {formatBRL(rubric.spent)}
               </DataListField>
               <DataListField label="Planejado">{formatBRL(rubric.amount)}</DataListField>
@@ -127,46 +128,31 @@ export function RubricList({ rubrics, month, disabled, onChange, onRemove }: Pro
 
             {/* O rail à esquerda diz "isto pertence à rubrica de cima" sem moldura nem título. */}
             {composed && (
-              <ul className="border-border ml-1 space-y-2 border-l pl-3">
+              /*
+                Rola na horizontal em vez de espremer: a linha tem seis colunas de largura
+                declarada, e deixá-las encolher faria "R$ 1.000,00" caber em 60px. É a mesma
+                saída da `TransactionTable`, e o `pb-1` reserva o trilho da barra de rolagem
+                para ela não cobrir a última linha.
+              */
+              <ul className="border-border ml-1 space-y-2 overflow-x-auto border-l pb-1 pl-3">
                 {items.map((item, index) => (
                   // Chave por índice porque o item não tem id e o rótulo é editável: com o
                   // rótulo na chave, digitar uma letra remontaria a linha e o foco saltaria do
                   // campo a cada tecla.
                   // biome-ignore lint/suspicious/noArrayIndexKey: ver acima
-                  <li key={index} className="flex flex-wrap items-center gap-2">
-                    <Input className="w-44" disabled={disabled} value={item.label} aria-label="Nome do item" onChange={(e) => setItem(index, { label: e.target.value })} />
-                    <Input
-                      type="number"
-                      min={0}
-                      step="any"
-                      className="w-20"
+                  <li key={index}>
+                    <RubricItemRow
+                      item={item}
                       disabled={disabled}
-                      value={item.quantity}
-                      aria-label={`Quantidade de ${item.label}`}
-                      onChange={(e) => setItem(index, { quantity: Number(e.target.value) || 0 })}
+                      onChange={(patch) => setItem(index, patch)}
+                      onRemove={() => onChange(rubric.categoryId, { items: items.filter((_, i) => i !== index) })}
+                      canRemove={items.length > 1}
                     />
-                    <span className="text-muted-foreground">×</span>
-                    <div className="w-32">
-                      <MoneyInput value={item.unitAmount} disabled={disabled} onValueChange={(v) => setItem(index, { unitAmount: v ?? 0 })} />
-                    </div>
-                    <span className="text-muted-foreground">=</span>
-                    <span className="font-mono tabular-nums">{formatBRL(itemAmount(item))}</span>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      // O ÚLTIMO item não sai: composição vazia somaria zero e a rubrica
-                      // sumiria da previsão sem nada dizer. Para largar a composição existe
-                      // "Usar valor único", que preserva o total.
-                      disabled={disabled || items.length === 1}
-                      aria-label={`Remover ${item.label}`}
-                      onClick={() => onChange(rubric.categoryId, { items: items.filter((_, i) => i !== index) })}
-                    >
-                      <Trash />
-                    </Button>
                   </li>
                 ))}
                 <li>
-                  <Button size="sm" variant="outline" disabled={disabled} onClick={() => onChange(rubric.categoryId, { items: [...items, { label: 'Novo item', quantity: 1, unitAmount: 0 }] })}>
+                  {/* Nasce VAZIO: sem nome, sem quantidade, sem preço. Quem preenche é quem sabe. */}
+                  <Button size="sm" variant="ghost" disabled={disabled} onClick={() => onChange(rubric.categoryId, { items: [...items, { label: '', quantity: 0, unitAmount: 0 }] })}>
                     <Plus /> Adicionar item
                   </Button>
                 </li>
