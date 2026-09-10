@@ -48,6 +48,7 @@ export const CATEGORIES: Category[] = [
   { id: 'mercado', label: 'Mercado', kind: 'expense', group: 'essentials', description: 'Supermercados, padarias e hortifruti' },
   { id: 'transporte', label: 'Transporte', kind: 'expense', group: 'essentials', description: 'Uber, combustível e deslocamentos' },
   { id: 'saude', label: 'Saúde e bem-estar', kind: 'expense', group: 'essentials', description: 'Plano de saúde, farmácia, academia' },
+  { id: 'suplementacao', label: 'Suplementação', kind: 'expense', group: 'essentials', description: 'Whey, creatina, vitaminas e o que a dieta pede' },
   { id: 'telefonia', label: 'Telefonia', kind: 'expense', group: 'essentials', description: 'Recargas e operadora' },
   { id: 'educacao', label: 'Educação', kind: 'expense', group: 'essentials', description: 'Cursos e escolas de idioma' },
   { id: 'pets', label: 'Pets', kind: 'expense', group: 'essentials', description: 'Pet shop e veterinário' },

@@ -86,7 +86,9 @@ export const BASE_RULES: Rule[] = [
   // ---- Saúde ----
   { id: 'manual', test: /MANUAL SAUDE|MANUAL ASSINATUR/, category: 'saude', merchant: 'Manual (saúde)' },
   { id: 'academia', test: /WELLHUB|GYMPASS|ACADEMIA|SMART ?FIT/, category: 'saude', merchant: 'Academia' },
-  { id: 'suplementos', test: /GROWTH SUPPLEMENTS|SUPLEMENTOS/, category: 'saude' },
+  // Suplementação saiu de `saude`: quem faz dieta planeja os dois separadamente, e somados
+  // numa categoria só a rubrica de um esconde o estouro do outro.
+  { id: 'suplementos', test: /GROWTH SUPPLEMENTS|SUPLEMENTOS|MAX ?TITANIUM|INTEGRALMEDICA|PROBIOTICA|DARKNESS|NUTRATA|BLACK ?SKULL|WHEY|CREATINA/, category: 'suplementacao', merchant: 'Suplementos' },
   { id: 'consulta', test: /CLINICA|LABORATORIO DE ANALISES|ODONTO|HOSPITAL|PLANO DE SAUDE|UNIMED/, category: 'saude' },
 
   // ---- Pets ----
