@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { decode, encode, fromJson, toJson } from '../../src/lib/portable.ts'
+import { decode, encode, fromJson, toJson } from '@wlet/lib/portable'
 
 /**
  * A ida e volta do arquivo exportado. O caso que motiva o módulo é a expressão regular:

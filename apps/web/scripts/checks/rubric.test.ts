@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { BudgetCategory } from '@wlet/domain'
-import { hasComposition, itemAmount, itemAmountPerCadence, monthRange, rubricAmount, rubricSpent, weekRange } from '../../src/lib/rubric.ts'
+import { hasComposition, itemAmount, itemAmountPerCadence, monthRange, rubricAmount, rubricSpent, weekRange } from '@wlet/domain/rubric'
 
 describe('valor de uma rubrica', () => {
   it('sem composição, vale o número digitado', () => {

@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@wlet/ui/components/tooltip'
 import { planStatuses, type Plan, type PlanGroup } from '@wlet/domain'
 import { formatBRL, formatMonthShort } from '@wlet/lib/format'
-import { planTotal } from '@/lib/plans'
+import { planTotal } from '@wlet/domain/plans'
 import { cn } from '@wlet/lib/utils'
 import { InstallmentsCell, MonthCell, PaymentCell } from './plan-row-controls'
 

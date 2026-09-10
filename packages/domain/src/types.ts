@@ -559,3 +559,28 @@ export interface PlannedEntry {
    */
   match?: MatchRule
 }
+
+/**
+ * O recorte da leitura: consolidado, pessoa física ou pessoa jurídica.
+ *
+ * Mora no vocabulário e não em `finance.ts` porque quem o consome não é só quem calcula — os
+ * serviços de preferências o guardam, e um pacote que precisa do TIPO não pode arrastar junto o
+ * módulo que lê o conjunto de dados inteiro. É a mesma razão de `Flow` estar aqui.
+ */
+export type Scope = 'all' | 'PF' | 'PJ'
+
+/** A janela de meses do cabeçalho, nas duas pontas inclusivas. */
+export interface Period {
+  from: string // AAAA-MM
+  to: string // AAAA-MM
+}
+
+/**
+ * Os ajustes manuais de categoria, por id de transação.
+ *
+ * A chave é o id determinístico que o ingest calcula — um `sha1` de sete campos. É por isso que
+ * uma divergência de um byte naquele cálculo apaga todo ajuste em silêncio.
+ */
+export interface Overrides {
+  [transactionId: string]: string
+}

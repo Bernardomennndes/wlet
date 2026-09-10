@@ -3,9 +3,9 @@ import type { EnumOption, Plan } from '@wlet/domain'
 import type { ViewTransaction } from './finance'
 import { shiftMonth, toCents } from './finance'
 import { BUDGET } from './budget'
-import { rubricAmount } from './rubric'
+import { rubricAmount } from '@wlet/domain/rubric'
 import { amountAt, dueDateOf, occursIn, pendingIn, settlePlanned, type PlannedEntry } from './planned'
-import { installmentAmount, planInstallments, planMonths, planOccursIn } from './plans'
+import { installmentAmount, planInstallments, planMonths, planOccursIn } from '@wlet/domain/plans'
 import { dueDateOf as receivableDueDateOf, occursIn as receivableOccursIn, settle, type Receivable } from './receivables'
 
 /**

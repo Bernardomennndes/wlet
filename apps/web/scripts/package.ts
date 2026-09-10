@@ -18,7 +18,7 @@
  */
 import { existsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { toBase64, toJson } from '../src/lib/portable.ts'
+import { toBase64, toJson } from '@wlet/lib/portable'
 import { runIngest, type AccountProfile } from '@wlet/ingest/pipeline'
 import { buildRules } from '@wlet/ingest/rules'
 import { ACCOUNT_PROFILES, SELF_NAME_PATTERNS } from './accounts.config.ts'

@@ -9,7 +9,7 @@ import { QuantityInput } from '@wlet/ui/components/quantity-input'
 import { budgetCadences, type BudgetCadence, type BudgetItem } from '@wlet/domain'
 import { formatBRL } from '@wlet/lib/format'
 import { useFieldDraft } from '@/hooks/use-field-draft'
-import { itemAmount } from '@/lib/rubric'
+import { itemAmount } from '@wlet/domain/rubric'
 
 /** Do enum para o que o `AppCombobox` recebe — a mesma conversão de `plan-row-controls`. */
 const CADENCE_OPTIONS = budgetCadences.map((cadence) => ({ value: cadence.value, label: cadence.label, description: cadence.labelPlural }))

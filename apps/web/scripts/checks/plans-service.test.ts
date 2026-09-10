@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { makePlansService } from '../../src/services/plans/application/plans.service.ts'
-import { InvalidPlanError, PlanGroupNotFoundError, PlanNotFoundError } from '../../src/services/plans/domain/errors/index.ts'
-import { makeFakePlanRepository, makeSequentialIds } from '../../src/services/plans/test-support/fake-plan-repository.ts'
+import { makePlansService } from '@wlet/services/plans/application/plans.service'
+import { InvalidPlanError, PlanGroupNotFoundError, PlanNotFoundError } from '@wlet/services/plans/domain/errors/index'
+import { makeFakePlanRepository, makeSequentialIds } from '@wlet/services/plans/test-support/fake-plan-repository'
 
 /**
  * O serviço de planos sobre fakes in-memory (§9 da rule de serviços).

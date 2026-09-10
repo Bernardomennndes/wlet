@@ -3,7 +3,7 @@ import { Button } from '@wlet/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
 import type { Plan, PlanGroup } from '@wlet/domain'
 import { formatBRL, formatMonthShort, plural } from '@wlet/lib/format'
-import { installmentAmount, planMonths, planTotal, scheduledPlans } from '@/lib/plans'
+import { installmentAmount, planMonths, planTotal, scheduledPlans } from '@wlet/domain/plans'
 import { cn } from '@wlet/lib/utils'
 
 /**

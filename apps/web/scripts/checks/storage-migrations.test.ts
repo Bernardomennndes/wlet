@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { makeLocalStorageOverrideRepository } from '../../src/services/overrides/infrastructure/local-storage-override.adapter.ts'
-import { makeLocalStoragePreferencesRepository } from '../../src/services/preferences/infrastructure/local-storage-preferences.adapter.ts'
-import { volatileStorage } from '../../src/services/shared/infrastructure/local-storage.driver.ts'
+import { makeLocalStorageOverrideRepository } from '@wlet/services/overrides/infrastructure/local-storage-override.adapter'
+import { makeLocalStoragePreferencesRepository } from '@wlet/services/preferences/infrastructure/local-storage-preferences.adapter'
+import { volatileStorage } from '@wlet/services/shared/infrastructure/local-storage.driver'
 
 /**
  * As migrações de formato, que são o modo de falha mais caro desta camada inteira.

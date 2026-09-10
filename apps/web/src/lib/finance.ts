@@ -1,13 +1,16 @@
 import { dataset } from './dataset'
 import { CATEGORY_MAP } from '@wlet/domain'
 import { offsetCategoryOf } from './receivables'
-import type { Account, DatasetMeta, Flow, Transaction, Transfer } from '@wlet/domain'
+import type { Account, DatasetMeta, Flow, Overrides, Period, Scope, Transaction, Transfer } from '@wlet/domain'
 
 // `Flow` e `flowKinds` moram em `@wlet/domain` com os outros pares de enum; reexportados
 // aqui porque este é o módulo que decide o fluxo de uma transação e quase todo consumidor
 // chega por ele.
 export type { Flow }
 export { flowKinds } from '@wlet/domain'
+// `Scope`, `Period` e `Overrides` moram no vocabulário pelo mesmo motivo de `Flow`, e são
+// reexportados aqui porque quase todo consumidor chega por este módulo.
+export type { Overrides, Period, Scope } from '@wlet/domain'
 
 const data = dataset()
 
@@ -17,13 +20,6 @@ export const TRANSFERS: Transfer[] = data.transfers
 export const META: DatasetMeta = data.meta
 
 export const ACCOUNT_MAP: Record<string, Account> = Object.fromEntries(ACCOUNTS.map((a) => [a.id, a]))
-
-export type Scope = 'all' | 'PF' | 'PJ'
-
-export interface Period {
-  from: string // AAAA-MM
-  to: string // AAAA-MM
-}
 
 export function accountInScope(accountId: string, scope: Scope): boolean {
   if (scope === 'all') return true
@@ -150,10 +146,6 @@ export interface ViewTransaction extends Transaction {
   flow: Flow
   displayCategoryId: string
   month: string
-}
-
-export interface Overrides {
-  [transactionId: string]: string
 }
 
 /** Transações do recorte e período, já com fluxo e categoria resolvidos. */

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { makePreferencesService } from '../../src/services/preferences/application/preferences.service.ts'
-import { InvalidPeriodError } from '../../src/services/preferences/domain/errors/index.ts'
-import { makeFakePreferencesRepository } from '../../src/services/preferences/test-support/fake-preferences-repository.ts'
+import { makePreferencesService } from '@wlet/services/preferences/application/preferences.service'
+import { InvalidPeriodError } from '@wlet/services/preferences/domain/errors/index'
+import { makeFakePreferencesRepository } from '@wlet/services/preferences/test-support/fake-preferences-repository'
 
 const setup = (inicial?: Parameters<typeof makeFakePreferencesRepository>[0]) => {
   const repository = makeFakePreferencesRepository(inicial)

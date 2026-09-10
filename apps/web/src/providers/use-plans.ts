@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react'
 import type { Plan, PlanGroup } from '@wlet/domain'
-import type { PlansData } from '@/lib/plans'
+import type { PlansData } from '@wlet/domain/plans'
 
 export interface PlansValue {
   groups: PlanGroup[]

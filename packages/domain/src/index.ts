@@ -8,3 +8,8 @@
  */
 export * from './types'
 export * from './categories'
+// As REGRAS puras do domínio entram aqui também: `plans` e `rubric` operam sobre os tipos
+// acima e não leem armazenamento nenhum. Foi essa pureza que permitiu tirá-las do app — os
+// serviços precisavam delas e não podiam depender de quem lê o conjunto de dados.
+export * from './plans'
+export * from './rubric'

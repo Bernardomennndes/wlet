@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { makeConfigService } from '../../src/services/config/application/config.service.ts'
-import { InvalidConfigError } from '../../src/services/config/domain/errors/index.ts'
-import { makeFakeConfigRepository, makeFakeSeed, seedConfig } from '../../src/services/config/test-support/fake-config-repository.ts'
+import { makeConfigService } from '@wlet/services/config/application/config.service'
+import { InvalidConfigError } from '@wlet/services/config/domain/errors/index'
+import { makeFakeConfigRepository, makeFakeSeed, seedConfig } from '@wlet/services/config/test-support/fake-config-repository'
 
 function setup(saved = null as null | ReturnType<typeof seedConfig>) {
   const repository = makeFakeConfigRepository(saved)

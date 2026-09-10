@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { makeDatasetService } from '../../src/services/dataset/application/dataset.service.ts'
-import { IncompleteDatasetError, NoSourcesError } from '../../src/services/dataset/domain/errors/index.ts'
+import { makeDatasetService } from '@wlet/services/dataset/application/dataset.service'
+import { IncompleteDatasetError, NoSourcesError } from '@wlet/services/dataset/domain/errors/index'
 import {
   makeBrokenDatasetRepository,
   makeBrokenRunner,
@@ -10,7 +10,7 @@ import {
   makeFakeSeed,
   makeFakeSourceStore,
   seedDataset,
-} from '../../src/services/dataset/test-support/fake-dataset-repository.ts'
+} from '@wlet/services/dataset/test-support/fake-dataset-repository'
 
 describe('serviço do conjunto ingerido', () => {
   it('sem nada gravado, abre pela semente', async () => {

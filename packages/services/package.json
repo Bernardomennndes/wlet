@@ -1,0 +1,28 @@
+{
+  "name": "@wlet/services",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./backup": "./src/backup.ts",
+    "./config": "./src/config/index.ts",
+    "./dataset": "./src/dataset/index.ts",
+    "./overrides": "./src/overrides/index.ts",
+    "./plans": "./src/plans/index.ts",
+    "./preferences": "./src/preferences/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "type:check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@wlet/domain": "workspace:*",
+    "@wlet/ingest": "workspace:*",
+    "@wlet/lib": "workspace:*"
+  },
+  "devDependencies": {
+    "@wlet/tsconfig": "workspace:*",
+    "typescript": "~6.0.2"
+  }
+}

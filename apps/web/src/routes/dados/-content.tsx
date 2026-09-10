@@ -6,10 +6,10 @@ import { useDocumentTitle } from '@/hooks/use-document-title'
 import type { SourceFile } from '@wlet/ingest/io'
 import type { IngestReport } from '@wlet/ingest/pipeline'
 import { preloaded } from '@/providers/preloaded'
-import { exportState, importState, inspectPackage, type ImportSummary, type PackageContents, type PackagePart } from '@/services/backup'
+import { exportState, importState, inspectPackage, type ImportSummary, type PackageContents, type PackagePart } from '@wlet/services/backup'
 import { ImportDialog } from './-components/import-dialog'
-import { services } from '@/services'
-import { requestPersistence, storageEstimate } from '@/lib/db'
+import { services } from '@wlet/services'
+import { requestPersistence, storageEstimate } from '@wlet/services/shared/infrastructure/db'
 
 /**
  * De onde vêm os dados, e como trocá-los — sem terminal.

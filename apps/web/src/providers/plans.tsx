@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import type { Plan, PlanGroup } from '@wlet/domain'
-import { decidedPlans, type PlansData } from '@/lib/plans'
-import { services } from '@/services'
+import { decidedPlans, type PlansData } from '@wlet/domain/plans'
+import { services } from '@wlet/services'
 import { preloaded } from './preloaded'
 import { PlansContext, type PlansValue } from './use-plans'
 

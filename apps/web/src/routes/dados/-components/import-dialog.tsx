@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Button } from '@wlet/ui/components/button'
 import { Checkbox } from '@wlet/ui/components/checkbox'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@wlet/ui/components/dialog'
-import { PACKAGE_PARTS, type PackageContents, type PackagePart } from '@/services/backup'
+import { PACKAGE_PARTS, type PackageContents, type PackagePart } from '@wlet/services/backup'
 
 /**
  * O que cada parte contém, em português, para a escolha ser informada.

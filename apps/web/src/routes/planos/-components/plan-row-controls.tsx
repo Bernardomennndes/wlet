@@ -6,7 +6,7 @@ import { Input } from '@wlet/ui/components/input'
 import { MonthPicker } from '@wlet/ui/components/month-picker'
 import { paymentModes, type PaymentMode, type Plan } from '@wlet/domain'
 import { formatBRL } from '@wlet/lib/format'
-import { installmentAmount, planInstallments } from '@/lib/plans'
+import { installmentAmount, planInstallments } from '@wlet/domain/plans'
 
 /**
  * As células de edição de uma linha da lista de planos.

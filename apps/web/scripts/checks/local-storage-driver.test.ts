@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import type { EnvelopeSpec } from '../../src/services/shared/envelope.ts'
-import { makeLocalStorageDriver, volatileStorage } from '../../src/services/shared/infrastructure/local-storage.driver.ts'
+import type { EnvelopeSpec } from '@wlet/services/shared/envelope'
+import { makeLocalStorageDriver, volatileStorage } from '@wlet/services/shared/infrastructure/local-storage.driver'
 
 const spec: EnvelopeSpec<{ n: number }> = {
   version: 1,

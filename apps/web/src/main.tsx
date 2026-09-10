@@ -1,6 +1,6 @@
 import { setDataset, setDeclarations } from './lib/dataset'
 import { setPreloaded } from './providers/preloaded'
-import { services } from './services'
+import { services } from '@wlet/services'
 import './index.css'
 
 /**

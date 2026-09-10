@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { makeOverridesService } from '../../src/services/overrides/application/overrides.service.ts'
-import { UnknownCategoryError } from '../../src/services/overrides/domain/errors/index.ts'
-import { makeFakeOverrideRepository } from '../../src/services/overrides/test-support/fake-override-repository.ts'
+import { makeOverridesService } from '@wlet/services/overrides/application/overrides.service'
+import { UnknownCategoryError } from '@wlet/services/overrides/domain/errors/index'
+import { makeFakeOverrideRepository } from '@wlet/services/overrides/test-support/fake-override-repository'
 
 const setup = (inicial = {}) => {
   const repository = makeFakeOverrideRepository(inicial)

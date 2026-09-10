@@ -1,7 +1,7 @@
 import type { Overrides } from '@/lib/finance'
-import { emptyPlans, type PlansData } from '@/lib/plans'
-import type { DatasetOrigin } from '@/services/dataset'
-import type { Preferences } from '@/services/preferences'
+import { emptyPlans, type PlansData } from '@wlet/domain/plans'
+import type { DatasetOrigin } from '@wlet/services/dataset'
+import type { Preferences } from '@wlet/services/preferences'
 
 /**
  * O que o boot já carregou para os providers lerem SÍNCRONO.

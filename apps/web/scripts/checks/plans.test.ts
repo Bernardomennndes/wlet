@@ -13,7 +13,7 @@ import {
   savingOf,
   scheduledPlans,
   PLANS_VERSION,
-} from '../../src/lib/plans.ts'
+} from '@wlet/domain/plans'
 import type { Plan } from '@wlet/domain'
 
 /**

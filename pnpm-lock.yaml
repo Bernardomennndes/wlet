@@ -41,6 +41,9 @@ importers:
       '@wlet/lib':
         specifier: workspace:*
         version: link:../../packages/lib
+      '@wlet/services':
+        specifier: workspace:*
+        version: link:../../packages/services
       '@wlet/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -142,6 +145,25 @@ importers:
       cn:
         specifier: ^0.2.5
         version: 0.2.5
+    devDependencies:
+      '@wlet/tsconfig':
+        specifier: workspace:*
+        version: link:../../config/tsconfig
+      typescript:
+        specifier: ~6.0.2
+        version: 6.0.3
+
+  packages/services:
+    dependencies:
+      '@wlet/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@wlet/ingest':
+        specifier: workspace:*
+        version: link:../ingest
+      '@wlet/lib':
+        specifier: workspace:*
+        version: link:../lib
     devDependencies:
       '@wlet/tsconfig':
         specifier: workspace:*

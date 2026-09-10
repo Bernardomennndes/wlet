@@ -24,6 +24,7 @@
     "@wlet/domain": "workspace:*",
     "@wlet/ingest": "workspace:*",
     "@wlet/lib": "workspace:*",
+    "@wlet/services": "workspace:*",
     "@wlet/ui": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.2.5",
