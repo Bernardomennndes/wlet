@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { services } from '@/services'
 import { preloaded } from './preloaded'
-import { META, isMonth, lastMonthWithData, monthsBetween, projectionHorizon, selectTransactions, type Overrides, type Period, type Scope } from '@/lib/finance'
+import { META, firstMonthWithData, isMonth, lastMonthWithData, monthsBetween, projectionHorizon, selectTransactions, type Overrides, type Period, type Scope } from '@/lib/finance'
 import { FiltersContext, type FiltersValue } from './use-filters'
 
 /**
@@ -15,11 +15,14 @@ import { FiltersContext, type FiltersValue } from './use-filters'
 function defaultPeriod(): Period {
   const all = META.months
   const to = projectionHorizon()
-  const [y, m] = all[all.length - 1].split('-').map(Number)
+  // `lastMonthWithData()` e não `all[all.length - 1]`: sem lançamento nenhum o segundo é
+  // `undefined` e derruba o app no primeiro render, enquanto o primeiro recua para o mês
+  // corrente. Um conjunto vazio é estado legítimo aqui — clone novo, navegador limpo.
+  const [y, m] = lastMonthWithData().split('-').map(Number)
   const fromDate = new Date(Date.UTC(y, m - 1 - 8, 1))
   const from = `${fromDate.getUTCFullYear()}-${String(fromDate.getUTCMonth() + 1).padStart(2, '0')}`
   // Extratos bancários começam em 2026-01; antes disso só há faturas parciais.
-  const floor = all.find((x) => x >= '2026-01') ?? all[0]
+  const floor = all.find((x) => x >= '2026-01') ?? firstMonthWithData()
   return { from: from < floor ? floor : from, to }
 }
 
@@ -61,7 +64,7 @@ const MAX_MONTHS = 120
  */
 function clampPeriod(p: Period): Period {
   const ordered = p.from <= p.to ? p : { from: p.to, to: p.from }
-  const floor = META.months[0]
+  const floor = firstMonthWithData()
   // Sem interseção nenhuma não há o que encaixar: o período pedido termina antes do primeiro
   // lançamento, então fica inteiro fora.
   if (ordered.to < floor) return defaultPeriod()
@@ -131,7 +134,7 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
 
   const months = useMemo(() => monthsBetween(period.from, period.to), [period])
   const transactions = useMemo(() => selectTransactions(scope, period, overrides), [scope, period, overrides])
-  const history = useMemo(() => selectTransactions(scope, { from: META.months[0], to: lastMonthWithData() }, overrides), [scope, overrides])
+  const history = useMemo(() => selectTransactions(scope, { from: firstMonthWithData(), to: lastMonthWithData() }, overrides), [scope, overrides])
 
   const value = useMemo<FiltersValue>(
     () => ({ scope, setScope, period, setPeriod, months, monthsWithData: META.months, overrides, setOverride, transactions, history }),

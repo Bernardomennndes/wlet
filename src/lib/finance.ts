@@ -92,9 +92,22 @@ export function monthsBetween(from: string, to: string): string[] {
   return out
 }
 
-/** Último mês que tem lançamentos no conjunto, independente do período selecionado. */
+/**
+ * Último mês que tem lançamentos no conjunto, independente do período selecionado.
+ *
+ * Sem lançamento NENHUM — clone novo, navegador vazio, `src/generated/` ausente — ele devolve
+ * o mês corrente. É o único mês que se pode afirmar nessa situação, e ele mantém coerentes as
+ * três coisas derivadas daqui: a data de corte entre medido e previsto, o horizonte de projeção
+ * e o piso do período. Devolver `undefined` fazia `projectionHorizon()` chamar `.slice` no nada
+ * e derrubava o app inteiro, quando o certo é abrir vazio e mandar a pessoa para "Meus dados".
+ */
 export function lastMonthWithData(): string {
-  return META.months[META.months.length - 1]
+  return META.months[META.months.length - 1] ?? new Date().toISOString().slice(0, 7)
+}
+
+/** O primeiro mês com lançamentos, com o mesmo recuo do último quando não há nenhum. */
+export function firstMonthWithData(): string {
+  return META.months[0] ?? lastMonthWithData()
 }
 
 /**
