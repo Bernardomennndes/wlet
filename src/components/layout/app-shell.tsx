@@ -2,11 +2,12 @@ import { Moon, Sun } from '@phosphor-icons/react'
 import { Suspense, useCallback, useMemo } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { Breadcrumbs } from '@/components/breadcrumbs'
+import { EmptyDatasetBanner } from '@/components/empty-dataset-banner'
 import { HidingSquaresIcon } from '@/components/hiding-squares-icon'
 import { NAV } from '@/components/layout/nav'
 import { Button } from '@/components/ui/button'
 import { ButtonGroup, ButtonGroupText } from '@/components/ui/button-group'
-import { META } from '@/lib/finance'
+import { firstMonthWithData } from '@/lib/finance'
 import { MonthPicker } from '@/components/ui/month-picker'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -56,7 +57,7 @@ export function AppShell() {
   const { scope, setScope, period, setPeriod, monthsWithData } = useFilters()
   // O piso do seletor é o MESMO do `clampPeriod`: escolher antes do primeiro lançamento
   // seria corrigido em silêncio, e um limite que existe tem de ser visível onde se escolhe.
-  const firstMonth = META.months[0]
+  const firstMonth = firstMonthWithData()
   const { theme, toggleTheme } = useTheme()
   const { pathname } = useLocation()
 
@@ -197,6 +198,7 @@ export function AppShell() {
           </div>
         </div>
         <div className="min-w-0 flex-1 px-4 py-5 md:px-6">
+          <EmptyDatasetBanner />
           <Suspense fallback={<PageSkeleton />}>
             <Outlet />
           </Suspense>

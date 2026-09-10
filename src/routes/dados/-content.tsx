@@ -158,14 +158,18 @@ export function DadosPageContent() {
         <CardHeader>
           <CardTitle className="text-sm">Conjunto em uso</CardTitle>
           <CardDescription>
-            {origin === 'indexeddb' ? 'Os seus dados, guardados neste navegador.' : 'A cópia de demonstração que veio no aplicativo — nenhum extrato seu foi lido ainda.'}
+            {origin === 'indexeddb'
+              ? 'Os seus dados, guardados neste navegador.'
+              : origin === 'seed'
+                ? 'A cópia de demonstração que veio no aplicativo — nenhum extrato seu foi lido ainda.'
+                : 'Não há conjunto nenhum: nem os seus dados, nem a demonstração. É daqui que se sai do zero.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-xs">
           <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <div>
               <dt className="text-muted-foreground">Origem</dt>
-              <dd className="font-mono">{origin === 'indexeddb' ? 'IndexedDB' : 'aplicativo'}</dd>
+              <dd className="font-mono">{origin === 'indexeddb' ? 'IndexedDB' : origin === 'seed' ? 'aplicativo' : 'vazio'}</dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Espaço usado</dt>
