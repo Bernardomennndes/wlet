@@ -35,6 +35,9 @@ importers:
       '@wlet/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@wlet/ingest':
+        specifier: workspace:*
+        version: link:../../packages/ingest
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -107,6 +110,19 @@ importers:
       '@phosphor-icons/react':
         specifier: ^2.1.10
         version: 2.1.10(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+    devDependencies:
+      '@wlet/tsconfig':
+        specifier: workspace:*
+        version: link:../../config/tsconfig
+      typescript:
+        specifier: ~6.0.2
+        version: 6.0.3
+
+  packages/ingest:
+    dependencies:
+      '@wlet/domain':
+        specifier: workspace:*
+        version: link:../domain
     devDependencies:
       '@wlet/tsconfig':
         specifier: workspace:*

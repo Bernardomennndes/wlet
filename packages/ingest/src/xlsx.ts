@@ -8,7 +8,7 @@ import { decodeText } from './io'
  * uma esbarra no guard de testes do repositório; um inflate de deflate CRU resolve, e o
  * formato é simples o bastante para caber em cem linhas.
  *
- * O inflate NÃO é importado: vem no `IngestEnv` (`src/lib/ingest/io.ts`). No Node ele é o
+ * O inflate NÃO é importado: vem no `IngestEnv` (`@wlet/ingest/io`). No Node ele é o
  * `zlib.inflateRawSync` resolvido na hora; no navegador é o `DecompressionStream`, que só
  * existe assíncrono. É por isso que `sheetNames` e `readSheet` retornam `Promise` — a
  * assinatura é a mesma nos dois ambientes, porque assinatura que muda por ambiente é

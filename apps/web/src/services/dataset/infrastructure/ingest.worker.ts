@@ -1,5 +1,5 @@
-import { browserEnv, type SourceFile } from './io'
-import { runIngest, type Declarations, type IngestResult } from './pipeline'
+import { browserEnv, type SourceFile } from '@wlet/ingest/io'
+import { runIngest, type Declarations, type IngestResult } from '@wlet/ingest/pipeline'
 
 /**
  * O ingest fora da thread principal.

@@ -21,4 +21,4 @@ import { fileURLToPath } from 'node:url'
 const HERE = dirname(fileURLToPath(import.meta.url))
 export const CDI_CACHE = join(HERE, '..', 'docs', 'investimentos', 'cdi.json')
 
-export type { CdiDay } from '../src/lib/ingest/investments.ts'
+export type { CdiDay } from '@wlet/ingest/investments'

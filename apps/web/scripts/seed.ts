@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url'
 import type { Account, DatasetMeta, Transaction, Transfer } from '@wlet/domain'
 import { BUDGET } from './budget.config.ts'
 import { GOALS } from './goals.config.ts'
-import { matchPlanned, matchReceivables } from '../src/lib/ingest/matching.ts'
+import { matchPlanned, matchReceivables } from '@wlet/ingest/matching'
 import { PLANNED_ENTRIES } from './planned.config.ts'
 import { RECEIVABLES } from './receivables.config.ts'
 

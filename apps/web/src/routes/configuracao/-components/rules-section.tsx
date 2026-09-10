@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { CATEGORIES } from '@wlet/domain'
-import type { Rule } from '@/lib/ingest/rules'
+import type { Rule } from '@wlet/ingest/rules'
 
 const CATEGORY_ITEMS = CATEGORIES.map((c) => ({ value: c.id, label: c.label, description: c.description }))
 

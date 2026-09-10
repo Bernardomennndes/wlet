@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import type { Declarations } from '@/lib/ingest/pipeline'
+import type { Declarations } from '@wlet/ingest/pipeline'
 import { declarations } from '@/lib/dataset'
 import { services } from '@/services'
 

@@ -1,6 +1,6 @@
 import type { Dataset } from '@/lib/dataset'
-import type { IngestResult } from '@/lib/ingest/pipeline'
-import type { SourceFile } from '@/lib/ingest/io'
+import type { IngestResult } from '@wlet/ingest/pipeline'
+import type { SourceFile } from '@wlet/ingest/io'
 import type { DatasetRepository, DatasetSeed } from '../domain/ports/dataset-repository'
 import type { IngestRunner } from '../domain/ports/ingest-runner'
 import type { SourceStore } from '../domain/ports/source-store'

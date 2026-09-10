@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { sha1Hex, shortId } from '../../src/lib/sha1.ts'
+import { sha1Hex, shortId } from '@wlet/ingest/sha1'
 
 /**
  * O SHA-1 do navegador tem de ser IDÊNTICO ao do Node, byte a byte.

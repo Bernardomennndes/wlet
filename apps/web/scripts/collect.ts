@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import type { SourceFile } from '../src/lib/ingest/io.ts'
+import type { SourceFile } from '@wlet/ingest/io'
 
 /**
  * Todo arquivo de uma pasta, com o caminho RELATIVO à raiz do projeto.

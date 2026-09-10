@@ -1,5 +1,5 @@
 import type { Account, DatasetMeta, IncomeMonth, InvestmentSnapshot, PatrimonyPoint, Transaction, Transfer } from '@wlet/domain'
-import type { Declarations } from '@/lib/ingest/pipeline'
+import type { Declarations } from '@wlet/ingest/pipeline'
 
 /**
  * O que o app carrega antes de existir — e o PORTÃO que separa carregar de consumir.

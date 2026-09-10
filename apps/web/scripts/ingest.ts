@@ -1,7 +1,7 @@
 /**
  * `pnpm ingest` — a casca de Node sobre o núcleo compartilhado.
  *
- * O pipeline inteiro mora em `src/lib/ingest/pipeline.ts` e roda igual nos dois ambientes.
+ * O pipeline inteiro mora em `@wlet/ingest` e roda igual nos dois ambientes.
  * O que sobrou aqui é o que só existe no Node: ler `docs/` do disco, importar os
  * `*.config.ts` locais, gravar os JSON e imprimir o relatório no terminal.
  *
@@ -14,8 +14,8 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { collect } from './collect.ts'
-import { runIngest, type AccountProfile } from '../src/lib/ingest/pipeline.ts'
-import { buildRules } from '../src/lib/ingest/rules.ts'
+import { runIngest, type AccountProfile } from '@wlet/ingest/pipeline'
+import { buildRules } from '@wlet/ingest/rules'
 import { ACCOUNT_PROFILES, SELF_NAME_PATTERNS } from './accounts.config.ts'
 import { BUDGET } from './budget.config.ts'
 import { GOALS } from './goals.config.ts'

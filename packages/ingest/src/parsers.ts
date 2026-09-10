@@ -48,7 +48,7 @@ export interface ParsedFile {
  *
  * Só o que este módulo consome está declarado (`text`), então o leitor pode devolver a linha
  * completa — com página e posição — sem que o tipo precise saber disso. A forma é a de
- * `readPdfLines` de `src/lib/ingest/pdf.ts`, para o `readPdfLines` de lá entrar aqui direto,
+ * `readPdfLines` de `@wlet/ingest/pdf`, para o `readPdfLines` de lá entrar aqui direto,
  * sem invólucro.
  */
 export type PdfLineReader = (file: SourceFile, env: IngestEnv) => Promise<{ text: string }[]>

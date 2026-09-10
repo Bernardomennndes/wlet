@@ -1,5 +1,5 @@
-import type { SourceFile } from '@/lib/ingest/io'
-import type { Declarations, IngestResult } from '@/lib/ingest/pipeline'
+import type { SourceFile } from '@wlet/ingest/io'
+import type { Declarations, IngestResult } from '@wlet/ingest/pipeline'
 
 /**
  * Quem executa o pipeline. É porta porque o ONDE muda: worker no navegador, mesma thread num

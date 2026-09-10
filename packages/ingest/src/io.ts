@@ -1,5 +1,5 @@
-import { inflate, inflateRaw } from '../inflate'
-import { shortId } from '../sha1'
+import { inflate, inflateRaw } from './inflate'
+import { shortId } from './sha1'
 
 /**
  * O contrato que permite UMA implementação do ingest servir aos dois ambientes.

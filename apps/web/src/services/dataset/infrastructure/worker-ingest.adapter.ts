@@ -1,6 +1,6 @@
-import type { SourceFile } from '@/lib/ingest/io'
-import type { Declarations, IngestResult } from '@/lib/ingest/pipeline'
-import type { IngestResponse } from '@/lib/ingest/ingest.worker'
+import type { SourceFile } from '@wlet/ingest/io'
+import type { Declarations, IngestResult } from '@wlet/ingest/pipeline'
+import type { IngestResponse } from './ingest.worker'
 import { DomainError } from '@/services/shared/domain/errors'
 import type { IngestRunner } from '../domain/ports/ingest-runner'
 
@@ -25,7 +25,7 @@ export function makeWorkerIngestRunner(): IngestRunner {
   return {
     run(sources: SourceFile[], config: Declarations, now: string): Promise<IngestResult> {
       return new Promise((resolve, reject) => {
-        const worker = new Worker(new URL('../../../lib/ingest/ingest.worker.ts', import.meta.url), { type: 'module' })
+        const worker = new Worker(new URL('./ingest.worker.ts', import.meta.url), { type: 'module' })
         worker.onmessage = (event: MessageEvent<IngestResponse>) => {
           worker.terminate()
           if (event.data.ok) resolve(event.data.result)
@@ -50,7 +50,7 @@ export function makeWorkerIngestRunner(): IngestRunner {
 export function makeInlineIngestRunner(): IngestRunner {
   return {
     async run(sources, config, now) {
-      const [{ runIngest }, { browserEnv }] = await Promise.all([import('@/lib/ingest/pipeline'), import('@/lib/ingest/io')])
+      const [{ runIngest }, { browserEnv }] = await Promise.all([import('@wlet/ingest/pipeline'), import('@wlet/ingest/io')])
       return runIngest({ ...config, sources, now, env: browserEnv })
     },
   }

@@ -1,4 +1,4 @@
-import type { Declarations } from '@/lib/ingest/pipeline'
+import type { Declarations } from '@wlet/ingest/pipeline'
 
 /**
  * A configuração declarada: o que o ingest lê para identificar, categorizar, projetar e cobrar.

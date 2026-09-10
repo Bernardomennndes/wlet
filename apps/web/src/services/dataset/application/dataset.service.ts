@@ -1,6 +1,6 @@
 import { emptyDataset, type Dataset } from '@/lib/dataset'
-import type { SourceFile } from '@/lib/ingest/io'
-import type { Declarations, IngestReport } from '@/lib/ingest/pipeline'
+import type { SourceFile } from '@wlet/ingest/io'
+import type { Declarations, IngestReport } from '@wlet/ingest/pipeline'
 import { IncompleteDatasetError, NoSourcesError } from '../domain/errors'
 import type { DatasetRepository, DatasetSeed } from '../domain/ports/dataset-repository'
 import type { IngestRunner } from '../domain/ports/ingest-runner'

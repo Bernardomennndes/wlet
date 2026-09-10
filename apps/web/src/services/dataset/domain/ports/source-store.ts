@@ -1,4 +1,4 @@
-import type { SourceFile } from '@/lib/ingest/io'
+import type { SourceFile } from '@wlet/ingest/io'
 
 /**
  * Os arquivos crus que produziram o conjunto — extratos, faturas, planilhas da B3.
