@@ -1,38 +1,17 @@
-import { and, type Db, eq, gt, sessions, users } from '@wlet/db'
+import type { Auth } from '@wlet/auth'
 
 /**
- * Resolve o portador do token numa identidade.
+ * Resolve o portador da requisição numa identidade.
+ *
+ * A leitura passa a ser do Better Auth, que aceita as DUAS formas: o cookie de sessão, que o app
+ * usa, e o `Authorization: Bearer`, que um script ou um teste usam — este segundo só existe por
+ * causa do plugin `bearer`, ligado no pacote. Os dois levam à MESMA sessão: dois caminhos de
+ * autenticar com estados separados seriam a duplicação de sempre.
  *
  * Devolve `null` em vez de lançar: quem decide o que fazer com a ausência é a camada de cima —
  * uma rota pública trata diferente de uma protegida, e um erro aqui tiraria essa escolha dela.
- *
- * O prazo é conferido no BANCO (`gt(expiresAt, agora)`) e não em memória: uma sessão expirada
- * não pode depender de o servidor ter reiniciado ou não.
  */
-export async function resolveSession(db: Db, header: string | undefined): Promise<string | null> {
-  const token = header?.startsWith('Bearer ') ? header.slice(7).trim() : null
-  if (!token) return null
-  const [row] = await db
-    .select({ userId: sessions.userId })
-    .from(sessions)
-    .where(and(eq(sessions.token, token), gt(sessions.expiresAt, new Date())))
-  return row?.userId ?? null
-}
-
-/** Trinta dias. Longo o suficiente para não irritar, curto o suficiente para expirar sozinha. */
-const DURACAO_MS = 30 * 24 * 60 * 60 * 1000
-
-/**
- * Cria uma sessão para um e-mail, criando o usuário se ele não existir.
- *
- * É o ponto de entrada de DESENVOLVIMENTO, e está declarado como tal: não há senha nem
- * verificação de e-mail. Quando um provedor de identidade entrar, é esta função que ele
- * substitui — o resto do servidor só conhece `resolveSession`, e não muda.
- */
-export async function createSession(db: Db, email: string): Promise<{ token: string; expiresAt: Date }> {
-  const [user] = await db.insert(users).values({ email }).onConflictDoUpdate({ target: users.email, set: { email } }).returning({ id: users.id })
-  const token = crypto.randomUUID()
-  const expiresAt = new Date(Date.now() + DURACAO_MS)
-  await db.insert(sessions).values({ token, userId: user.id, expiresAt })
-  return { token, expiresAt }
+export async function resolveSession(auth: Auth, headers: Headers): Promise<string | null> {
+  const session = await auth.api.getSession({ headers })
+  return session?.user?.id ?? null
 }

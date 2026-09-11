@@ -1,5 +1,5 @@
-import { index, jsonb, numeric, pgTable, primaryKey, text, uuid } from 'drizzle-orm/pg-core'
-import { users } from './user'
+import { index, jsonb, numeric, pgTable, primaryKey, text } from 'drizzle-orm/pg-core'
+import { users } from './auth'
 
 /**
  * As declarações que se editam ITEM A ITEM ganham tabela.
@@ -12,7 +12,7 @@ import { users } from './user'
 export const plannedEntries = pgTable(
   'planned_entries',
   {
-    userId: uuid('user_id')
+    userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     id: text('id').notNull(),
@@ -38,7 +38,7 @@ export const plannedEntries = pgTable(
 export const receivables = pgTable(
   'receivables',
   {
-    userId: uuid('user_id')
+    userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     id: text('id').notNull(),
@@ -62,7 +62,7 @@ export const receivables = pgTable(
 export const goals = pgTable(
   'goals',
   {
-    userId: uuid('user_id')
+    userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     id: text('id').notNull(),
@@ -79,7 +79,7 @@ export const goals = pgTable(
 export const planGroups = pgTable(
   'plan_groups',
   {
-    userId: uuid('user_id')
+    userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     id: text('id').notNull(),
@@ -91,7 +91,7 @@ export const planGroups = pgTable(
 export const plans = pgTable(
   'plans',
   {
-    userId: uuid('user_id')
+    userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     id: text('id').notNull(),
@@ -120,7 +120,7 @@ export const plans = pgTable(
 export const overrides = pgTable(
   'overrides',
   {
-    userId: uuid('user_id')
+    userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     transactionId: text('transaction_id').notNull(),
@@ -137,7 +137,7 @@ export const overrides = pgTable(
  * `{source, flags}`, remontados na leitura — a mesma forma que o contrato declara em `regexWire`.
  */
 export const settings = pgTable('settings', {
-  userId: uuid('user_id')
+  userId: text('user_id')
     .primaryKey()
     .references(() => users.id, { onDelete: 'cascade' }),
   budget: jsonb('budget').notNull(),

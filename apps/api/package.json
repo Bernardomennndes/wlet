@@ -15,6 +15,7 @@
     "@orpc/server": "^1.14.13",
     "@orpc/zod": "^1.14.13",
     "@wlet/api": "workspace:*",
+    "@wlet/auth": "workspace:*",
     "@wlet/db": "workspace:*",
     "@wlet/domain": "workspace:*",
     "@wlet/ingest": "workspace:*",

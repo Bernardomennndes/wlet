@@ -1,11 +1,11 @@
 import { relations } from 'drizzle-orm'
-import { date, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core'
-import { users } from './user'
+import { date, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp } from 'drizzle-orm/pg-core'
+import { users } from './auth'
 
 export const accounts = pgTable(
   'accounts',
   {
-    userId: uuid('user_id')
+    userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     /** O id vem do PERFIL declarado (`inter-pj`, `nubank-cartao`), não é gerado — ver `transactions.id`. */
@@ -31,7 +31,7 @@ export const accounts = pgTable(
 export const transactions = pgTable(
   'transactions',
   {
-    userId: uuid('user_id')
+    userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     /**
@@ -78,7 +78,7 @@ export const transactions = pgTable(
 export const transfers = pgTable(
   'transfers',
   {
-    userId: uuid('user_id')
+    userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     id: text('id').notNull(),
@@ -102,7 +102,7 @@ export const transfers = pgTable(
  * Patrimônio — quebrá-la em tabelas pagaria junção para nunca filtrar. `meta` é um retrato.
  */
 export const datasetBlobs = pgTable('dataset_blobs', {
-  userId: uuid('user_id')
+  userId: text('user_id')
     .primaryKey()
     .references(() => users.id, { onDelete: 'cascade' }),
   meta: jsonb('meta').notNull(),
@@ -120,7 +120,7 @@ export const datasetBlobs = pgTable('dataset_blobs', {
 export const sourceFiles = pgTable(
   'source_files',
   {
-    userId: uuid('user_id')
+    userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     path: text('path').notNull(),

@@ -2,8 +2,9 @@ import { serve } from '@hono/node-server'
 import { OpenAPIGenerator } from '@orpc/openapi'
 import { OpenAPIHandler } from '@orpc/openapi/fetch'
 import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4'
+import { createAuth } from '@wlet/auth'
 import { createDb } from '@wlet/db'
-import { createSession, resolveSession } from './shared/auth'
+import { resolveSession } from './shared/auth'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { configRouter } from './routers/config'
@@ -33,6 +34,22 @@ if (!url) {
 }
 
 const db = createDb(url)
+
+/**
+ * O `AUTH_SECRET` é obrigatório e NÃO tem padrão.
+ *
+ * Um valor de fallback num app que guarda extrato bancário seria a mesma chave de assinatura em
+ * toda instalação que esqueceu de configurá-la — e quem soubesse o padrão forjaria sessão em
+ * qualquer uma delas. Falhar no arranque é a única resposta honesta.
+ */
+const secret = process.env.AUTH_SECRET
+if (!secret) {
+  console.error('[wlet-api] AUTH_SECRET não está definida. Gere uma com `openssl rand -base64 32`.')
+  process.exit(1)
+}
+
+const origens = (process.env.WEB_ORIGIN ?? 'http://localhost:5173').split(',')
+const auth = createAuth(db, { baseURL: process.env.AUTH_URL ?? `http://localhost:${process.env.PORT ?? 8787}`, secret, trustedOrigins: origens })
 
 const router = {
   dataset: datasetRouter(db),
@@ -80,7 +97,7 @@ const app = new Hono()
 app.use(
   '*',
   cors({
-    origin: (process.env.WEB_ORIGIN ?? 'http://localhost:5173').split(','),
+    origin: origens,
     credentials: true,
   }),
 )
@@ -88,20 +105,13 @@ app.use(
 app.get('/health', (c) => c.json({ ok: true }))
 
 /**
- * A entrada de DESENVOLVIMENTO: troca um e-mail por uma sessão.
+ * O Better Auth monta as próprias rotas em `/api/auth/*`: cadastro, login, sessão, logout.
  *
- * Fica fora do contrato oRPC de propósito — autenticação não é um domínio do WLET, é a fronteira
- * que o precede, e um provedor de identidade a substituirá inteira. Só existe fora de produção:
- * `NODE_ENV=production` a desliga, porque um endpoint que cria sessão sem senha é uma porta
- * aberta com nome.
+ * Elas ficam FORA do contrato oRPC de propósito — autenticação não é um domínio do WLET, é a
+ * fronteira que o precede, e o contrato descreve o que o app faz depois de já se saber quem é
+ * quem.
  */
-if (process.env.NODE_ENV !== 'production') {
-  app.post('/auth/dev-session', async (c) => {
-    const { email } = await c.req.json<{ email?: string }>()
-    if (!email) return c.json({ error: 'e-mail é obrigatório' }, 400)
-    return c.json(await createSession(db, email))
-  })
-}
+app.all('/api/auth/*', (c) => auth.handler(c.req.raw))
 
 app.get('/v1/openapi.json', async (c) => c.json(await openapi.generate(router, { info: { title: 'WLET', version: '0.1.0' }, servers: [{ url: '/v1' }] })))
 
@@ -114,7 +124,7 @@ app.use('/v1/*', async (c, next) => {
    * aqui, antes de qualquer handler: um `userId` vazio chegando ao banco devolveria lista vazia
    * em vez de negar, e "vazio" é indistinguível de "não tem nada".
    */
-  const userId = await resolveSession(db, c.req.header('authorization'))
+  const userId = await resolveSession(auth, c.req.raw.headers)
   if (!userId) return c.json({ error: 'não autenticado' }, 401)
 
   const { matched, response } = await handler.handle(c.req.raw, {

@@ -82,11 +82,31 @@ O repositório é um workspace pnpm orquestrado por Turborepo, no molde da Selfi
   `(import.meta.env as ... | undefined)?.VITE_API_URL`. Sem o `?.`, importar `services.ts` estoura
   em Node com "Cannot read properties of undefined" — foi o que quebrou o teste do portão de
   boot. Mesma armadilha do `import.meta.glob` em `generated-files.ts`.
-- **A sessão é um token OPACO em tabela, não um JWT.** Um JWT não se revoga sem lista de bloqueio
-  — que é uma consulta por requisição, exatamente o que ele prometia evitar. Aqui o token é chave
-  de linha: apagar a linha encerra a sessão na hora, e para um app que guarda extrato bancário
-  isso vale mais que economizar uma consulta. O prazo é conferido no BANCO, e o `/auth/dev-session`
-  só existe fora de produção.
+- **A autenticação é Better Auth, o mesmo da Selfie, e a razão é SELF-HOSTED.** Um provedor
+  externo veria o cadastro de quem usa um app de extrato bancário — quem, quando, de onde. Aqui a
+  sessão nunca sai da sua infraestrutura, e a promessa de privacidade do produto não passa a
+  depender do contrato de privacidade de um terceiro. Para este app isso não é preferência, é
+  coerência. Ele monta as próprias rotas em `/api/auth/*`, FORA do contrato oRPC: autenticação não
+  é um domínio do WLET, é a fronteira que o precede.
+- **A sessão continua sendo um token OPACO em tabela, não um JWT** — agora gerida pela
+  biblioteca. O argumento não mudou: um JWT não se revoga sem lista de bloqueio, que é uma
+  consulta por requisição, exatamente o que ele prometia evitar. Apagar a linha encerra a sessão
+  na hora.
+- **O plugin `bearer` é o que permite `Authorization: Bearer`.** Sem ele o Better Auth só lê
+  COOKIE — o app funcionaria e todo teste e script ficariam de fora. Os dois caminhos levam à
+  MESMA sessão; dois modos de autenticar com estados separados seria a duplicação de sempre.
+- **`AUTH_SECRET` é obrigatório e NÃO tem padrão.** Um fallback seria a mesma chave de assinatura
+  em toda instalação que esqueceu de configurá-la, e quem soubesse o padrão forjaria sessão em
+  qualquer uma. O servidor falha no arranque, que é a única resposta honesta.
+- **A tabela de credenciais chama-se `auth_accounts`, não `accounts`.** Neste domínio "conta" já
+  quer dizer conta BANCÁRIA — Inter PJ, Nubank Cartão —, e o termo aparece assim no app inteiro.
+  Dois `accounts` significando coisas diferentes conforme o import é ambiguidade que só se
+  descobre depurando.
+- **O que NÃO veio da Selfie:** a verificação híbrida de senha (bcrypt e scrypt), que lá é
+  resíduo de uma migração vinda do MongoDB, e os campos de papel no usuário, que são do domínio
+  dela. O WLET nasce sem senha legada e sem papéis — copiar os dois traria complexidade a
+  carregar para sempre sem nada para resolver. A verificação de e-mail fica DESLIGADA enquanto
+  não houver envio configurado: ligá-la sem remetente deixaria toda conta nova presa num limbo.
 - **O `userId` sai do TOKEN, nunca de um header.** Enquanto era `x-user-id`, qualquer um lia o
   extrato de qualquer pessoa mudando um cabeçalho — o eixo de isolamento existia no schema e não
   na porta. Sem sessão válida a requisição para no middleware, antes de qualquer handler: um
