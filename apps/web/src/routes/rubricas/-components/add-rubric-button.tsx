@@ -54,7 +54,8 @@ export function AddRubricButton({ options, onPick }: { options: CategoryChoice[]
       // "padaria" deixaria de encontrar "Mercado", que é justamente para o que ela serve.
       filter={(item: CategoryChoice, query: string) => query.trim() === '' || fold(`${item.label} ${item.description ?? ''}`).includes(fold(query.trim()))}
     >
-      <ComboboxTrigger aria-label="Adicionar rubrica de uma categoria" render={<Button variant="outline" />}>
+      {/* Primário, sem `variant`: é a ação da tela, e é a única. O `Button` já nasce assim. */}
+      <ComboboxTrigger aria-label="Adicionar rubrica de uma categoria" render={<Button />}>
         <Plus data-icon="inline-start" /> Adicionar rubrica
       </ComboboxTrigger>
       {/* Largura própria: o painel do registry herda a do gatilho (`w-(--anchor-width)`), e o

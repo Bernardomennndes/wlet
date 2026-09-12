@@ -42,7 +42,7 @@ const EXPENSE_ITEMS = CATEGORIES.filter((c) => c.kind === 'expense').map((c) => 
 export function RubricasPageContent() {
   useDocumentTitle('Rubricas')
   const { history } = useFilters()
-  const { current, saving, error, dirty, save } = useDeclarations()
+  const { current, saving, error, save } = useDeclarations()
 
   const [base, setBase] = useState<Base>('month')
   const currentMonth = lastMonthWithData()
@@ -130,16 +130,6 @@ export function RubricasPageContent() {
           <Warning className="mt-0.5 shrink-0" /> {error}
         </p>
       )}
-      {dirty && !error && (
-        <p className="text-muted-foreground text-xs">
-          Guardado.{' '}
-          <button type="button" className="underline" onClick={() => window.location.reload()}>
-            Recarregue a página
-          </button>{' '}
-          para a Previsão e a Visão geral passarem a usar.
-        </p>
-      )}
-
       <KpiCardGrid columns={3}>
         <KpiCard
           label={`Planejado ${baseLabel}`}
