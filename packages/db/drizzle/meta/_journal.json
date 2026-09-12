@@ -8,6 +8,13 @@
       "when": 1789090270419,
       "tag": "0000_initial",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789090271419,
+      "tag": "0001_receivable_entity_nullable",
+      "breakpoints": true
     }
   ]
 }

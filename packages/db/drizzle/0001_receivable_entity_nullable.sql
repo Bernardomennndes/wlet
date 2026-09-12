@@ -1,0 +1,11 @@
+-- `receivables.entity` passa a ser ANULÁVEL.
+--
+-- A coluna veio da cópia do schema de `planned_entries` e não corresponde a nada que o domínio
+-- carregue: o lado de uma cobrança (PF ou PJ) é DERIVADO da conta que a quita, e sem conta
+-- declarada ela vale nos dois. Enquanto era NOT NULL, o `PUT /config` era impossível para quem
+-- tem cobrança — o cliente não tem esse campo para mandar, e a validação de entrada recusava o
+-- corpo inteiro com 400.
+--
+-- A coluna FICA, apenas anulável: derrubá-la apagaria dado sem volta, e essa é decisão de quem
+-- opera a instalação. O mesmo vale para `account_id`, que já era anulável.
+ALTER TABLE "receivables" ALTER COLUMN "entity" DROP NOT NULL;

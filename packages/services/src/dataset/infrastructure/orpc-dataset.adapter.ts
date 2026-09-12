@@ -1,7 +1,7 @@
 import type { Dataset } from '@wlet/domain'
 import { fromBase64, toBase64 } from '@wlet/lib/portable'
 import type { SourceFile } from '@wlet/ingest/io'
-import type { Declarations } from '@wlet/ingest/pipeline'
+import type { Declarations, IngestResult } from '@wlet/ingest/pipeline'
 import { remote, type RemoteDeps } from '../../shared/infrastructure/orpc'
 import type { DatasetRepository } from '../domain/ports/dataset-repository'
 import type { IngestRunner } from '../domain/ports/ingest-runner'
@@ -64,7 +64,11 @@ export function makeOrpcIngestRunner({ client }: RemoteDeps): IngestRunner {
        * daqui, e cada byte sobe uma vez só.
        */
       const { dataset, report } = await remote(() => client.dataset.reingest({}))
-      return { ...(dataset as unknown as Record<string, unknown>), report } as never
+      // Casts TIPADOS e não `as never`: a resposta é a forma do FIO, e aqui ela vira a do domínio.
+      // O que garante que as duas coincidem em runtime é o `ResponseValidationPlugin` do cliente,
+      // que confere a resposta contra o contrato — o cast diz qual é a forma esperada, e um contrato
+      // que mude passa a quebrar a compilação em vez de escorregar como `never`.
+      return { ...(dataset as Omit<IngestResult, 'report'>), report: report as IngestResult['report'] }
     },
   }
 }

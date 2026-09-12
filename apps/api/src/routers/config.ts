@@ -69,7 +69,7 @@ export function configRouter(db: ReturnType<typeof createDb>) {
               label: r.label,
               debtor: r.debtor,
               amount: toMoney(r.amount),
-              entity: r.entity,
+              entity: r.entity ?? null,
               recurrence: r.recurrence,
               startMonth: r.startMonth,
               endMonth: r.endMonth ?? null,

@@ -16,7 +16,7 @@ executável: o servidor produz as mesmas 5.694 transações, com os mesmos ids, 
 pnpm install
 pnpm run setup  # cria os *.config.ts locais e gera um dataset fictício
 cp .env.example .env && docker compose up -d   # Postgres; preencha AUTH_SECRET com `openssl rand -base64 32`
-pnpm --filter @wlet/db migrate
+pnpm --filter @wlet/db db:migrate
 pnpm dev        # sobe a API e o app juntos
 ```
 
@@ -143,11 +143,19 @@ Todos a partir da raiz:
 | `pnpm type:check` | typecheck de todos os pacotes, isoladamente |
 | `pnpm ingest` · `pnpm cdi` · `pnpm package` · `pnpm setup` | as cascas de Node do app |
 | `docker compose up -d` | o Postgres de desenvolvimento (porta **5433**) |
-| `pnpm --filter @wlet/db db:migrate` | aplica as migrations |
+| `pnpm --filter @wlet/db db:migrate` | aplica as migrations (migrator do `drizzle-orm`, não o CLI — ver abaixo) |
 | `pnpm --filter @wlet/api-server dev` | sobe o servidor |
 
 `pnpm check` roda as duas suítes: a do app não depende de nada, a do servidor precisa de
 `DATABASE_URL`.
+
+> **O CLI do `drizzle-kit` não roda neste ambiente.** `generate` e `migrate` morrem com
+> `The "path" argument must be of type string. Received undefined` antes de tocar o banco, com o
+> schema íntegro — o CLI carrega o schema por um loader deprecado (`@esbuild-kit/*`, que o próprio
+> `pnpm install` avisa). APLICAR migrations funciona por `db:migrate`, que usa o migrator
+> programático do `drizzle-orm` e faz o mesmo trabalho. **CRIAR** uma migration nova ainda pede o
+> CLI: ou o conserto dele, ou o `.sql` escrito à mão junto do snapshot e do journal em
+> `packages/db/drizzle/` — foi assim que a `0001` nasceu.
 
 ### O `.env`
 

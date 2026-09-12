@@ -1,5 +1,5 @@
 import { type Db, eq, goals, plannedEntries, receivables, settings } from '@wlet/db'
-import type { GoalSlot } from '@wlet/domain'
+import type { MatchRule, PlannedDueDate, GoalSlot } from '@wlet/domain'
 import type { AccountProfile } from '@wlet/ingest/pipeline'
 
 /** O perfil como o JSONB o guarda: a `RegExp` do `externalId` vira `{source, flags}` no fio. */
@@ -76,20 +76,30 @@ export async function readDeclarations(db: Db, userId: string) {
       // diria a mesma coisa para quem lê.
       ...(e.endMonth ? { endMonth: e.endMonth } : {}),
       ...(e.count ? { count: Number(e.count) } : {}),
-      ...(e.dueOn ? { dueOn: e.dueOn as never } : {}),
+      // Casts TIPADOS e não `as never`, como em `routers/dataset.ts`: a coluna é `jsonb` e volta
+      // como `unknown`, mas o que foi gravado ali é a forma do domínio — e é ESSA a diferença que
+      // importa. `as never` aceita qualquer coisa, então ele não checava nada e escondia a
+      // divergência: era um deles que segurava o `amountBetween` declarado como tupla no contrato
+      // contra o `{ min?, max? }` do domínio, e o outro o `entity` obrigatório numa cobrança que
+      // nunca o teve. Com o tipo escrito, a próxima divergência quebra a compilação.
+      ...(e.dueOn ? { dueOn: e.dueOn as PlannedDueDate } : {}),
       ...(e.exceptions ? { exceptions: e.exceptions as Record<string, number> } : {}),
-      ...(e.match ? { match: e.match as never } : {}),
+      ...(e.match ? { match: e.match as MatchRule } : {}),
     })),
     receivables: cobrancas.map((r) => ({
       id: r.id,
       label: r.label,
       debtor: r.debtor,
       amount: money(r.amount),
-      entity: r.entity as 'PF' | 'PJ',
+      // `entity` é ANULÁVEL nesta tabela e SOME quando não há: o domínio não tem o campo, e
+      // devolver `null` faria a validação de saída recusar a resposta inteira. Ver a nota em
+      // `packages/api/src/domains/config/shape.ts` — a coluna é resto da cópia do schema de
+      // lançamento previsto.
+      ...(r.entity ? { entity: r.entity as 'PF' | 'PJ' } : {}),
       recurrence: r.recurrence as 'monthly' | 'once' | 'installments',
       startMonth: r.startMonth,
-      dueOn: r.dueOn as never,
-      match: r.match as never,
+      dueOn: r.dueOn as PlannedDueDate,
+      match: r.match as MatchRule,
       offsetsCategoryId: r.offsetsCategoryId,
       ...(r.endMonth ? { endMonth: r.endMonth } : {}),
       ...(r.count ? { count: Number(r.count) } : {}),

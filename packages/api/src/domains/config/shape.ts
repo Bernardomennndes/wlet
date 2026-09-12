@@ -12,9 +12,37 @@ import { entity, month, regexWire } from '../../shared/shape'
  * requisição.
  */
 
-const dueOn = z.union([z.object({ kind: z.literal('day'), day: z.number().int().min(1).max(31) }), z.object({ kind: z.literal('business-day'), nth: z.number().int().min(1).max(23) })])
+/**
+ * As duas formas de vencimento — e o teto do dia útil é 18, não 23.
+ *
+ * Não é o máximo aritmético de dias de semana num mês (um mês de 31 dias começando na segunda
+ * chega a 23): é o que o VALIDADOR EM VIGOR aceita. `packages/ingest/src/pipeline.ts` recusa
+ * `nth > 18` e empurra o lançamento para `plannedProblems`, e `apps/web/src/components/due-on-field.tsx`
+ * clampa no mesmo número. Um contrato mais permissivo que o validador que o consome não conserta a
+ * divergência — inverte o lado dela, e troca "recusa no formulário" por "aceita, grava e some na
+ * ingestão", que é pior porque o sintoma aparece longe da causa.
+ *
+ * Subir para 23 é decisão de DOMÍNIO e muda quatro lugares no mesmo commit: as duas guardas de
+ * `pipeline.ts`, o comentário de `apps/web/src/lib/business-days.ts` e este schema.
+ */
+const dueOn = z.union([z.object({ kind: z.literal('day'), day: z.number().int().min(1).max(31) }), z.object({ kind: z.literal('business-day'), nth: z.number().int().min(1).max(18) })])
 
-const matchRule = z.object({ merchants: z.array(z.string()), accountId: z.string().optional(), amountBetween: z.tuple([z.number(), z.number()]).optional() })
+/**
+ * `amountBetween` é um OBJETO de limites opcionais, não uma tupla.
+ *
+ * Ele era `z.tuple([number, number])`, e a divergência com o domínio (`MatchRule`, em
+ * `packages/domain/src/types.ts`) era total: o pipeline lê `{ min?, max? }` e a configuração real
+ * usa `{ min: 200 }` — sem máximo, porque um rateio varia mês a mês e exigir o número exato
+ * deixaria a regra eternamente em aberto. Uma tupla não consegue representar isso.
+ *
+ * O defeito ficou invisível por um `as never` no adapter do cliente. Sem ele, a divergência aparece
+ * no typecheck — foi assim que ela foi encontrada, e é por isso que o cast saiu.
+ */
+const matchRule = z.object({
+  merchants: z.array(z.string()),
+  accountId: z.string().optional(),
+  amountBetween: z.object({ min: z.number().optional(), max: z.number().optional() }).optional(),
+})
 
 export const plannedEntry = z.object({
   id: z.string(),
@@ -32,12 +60,30 @@ export const plannedEntry = z.object({
   match: matchRule.optional(),
 })
 
+/**
+ * Uma cobrança — e `entity` aqui é OPCIONAL, ao contrário de um lançamento previsto.
+ *
+ * Era obrigatória, e isso tornava `PUT /config` IMPOSSÍVEL para quem tem cobrança declarada: o
+ * domínio (`Receivable`, em `packages/domain/src/types.ts`) não tem esse campo, então o cliente
+ * nunca o mandava, e a validação de entrada recusava o corpo inteiro com 400. O defeito ficou
+ * invisível porque o adapter do cliente tinha um `as never` — e só não era visto porque uma conta
+ * nova não tem cobrança nenhuma para disparar.
+ *
+ * **A ausência é deliberada no domínio.** O lado de uma cobrança (PF ou PJ) é DERIVADO da conta
+ * que a quita — `receivablesInScope` lê `match.accountId` —, e sem conta declarada ela vale nos
+ * dois. Um campo gravado aqui seria uma segunda verdade sobre a mesma pergunta, livre para
+ * discordar da conta.
+ *
+ * As colunas `entity` e `account_id` de `receivables` ficaram da cópia do schema de lançamento
+ * previsto e não correspondem a nada que o domínio carregue. Elas continuam no banco, agora
+ * anuláveis; removê-las é decisão de quem opera a instalação.
+ */
 export const receivable = z.object({
   id: z.string(),
   label: z.string(),
   debtor: z.string(),
   amount: z.number(),
-  entity,
+  entity: entity.optional(),
   dueOn,
   recurrence: z.enum(['monthly', 'once', 'installments']),
   startMonth: month,

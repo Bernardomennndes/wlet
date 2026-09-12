@@ -161,6 +161,98 @@ describe('configuração', () => {
     assert.equal(volta.planned[0].amount, 1500)
     assert.equal('match' in volta.planned[0], false, 'sem credor, o campo não existe')
   })
+
+  /**
+   * Uma COBRANÇA atravessa — e ela não tinha como atravessar.
+   *
+   * Dois defeitos moravam aqui, os dois escondidos por um `as never` no adapter do cliente:
+   *
+   * 1. `receivable.entity` era OBRIGATÓRIO no contrato, e o domínio (`Receivable`) não tem esse
+   *    campo — de propósito: o lado de uma cobrança é derivado da conta que a quita. O cliente
+   *    nunca o mandava, então a validação de entrada recusava o corpo INTEIRO com 400. Quem tivesse
+   *    uma cobrança declarada não conseguia gravar configuração nenhuma.
+   * 2. `match.amountBetween` era `z.tuple([number, number])` contra o `{ min?, max? }` do domínio.
+   *    A configuração real usa `{ min: 200 }`, sem máximo — uma tupla não representa isso.
+   *
+   * Este teste é o que impede os dois de voltarem: ele monta a cobrança com a forma do DOMÍNIO, e
+   * se o contrato divergir de novo ele não compila (o `as never` saiu de propósito).
+   */
+  it('uma cobrança atravessa com amountBetween só de MÍNIMO e sem entity', async () => {
+    const { context } = await comUsuario()
+    const r = configRouter(d)
+    const volta = await call(
+      r.replace,
+      {
+        accounts: [],
+        selfNamePatterns: [],
+        rules: [],
+        planned: [],
+        receivables: [
+          {
+            id: 'viagem-chile',
+            label: 'Parcela da viagem',
+            debtor: 'LUCAS MENDES PEREIRA',
+            amount: 450.59,
+            dueOn: { kind: 'day' as const, day: 10 },
+            recurrence: 'installments' as const,
+            startMonth: '2026-07',
+            count: 6,
+            // O piso SEM teto é o caso real: um rateio varia mês a mês, e exigir o número exato
+            // deixaria a regra eternamente em aberto.
+            match: { merchants: ['LUCAS MENDES PEREIRA'], accountId: 'xp-conta', amountBetween: { min: 200 } },
+            offsetsCategoryId: 'viagens',
+          },
+        ],
+        budget: { monthlyLimit: 0, warnAt: 0.75, byCategory: [] },
+        goals: [],
+      },
+      { context },
+    )
+    assert.equal(volta.receivables.length, 1)
+    assert.deepEqual(volta.receivables[0].match.amountBetween, { min: 200 }, 'o mínimo sozinho tem de sobreviver à ida e à volta')
+    assert.equal(volta.receivables[0].count, 6)
+    // `entity` não foi mandado e NÃO pode voltar inventado: a coluna existe no banco por herança
+    // do schema de lançamento previsto, e o domínio não tem o campo.
+    assert.equal('entity' in volta.receivables[0], false, 'o que não foi declarado não volta')
+  })
+
+  /**
+   * O teto do dia útil é 18, e o contrato tem de RECUSAR 19.
+   *
+   * Não é o máximo aritmético (um mês de 31 dias começando na segunda chega a 23): é o que o
+   * validador em vigor aceita — `packages/ingest/src/pipeline.ts` recusa `nth > 18` e empurra o
+   * lançamento para `plannedProblems`. Um contrato mais permissivo que o validador que o consome
+   * troca "recusa no formulário" por "aceita, grava e some na ingestão", e aí o sintoma aparece
+   * longe da causa.
+   */
+  it('recusa vencimento em dia útil acima de 18', async () => {
+    const { context } = await comUsuario()
+    const r = configRouter(d)
+    const corpo = (nth: number) => ({
+      accounts: [],
+      selfNamePatterns: [],
+      rules: [],
+      planned: [
+        {
+          id: 'salario',
+          kind: 'income' as const,
+          label: 'Salário',
+          amount: 5000,
+          categoryId: 'renda-pf',
+          entity: 'PF' as const,
+          recurrence: 'monthly' as const,
+          startMonth: '2026-01',
+          dueOn: { kind: 'business-day' as const, nth },
+        },
+      ],
+      receivables: [],
+      budget: { monthlyLimit: 0, warnAt: 0.75, byCategory: [] },
+      goals: [],
+    })
+    const dentro = await call(r.replace, corpo(18), { context })
+    assert.deepEqual(dentro.planned[0].dueOn, { kind: 'business-day', nth: 18 })
+    await assert.rejects(() => call(r.replace, corpo(19), { context }), 'o contrato não pode aceitar o que o pipeline descarta')
+  })
 })
 
 /**

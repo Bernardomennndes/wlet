@@ -52,7 +52,7 @@ export function makeOrpcConfigRepository({ client }: RemoteDeps): ConfigReposito
               ...(a.match.externalId === undefined ? {} : { externalId: a.match.externalId instanceof RegExp ? toRegexWire(a.match.externalId) : a.match.externalId }),
             },
           })),
-        } as never),
+        }),
       )
     },
   }

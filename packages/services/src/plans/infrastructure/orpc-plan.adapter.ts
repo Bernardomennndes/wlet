@@ -16,7 +16,7 @@ export function makeOrpcPlanRepository({ client }: RemoteDeps): PlanRepository {
       return remote(async () => (await client.plans.list()) as PlansData)
     },
     async save(data) {
-      await remote(() => client.plans.replaceAll(data as never))
+      await remote(() => client.plans.replaceAll(data))
     },
   }
 }

@@ -45,7 +45,18 @@ export const receivables = pgTable(
     label: text('label').notNull(),
     debtor: text('debtor').notNull(),
     amount: numeric('amount', { precision: 14, scale: 2 }).notNull(),
-    entity: text('entity').notNull(),
+    /**
+     * ANULÁVEL, e é o único campo desta tabela que é.
+     *
+     * Ela veio da cópia do schema de `plannedEntries` e não corresponde a nada que o domínio
+     * carregue: o lado de uma cobrança é DERIVADO da conta que a quita (`receivablesInScope` lê
+     * `match.accountId`), e sem conta declarada ela vale nos dois. Enquanto era `notNull`, o
+     * `PUT /config` era impossível para quem tem cobrança — o cliente não tem o campo para mandar.
+     *
+     * Fica anulável em vez de sair porque derrubar coluna apaga dado sem volta; removê-la é
+     * decisão de quem opera a instalação. O mesmo vale para `account_id`, que já era anulável.
+     */
+    entity: text('entity'),
     recurrence: text('recurrence').notNull(),
     startMonth: text('start_month').notNull(),
     endMonth: text('end_month'),
