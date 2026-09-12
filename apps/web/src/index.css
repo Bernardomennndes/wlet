@@ -3,6 +3,36 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
 
+/*
+ * Os pacotes do workspace que contêm markup.
+ *
+ * **Sem isto, toda classe usada dentro de `packages/` desaparece do CSS** — e desaparece em
+ * SILÊNCIO, que é o que torna esta declaração obrigatória e não uma otimização. A detecção
+ * automática do Tailwind v4 parte do diretório desta folha e ignora `node_modules`; como
+ * `@wlet/ui` exporta o próprio `src` e é alcançado por um symlink de workspace dentro de
+ * `node_modules`, ele nunca era varrido.
+ *
+ * Medido antes e depois, no CSS que o dev server serve: 57.562 → 148.598 bytes, com
+ * `--card-spacing` e `slide-in-from-left` saindo de ZERO ocorrências para presentes, enquanto
+ * `tracking-tight` (de `apps/web`) já estava nas duas. Na tela isso era cartão sem padding,
+ * popover sem fundo, barra lateral sumida e Sheet invisível — com o build passando e nenhum
+ * teste reclamando, porque o HTML está correto e só faltam as regras.
+ *
+ * **O GLOB COM EXTENSÕES É OBRIGATÓRIO.** A forma de diretório nu — `@source ".../ui/src"` —
+ * foi tentada primeiro e não gerou nada: zero classes novas, CSS do mesmo tamanho. Quem for
+ * simplificar isto vai reintroduzir o defeito sem nenhum sinal.
+ *
+ * Ao criar um pacote com componente, acrescente-o aqui. Um glob que pegasse todos os pacotes de
+ * uma vez foi evitado de propósito: varreria também os de servidor e de banco, e é a lista
+ * explícita que faz alguém notar a dependência nova.
+ *
+ * E cuidado ao editar este bloco: uma barra depois de um asterisco FECHA o comentário no meio,
+ * o PostCSS passa a ler o resto como CSS inválido e a folha inteira morre — o app deixa de
+ * montar em toda largura, sem erro no console. Foi o que aconteceu ao escrever um glob aqui.
+ */
+@source "../../../packages/ui/src/**/*.{ts,tsx}";
+@source "../../../packages/lib/src/**/*.{ts,tsx}";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
