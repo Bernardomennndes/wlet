@@ -1,4 +1,5 @@
 import type { Dataset } from '@wlet/domain'
+import { toBase64 } from '@wlet/lib/portable'
 import type { SourceFile } from '@wlet/ingest/io'
 import type { Declarations } from '@wlet/ingest/pipeline'
 import type { RemoteDeps } from '../../shared/infrastructure/orpc'
@@ -45,7 +46,12 @@ export function makeOrpcIngestRunner({ client }: RemoteDeps): IngestRunner {
   return {
     async run(sources: SourceFile[], _config: Declarations, _now: string) {
       const { dataset, report } = await client.dataset.ingest({
-        sources: sources.map((s) => ({ path: s.path, contentBase64: btoa(String.fromCharCode(...s.bytes)) })),
+        // `toBase64` e não `btoa(String.fromCharCode(...bytes))`: o spread de um Uint8Array de
+        // megabytes estoura a pilha de argumentos ANTES de qualquer rede, com um `RangeError` que
+        // não fala em tamanho. O helper converte em fatias de 32 KB, e o docblock dele em
+        // `@wlet/lib/portable` já registrava essa lição — este adapter é que a reimplementou
+        // quebrada. Os 11,4 MB de extratos reais que `backup.ts` documenta nunca passavam daqui.
+        sources: sources.map((s) => ({ path: s.path, contentBase64: toBase64(s.bytes) })),
       })
       return { ...(dataset as unknown as Record<string, unknown>), report } as never
     },
