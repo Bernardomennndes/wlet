@@ -1,4 +1,5 @@
 import { accounts, datasetBlobs, type Db, eq, sourceFiles, transactions, transfers } from '@wlet/db'
+import type { Dataset } from '@wlet/domain'
 import { runIngest } from '@wlet/ingest'
 import { nodeEnv } from '@wlet/ingest/node-env'
 import { os } from '../shared/context'
@@ -43,7 +44,11 @@ export function datasetRouter(db: Db) {
         sources: (a.sources as string[]) ?? [],
         transactionCount: a.transactionCount,
       })),
-      meta: blob.meta as never,
+      // Cast TIPADO e não `as never`: a coluna é jsonb e volta como `unknown`, mas o que foi
+      // gravado ali é o `meta` que o pipeline produziu — o mesmo tipo do domínio. `as never`
+      // silenciava o objeto inteiro; este assere só o campo que o banco não sabe tipar, e é o
+      // mesmo padrão que `reportedBalance` e `sources` usam algumas linhas acima.
+      meta: blob.meta as Dataset['meta'],
       // Os nulos são explícitos, e não campos ausentes: no domínio eles são `| null`, e uma
       // ausência diria "não sei" onde o dado diz "não tem".
       transactions: txs.map((t) => ({
@@ -80,7 +85,10 @@ export function datasetRouter(db: Db) {
         toTransactionId: t.toTransactionId,
         description: t.description,
       })),
-      investments: blob.investments as never,
+      // Mesmo caso do `meta`: a coluna é jsonb e volta `unknown`. O contrato declara os três
+      // campos como `z.unknown()` (shape.ts:65-69), então o tipo do domínio assina sem estreitar
+      // nada — o que o cast faz é dizer de ONDE o valor veio, em vez de calar o objeto inteiro.
+      investments: blob.investments as Dataset['investments'],
     }
   }
 

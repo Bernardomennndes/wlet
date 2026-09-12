@@ -6,6 +6,7 @@ import { createAuth } from '@wlet/auth'
 import { createDb } from '@wlet/db'
 import { loadRootEnv } from '@wlet/env'
 import { resolveSession } from './shared/auth'
+import { os } from './shared/context'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { configRouter } from './routers/config'
@@ -62,13 +63,21 @@ if (!secret) {
 const origens = (process.env.WEB_ORIGIN ?? 'http://localhost:5173').split(',')
 const auth = createAuth(db, { baseURL: process.env.AUTH_URL ?? `http://localhost:${process.env.PORT ?? 8787}`, secret, trustedOrigins: origens })
 
-const router = {
+/**
+ * O router, conferido contra o CONTRATO como um todo.
+ *
+ * Cada procedure já nascia amarrada — `os` é `implement(wletContract)` (shared/context.ts:17) —,
+ * então o que faltava não era a checagem por rota: era a do CONJUNTO. Um objeto literal aceita
+ * grupo faltando e grupo a mais sem dizer nada, e é assim que uma procedure declarada no contrato
+ * fica sem implementação até alguém chamá-la em produção. `os.router` fecha isso em compilação.
+ */
+const router = os.router({
   dataset: datasetRouter(db),
   config: configRouter(db),
   preferences: preferencesRouter(db),
   overrides: overridesRouter(db),
   plans: plansRouter(db),
-}
+})
 
 const handler = new OpenAPIHandler(router, {
   // Sem isto, um erro de validação ou de banco sai como 400/500 SEM corpo, e o log fica mudo —
