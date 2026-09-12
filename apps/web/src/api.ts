@@ -13,16 +13,16 @@ import { apiUrl } from './api-url'
  * módulo transformaria um erro de configuração numa página em branco, já que o import acontece
  * antes de qualquer `catch` existir.
  */
-let cliente: WletClient | null = null
+let cachedClient: WletClient | null = null
 
 export function client(): WletClient {
   // O token é para quem NÃO tem navegador (teste e script, pelo plugin `bearer()`); a sessão do
   // app é o cookie `httpOnly`, que viaja sozinho.
-  cliente ??= createWletClient({ baseUrl: apiUrl(), token: () => localStorage.getItem('wlet.token') })
-  return cliente
+  cachedClient ??= createWletClient({ baseUrl: apiUrl(), token: () => localStorage.getItem('wlet.token') })
+  return cachedClient
 }
 
-let utils: ReturnType<typeof createWletQueryUtils> | null = null
+let cachedUtils: ReturnType<typeof createWletQueryUtils> | null = null
 
 /**
  * O contrato visto pelo React Query: `api.<grupo>.<procedure>.queryOptions({ input })`.
@@ -31,12 +31,12 @@ let utils: ReturnType<typeof createWletQueryUtils> | null = null
  * avaliação do módulo leria o ambiente cedo demais.
  */
 export function api(): ReturnType<typeof createWletQueryUtils> {
-  utils ??= createWletQueryUtils(client())
-  return utils
+  cachedUtils ??= createWletQueryUtils(client())
+  return cachedUtils
 }
 
 /** Descarta as instâncias. Existe para o teste, e para um "reiniciar" futuro não vazar estado. */
 export function resetApi(): void {
-  cliente = null
-  utils = null
+  cachedClient = null
+  cachedUtils = null
 }

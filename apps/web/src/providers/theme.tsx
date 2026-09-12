@@ -41,10 +41,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
    * app prometer que lembraria a escolha sem ter lembrado.
    */
   const toggleTheme = useCallback(() => {
-    const proximo = theme === 'dark' ? 'light' : 'dark'
-    setTheme(proximo)
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
     void services()
-      .preferences.setTheme(proximo)
+      .preferences.setTheme(next)
       .catch((cause: unknown) => toast.error(translateRemoteError(cause).message))
   }, [theme])
 

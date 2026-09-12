@@ -77,7 +77,7 @@ export class CorruptedDataError extends DomainError {
  * `Symbol.hasInstance` para contornar. Depender de uma classe que admite não ser reconhecível é
  * pedir para a tradução falhar em silêncio justamente no ambiente mais difícil de reproduzir.
  */
-function statusDe(cause: unknown): number | null {
+function statusOf(cause: unknown): number | null {
   if (typeof cause !== 'object' || cause === null) return null
   const status = (cause as { status?: unknown }).status
   return typeof status === 'number' ? status : null
@@ -94,7 +94,7 @@ function statusDe(cause: unknown): number | null {
 export function translateRemoteError(cause: unknown): DomainError {
   if (cause instanceof DomainError) return cause
 
-  const status = statusDe(cause)
+  const status = statusOf(cause)
   // Sem status é porque a requisição não chegou a ter resposta — `TypeError: Failed to fetch`,
   // que é o que o navegador lança para rede caída, servidor desligado e CORS recusando por igual.
   if (status === null) return new ServerUnreachableError()

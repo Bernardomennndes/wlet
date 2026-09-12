@@ -48,7 +48,7 @@ export function DadosPageContent() {
    * Escolher a pasta NÃO pergunta: o seletor de arquivos do sistema já é o passo deliberado que a
    * `mutation-confirmation.md` §3 dispensa de confirmar.
    */
-  const [confirmarReprocesso, setConfirmarReprocesso] = useState(false)
+  const [confirmReprocess, setConfirmReprocess] = useState(false)
   const [backup, setBackup] = useState<{ kind: 'idle' } | { kind: 'done'; summary: ImportSummary } | { kind: 'failed'; message: string }>({ kind: 'idle' })
   // O arquivo lido fica em espera enquanto o diálogo pergunta o que trazer. Importar direto e
   // depois avisar seria o oposto do que se quer numa escrita que SOBRESCREVE o servidor.
@@ -62,7 +62,7 @@ export function DadosPageContent() {
    * sincronizava nada com sistema externo — era leitura disfarçada. A chave vem do contrato, então
    * as três escritas abaixo a invalidam e a contagem se move sozinha.
    */
-  const { data: stored, refetch: refetchContagem, isFetching: buscandoContagem } = useQuery({ queryKey: api().dataset.sources.key(), queryFn: () => services().dataset.storedSources() })
+  const { data: stored, refetch: refetchStoredCount, isFetching: fetchingStoredCount } = useQuery({ queryKey: api().dataset.sources.key(), queryFn: () => services().dataset.storedSources() })
 
   /**
    * Todo domínio que uma ingestão mexe — e são quase todos.
@@ -72,8 +72,8 @@ export function DadosPageContent() {
    * lançamento, e o id é `sha1` dos campos dele — reprocessar pode deixar um ajuste órfão. Listar
    * as duas chaves aqui é o que impede a tela de somar por uma categoria que já não existe.
    */
-  const aplicar = () => {
-    for (const chave of [api().dataset.key(), api().overrides.list.key()]) void queryClient.invalidateQueries({ queryKey: chave })
+  const apply = () => {
+    for (const key of [api().dataset.key(), api().overrides.list.key()]) void queryClient.invalidateQueries({ queryKey: key })
     void queryClient.invalidateQueries({ queryKey: api().dataset.sources.key() })
   }
 
@@ -94,30 +94,30 @@ export function DadosPageContent() {
    * estranho depois; o toast é a confirmação imediata de que a leitura terminou, para quem
    * escolheu a pasta e olhou para outro lado.
    */
-  const falhou = (cause: unknown) => setState({ kind: 'failed', message: cause instanceof Error ? cause.message : String(cause) })
+  const onFailure = (cause: unknown) => setState({ kind: 'failed', message: cause instanceof Error ? cause.message : String(cause) })
 
-  const { mutate: reprocessar, isPending: reprocessando } = useMutation({
+  const { mutate: reprocess, isPending: reprocessing } = useMutation({
     mutationFn: async () => services().dataset.reingest(await readConfig(), new Date().toISOString()),
     onSuccess: ({ report }) => {
       setState({ kind: 'done', report })
-      aplicar()
+      apply()
       toast.success(`${report.filesRead} ${report.filesRead === 1 ? 'arquivo reprocessado' : 'arquivos reprocessados'}`)
     },
-    onError: falhou,
+    onError: onFailure,
   })
 
-  const { mutate: ler, isPending: lendo } = useMutation({
+  const { mutate: readFolder, isPending: reading } = useMutation({
     mutationFn: async ({ sources }: { sources: SourceFile[] }) => services().dataset.ingest(sources, await readConfig(), new Date().toISOString()),
     onSuccess: ({ report }) => {
       setState({ kind: 'done', report })
-      aplicar()
+      apply()
       toast.success(`${report.filesRead} ${report.filesRead === 1 ? 'arquivo lido' : 'arquivos lidos'}`)
     },
-    onError: falhou,
+    onError: onFailure,
   })
 
   /** Uma ingestão em voo trava a outra: as duas reescrevem o conjunto inteiro. */
-  const ingerindo = lendo || reprocessando
+  const ingesting = reading || reprocessing
 
   const onPick = useCallback(
     async (list: FileList | null) => {
@@ -132,9 +132,9 @@ export function DadosPageContent() {
           bytes: new Uint8Array(await file.arrayBuffer()),
         })),
       )
-      ler({ sources })
+      readFolder({ sources })
     },
-    [ler],
+    [readFolder],
   )
 
   /**
@@ -182,14 +182,14 @@ export function DadosPageContent() {
    * O resumo de uma importação é uma lista de PARTES ("conjunto, declarações, planos"), e a falha
    * dela precisa dizer qual parte não entrou. Painel, não toast.
    */
-  const { mutate: importar, isPending: importando } = useMutation({
+  const { mutate: importPackage, isPending: importing } = useMutation({
     mutationFn: ({ payload, parts }: { payload: Parameters<typeof importState>[0]; parts: PackagePart[] }) => importState(payload, parts, services()),
     onSuccess: (summary) => {
       setBackup({ kind: 'done', summary })
       // A importação escreve em TODOS os cinco contextos, então nenhum fica de fora: o pacote pode
       // trazer conjunto, declarações, planos, ajustes e preferências, e a tela escolhe quais.
-      for (const chave of [api().dataset.key(), api().config.get.key(), api().plans.list.key(), api().overrides.list.key(), api().preferences.get.key(), api().dataset.sources.key()]) {
-        void queryClient.invalidateQueries({ queryKey: chave })
+      for (const key of [api().dataset.key(), api().config.get.key(), api().plans.list.key(), api().overrides.list.key(), api().preferences.get.key(), api().dataset.sources.key()]) {
+        void queryClient.invalidateQueries({ queryKey: key })
       }
       toast.success(`${summary.imported.length} ${summary.imported.length === 1 ? 'parte importada' : 'partes importadas'}`)
     },
@@ -201,9 +201,9 @@ export function DadosPageContent() {
       if (!pending) return
       const payload = pending.payload
       setPending(null)
-      importar({ payload, parts })
+      importPackage({ payload, parts })
     },
-    [pending, importar],
+    [pending, importPackage],
   )
 
   return (
@@ -241,7 +241,7 @@ export function DadosPageContent() {
               navegador: os dois falavam da cota do IndexedDB, e o navegador não guarda mais nada
               que o app leia. Quem cuida de espaço e de cópia agora é quem opera o servidor. */}
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" disabled={buscandoContagem} onClick={() => void refetchContagem()}>
+            <Button size="sm" variant="outline" disabled={fetchingStoredCount} onClick={() => void refetchStoredCount()}>
               <ArrowClockwise /> Atualizar
             </Button>
           </div>
@@ -268,15 +268,15 @@ export function DadosPageContent() {
           <div className="flex flex-wrap gap-2">
             {/* O pending vai no controle que disparou (§5.2), e o rótulo diz o que está em curso:
                 um botão só desabilitado não distingue "estou lendo" de "não dá para clicar". */}
-            <Button size="sm" onClick={() => input.current?.click()} disabled={ingerindo}>
-              <FolderOpen /> {lendo ? 'Lendo os arquivos…' : 'Escolher a pasta docs/'}
+            <Button size="sm" onClick={() => input.current?.click()} disabled={ingesting}>
+              <FolderOpen /> {reading ? 'Lendo os arquivos…' : 'Escolher a pasta docs/'}
             </Button>
             {/* Só aparece com arquivo guardado: um botão permanentemente desabilitado ocupa o
                 mesmo espaço para dizer que não serve, e antes da primeira leitura ele nem
                 descreve uma ação possível. */}
             {stored !== undefined && stored > 0 && (
-              <Button size="sm" variant="outline" onClick={() => setConfirmarReprocesso(true)} disabled={ingerindo}>
-                <ArrowsClockwise /> {reprocessando ? `Reprocessando os ${stored} arquivos…` : `Reprocessar os ${stored} arquivos`}
+              <Button size="sm" variant="outline" onClick={() => setConfirmReprocess(true)} disabled={ingesting}>
+                <ArrowsClockwise /> {reprocessing ? `Reprocessando os ${stored} arquivos…` : `Reprocessar os ${stored} arquivos`}
               </Button>
             )}
           </div>
@@ -297,7 +297,7 @@ export function DadosPageContent() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Exportar e importar</CardTitle>
+          <CardTitle className="text-sm">Exportar e importPackage</CardTitle>
           <CardDescription>
             Tudo o que existe na sua conta, num arquivo só — lançamentos, declarações, planos, ajustes e os extratos originais. Na importação você escolhe o que trazer.
           </CardDescription>
@@ -308,8 +308,8 @@ export function DadosPageContent() {
             <Button size="sm" variant="outline" onClick={() => void download()}>
               <DownloadSimple /> Exportar
             </Button>
-            <Button size="sm" variant="outline" disabled={importando} onClick={() => backupInput.current?.click()}>
-              <UploadSimple /> {importando ? 'Importando…' : 'Importar'}
+            <Button size="sm" variant="outline" disabled={importing} onClick={() => backupInput.current?.click()}>
+              <UploadSimple /> {importing ? 'Importando…' : 'Importar'}
             </Button>
           </div>
           {backup.kind === 'failed' && (
@@ -332,7 +332,7 @@ export function DadosPageContent() {
         </CardContent>
       </Card>
 
-      <AlertDialog open={confirmarReprocesso} onOpenChange={setConfirmarReprocesso}>
+      <AlertDialog open={confirmReprocess} onOpenChange={setConfirmReprocess}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Reprocessar os arquivos guardados?</AlertDialogTitle>
@@ -343,7 +343,7 @@ export function DadosPageContent() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel />
-            <AlertDialogAction onClick={() => reprocessar()}>Reprocessar</AlertDialogAction>
+            <AlertDialogAction onClick={() => reprocess()}>Reprocessar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

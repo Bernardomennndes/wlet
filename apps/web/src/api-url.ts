@@ -10,7 +10,7 @@
  * roda por tsx: sem o `?.`, importar este módulo estoura em Node com "Cannot read properties of
  * undefined". Mesma armadilha do `import.meta.glob` em `generated-files.ts`.
  */
-function variavel(): string | undefined {
+function fromEnv(): string | undefined {
   return (import.meta.env as Record<string, string> | undefined)?.VITE_API_URL
 }
 
@@ -23,7 +23,7 @@ function variavel(): string | undefined {
  * só adiaria o erro até a primeira requisição, onde ele chega como 404 sem explicação.
  */
 export function apiUrl(): string {
-  const url = variavel()
+  const url = fromEnv()
   if (!url) throw new Error('VITE_API_URL não definida: sem ela o app não sabe com que servidor falar. Preencha-a no .env da raiz (veja .env.example).')
   return url
 }

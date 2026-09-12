@@ -53,7 +53,7 @@ export function ConfiguracaoPageContent() {
   useDocumentTitle('Configuração')
   const queryClient = useQueryClient()
   // Inline, como a §3.4 pede — a explicação do desvio está no bloco acima.
-  const { data: declarado } = useQuery({ queryKey: api().config.get.key(), queryFn: () => services().config.load(), initialData: declarations })
+  const { data: declared } = useQuery({ queryKey: api().config.get.key(), queryFn: () => services().config.load(), initialData: declarations })
 
   /**
    * Cinco escritas, cinco `useMutation`, cinco frases — e é assim de propósito.
@@ -65,7 +65,7 @@ export function ConfiguracaoPageContent() {
    * **Nenhuma delas trata erro.** Ele é um só, no `MutationCache` do provider — uma cópia por
    * escrita seria cinco textos livres para divergir.
    */
-  const gravar = (parte: Partial<Declarations>) => services().config.replace({ ...declarado, ...parte })
+  const save = (part: Partial<Declarations>) => services().config.replace({ ...declared, ...part })
 
   /**
    * O que o servidor devolveu entra no cache NA HORA, e a chave é invalidada em seguida.
@@ -75,49 +75,49 @@ export function ConfiguracaoPageContent() {
    * existia para impedir. Sem a invalidação, a tela passaria a confiar na resposta de uma
    * escrita como se fosse leitura.
    */
-  const aplicar = (proximo: Declarations) => {
-    queryClient.setQueryData(api().config.get.key(), proximo)
+  const apply = (saved: Declarations) => {
+    queryClient.setQueryData(api().config.get.key(), saved)
     void queryClient.invalidateQueries({ queryKey: api().config.key() })
   }
 
-  const { mutate: gravarTeto, isPending: gravandoTeto } = useMutation({
-    mutationFn: (budget: Declarations['budget']) => gravar({ budget }),
-    onSuccess: (proximo) => {
-      aplicar(proximo)
+  const { mutate: saveBudget, isPending: savingBudget } = useMutation({
+    mutationFn: (budget: Declarations['budget']) => save({ budget }),
+    onSuccess: (saved) => {
+      apply(saved)
       toast.success('Teto e rubricas guardados')
     },
   })
 
-  const { mutate: gravarCobrancas, isPending: gravandoCobrancas } = useMutation({
-    mutationFn: (receivables: Declarations['receivables']) => gravar({ receivables }),
-    onSuccess: (proximo) => {
-      aplicar(proximo)
+  const { mutate: saveReceivables, isPending: savingReceivables } = useMutation({
+    mutationFn: (receivables: Declarations['receivables']) => save({ receivables }),
+    onSuccess: (saved) => {
+      apply(saved)
       toast.success('Cobranças guardadas')
     },
   })
 
-  const { mutate: gravarMetas, isPending: gravandoMetas } = useMutation({
-    mutationFn: (goals: Declarations['goals']) => gravar({ goals }),
-    onSuccess: (proximo) => {
-      aplicar(proximo)
+  const { mutate: saveGoals, isPending: savingGoals } = useMutation({
+    mutationFn: (goals: Declarations['goals']) => save({ goals }),
+    onSuccess: (saved) => {
+      apply(saved)
       toast.success('Metas guardadas')
     },
   })
 
-  const { mutate: gravarContas, isPending: gravandoContas } = useMutation({
-    mutationFn: (accounts: Declarations['accounts']) => gravar({ accounts }),
-    onSuccess: (proximo) => {
-      aplicar(proximo)
+  const { mutate: saveAccounts, isPending: savingAccounts } = useMutation({
+    mutationFn: (accounts: Declarations['accounts']) => save({ accounts }),
+    onSuccess: (saved) => {
+      apply(saved)
       // A frase nomeia o que falta fazer, porque perfil de conta age na LEITURA do arquivo: sem
       // reprocessar, a mudança está guardada e não vale para lançamento nenhum.
       toast.success('Perfis de conta guardados — reprocesse em Meus dados para valerem')
     },
   })
 
-  const { mutate: gravarRegras, isPending: gravandoRegras } = useMutation({
-    mutationFn: (rules: Declarations['rules']) => gravar({ rules }),
-    onSuccess: (proximo) => {
-      aplicar(proximo)
+  const { mutate: saveRules, isPending: savingRules } = useMutation({
+    mutationFn: (rules: Declarations['rules']) => save({ rules }),
+    onSuccess: (saved) => {
+      apply(saved)
       toast.success('Regras de categoria guardadas — reprocesse em Meus dados para valerem')
     },
   })
@@ -135,17 +135,17 @@ export function ConfiguracaoPageContent() {
           conta e regras por último — os dois que quase nunca mudam e que, quando mudam, pedem
           reprocessamento. O `disabled` de cada seção é o `isPending` da PRÓPRIA escrita: um
           estado global desabilitaria as cinco por causa de uma. */}
-      <BudgetSection budget={declarado.budget} disabled={gravandoTeto} onChange={(budget) => gravarTeto(budget)} />
-      <ReceivablesSection receivables={declarado.receivables} disabled={gravandoCobrancas} onChange={(receivables) => gravarCobrancas(receivables)} />
-      <GoalsSection goals={declarado.goals} disabled={gravandoMetas} onChange={(goals) => gravarMetas(goals)} />
+      <BudgetSection budget={declared.budget} disabled={savingBudget} onChange={(budget) => saveBudget(budget)} />
+      <ReceivablesSection receivables={declared.receivables} disabled={savingReceivables} onChange={(receivables) => saveReceivables(receivables)} />
+      <GoalsSection goals={declared.goals} disabled={savingGoals} onChange={(goals) => saveGoals(goals)} />
 
       <p className="text-muted-foreground flex items-start gap-2 text-xs">
         <ArrowsClockwise className="mt-0.5 shrink-0" />
         As duas seções abaixo agem na LEITURA dos arquivos: mudá-las exige <strong className="text-foreground font-medium">reprocessar</strong> em Meus dados, não só recarregar.
       </p>
 
-      <AccountsSection accounts={declarado.accounts} disabled={gravandoContas} onChange={(accounts) => gravarContas(accounts)} />
-      <RulesSection rules={declarado.rules} disabled={gravandoRegras} onChange={(rules) => gravarRegras(rules)} />
+      <AccountsSection accounts={declared.accounts} disabled={savingAccounts} onChange={(accounts) => saveAccounts(accounts)} />
+      <RulesSection rules={declared.rules} disabled={savingRules} onChange={(rules) => saveRules(rules)} />
     </div>
   )
 }

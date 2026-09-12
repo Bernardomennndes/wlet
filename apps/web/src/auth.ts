@@ -8,10 +8,10 @@ import { apiOrigin } from './api-url'
  * `httpOnly` — o app nunca a lê, e é esse o ponto: script nenhum consegue, inclusive o de um
  * XSS. Quem prova que a sessão existe é o servidor, a cada chamada.
  */
-let instancia: ReturnType<typeof createWletAuthClient> | null = null
+let cachedClient: ReturnType<typeof createWletAuthClient> | null = null
 
 /** Memoizado: o cliente guarda estado de sessão, e dois deles divergiriam em silêncio. */
 export function auth() {
-  instancia ??= createWletAuthClient(apiOrigin())
-  return instancia
+  cachedClient ??= createWletAuthClient(apiOrigin())
+  return cachedClient
 }

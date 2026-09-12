@@ -20,7 +20,7 @@ import { toast } from '@wlet/ui/toast'
  * porque só lá se sabe o que aconteceu — "Plano \"Monitor\" criado" informa; "Salvo com sucesso",
  * repetido trinta vezes, é ruído que a pessoa aprende a ignorar.
  */
-function criarCliente(): QueryClient {
+function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {
@@ -31,7 +31,7 @@ function criarCliente(): QueryClient {
         staleTime: 30_000,
         // 401 não melhora tentando de novo — a sessão não volta sozinha, e as tentativas só
         // atrasam a tela de entrada.
-        retry: (falhas, erro) => falhas < 2 && !/expirou|acesso/i.test(erro instanceof Error ? erro.message : ''),
+        retry: (failures, error) => failures < 2 && !/expirou|acesso/i.test(error instanceof Error ? error.message : ''),
       },
       // Escrita NÃO se repete sozinha: "gravar de novo" pode significar gravar duas vezes, e não
       // há como saber daqui se a primeira chegou.
@@ -45,7 +45,7 @@ function criarCliente(): QueryClient {
       mutations: { retry: false },
     },
     mutationCache: new MutationCache({
-      onError: (erro) => toast.error(translateRemoteError(erro).message),
+      onError: (error) => toast.error(translateRemoteError(error).message),
     }),
   })
 }
@@ -58,6 +58,6 @@ function criarCliente(): QueryClient {
  * erro clássico deste provider, e ele não dá sintoma nenhum além de lentidão inexplicável.
  */
 export function QueryProvider({ children }: { children: ReactNode }) {
-  const [client] = useState(criarCliente)
+  const [client] = useState(createQueryClient)
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>
 }

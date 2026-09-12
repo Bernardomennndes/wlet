@@ -23,7 +23,7 @@ import { Button } from './button'
  *
  * Sem botão de fechar no canto, de propósito: a saída é o Cancelar, que está no rodapé e tem nome.
  */
-const CancelarContext = React.createContext<React.RefObject<HTMLButtonElement | null> | null>(null)
+const CancelRefContext = React.createContext<React.RefObject<HTMLButtonElement | null> | null>(null)
 
 function AlertDialog({ disablePointerDismissal = true, ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="alert-dialog" disablePointerDismissal={disablePointerDismissal} {...props} />
@@ -51,15 +51,15 @@ function AlertDialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Pr
 }
 
 function AlertDialogContent({ className, children, ...props }: DialogPrimitive.Popup.Props) {
-  const cancelar = React.useRef<HTMLButtonElement | null>(null)
+  const cancelRef = React.useRef<HTMLButtonElement | null>(null)
   return (
-    <CancelarContext.Provider value={cancelar}>
+    <CancelRefContext.Provider value={cancelRef}>
       <AlertDialogPortal>
         <AlertDialogOverlay />
         <DialogPrimitive.Popup
           data-slot="alert-dialog-content"
           role="alertdialog"
-          initialFocus={cancelar}
+          initialFocus={cancelRef}
           className={cn(
             'fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-xs/relaxed text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95',
             className,
@@ -69,7 +69,7 @@ function AlertDialogContent({ className, children, ...props }: DialogPrimitive.P
           {children}
         </DialogPrimitive.Popup>
       </AlertDialogPortal>
-    </CancelarContext.Provider>
+    </CancelRefContext.Provider>
   )
 }
 
@@ -91,7 +91,7 @@ function AlertDialogDescription({ className, ...props }: DialogPrimitive.Descrip
 
 /** O recuo. Registra o próprio ref para o `initialFocus` do conteúdo poder apontar para ele. */
 function AlertDialogCancel({ children = 'Cancelar', ...props }: DialogPrimitive.Close.Props) {
-  const ref = React.useContext(CancelarContext)
+  const ref = React.useContext(CancelRefContext)
   return (
     <DialogPrimitive.Close data-slot="alert-dialog-cancel" render={<Button ref={ref ?? undefined} variant="outline" />} {...props}>
       {children}

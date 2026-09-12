@@ -50,7 +50,7 @@ export function RubricasPageContent() {
   // A mesma leitura da Configuração, e a mesma chave: as duas telas editam o MESMO agregado, e é
   // a chave vinda do contrato que faz uma enxergar o que a outra gravou. A explicação de por que
   // o `queryFn` não é o de fábrica está em `routes/configuracao/-content.tsx`.
-  const { data: declarado } = useQuery({ queryKey: api().config.get.key(), queryFn: () => services().config.load(), initialData: declarations })
+  const { data: declaredConfig } = useQuery({ queryKey: api().config.get.key(), queryFn: () => services().config.load(), initialData: declarations })
 
   const [base, setBase] = useState<Base>('month')
   /**
@@ -60,10 +60,10 @@ export function RubricasPageContent() {
    * id basta para reabrir o rótulo; guardar o objeto arriscaria mostrar na pergunta um valor que a
    * lista já atualizou.
    */
-  const [rubricaParaRemover, setRubricaParaRemover] = useState<string | null>(null)
+  const [rubricPendingDeletion, setRubricPendingDeletion] = useState<string | null>(null)
   const currentMonth = lastMonthWithData()
   const today = lastDateWithData()
-  const budget: Budget = declarado.budget
+  const budget: Budget = declaredConfig.budget
   const declared = useMemo(() => budget.byCategory ?? [], [budget])
 
   /**
@@ -120,7 +120,7 @@ export function RubricasPageContent() {
    *
    * Nenhuma trata erro: ele é um só, no `MutationCache` do provider.
    */
-  const gravarRubricas = useCallback((byCategory: BudgetCategory[]) => services().config.replace({ ...declarado, budget: { ...budget, byCategory } }), [declarado, budget])
+  const saveRubrics = useCallback((byCategory: BudgetCategory[]) => services().config.replace({ ...declaredConfig, budget: { ...budget, byCategory } }), [declaredConfig, budget])
 
   /**
    * O resultado entra no cache NA HORA, e a chave é invalidada em seguida — as duas coisas.
@@ -129,42 +129,42 @@ export function RubricasPageContent() {
    * por cima da primeira. Sem a invalidação, a tela passaria a confiar na resposta de uma escrita
    * como se fosse leitura.
    */
-  const aplicar = useCallback(
-    (proximo: Awaited<ReturnType<typeof gravarRubricas>>) => {
-      queryClient.setQueryData(api().config.get.key(), proximo)
+  const apply = useCallback(
+    (saved: Awaited<ReturnType<typeof saveRubrics>>) => {
+      queryClient.setQueryData(api().config.get.key(), saved)
       void queryClient.invalidateQueries({ queryKey: api().config.key() })
     },
     [queryClient],
   )
 
-  const { mutate: adicionar, isPending: adicionando } = useMutation({
-    mutationFn: ({ categoryId }: { categoryId: string }) => gravarRubricas([...declared, { categoryId, amount: 0 }]),
-    onSuccess: (proximo, { categoryId }) => {
-      aplicar(proximo)
+  const { mutate: createRubric, isPending: creatingRubric } = useMutation({
+    mutationFn: ({ categoryId }: { categoryId: string }) => saveRubrics([...declared, { categoryId, amount: 0 }]),
+    onSuccess: (saved, { categoryId }) => {
+      apply(saved)
       toast.success(`Rubrica de ${categoryLabel(categoryId)} criada`)
     },
   })
 
-  const { mutate: editar, isPending: editando } = useMutation({
-    mutationFn: ({ categoryId, patch }: { categoryId: string; patch: Partial<BudgetCategory> }) => gravarRubricas(declared.map((r) => (r.categoryId === categoryId ? { ...r, ...patch } : r))),
-    onSuccess: (proximo, { categoryId }) => {
-      aplicar(proximo)
+  const { mutate: updateRubric, isPending: updatingRubric } = useMutation({
+    mutationFn: ({ categoryId, patch }: { categoryId: string; patch: Partial<BudgetCategory> }) => saveRubrics(declared.map((r) => (r.categoryId === categoryId ? { ...r, ...patch } : r))),
+    onSuccess: (saved, { categoryId }) => {
+      apply(saved)
       toast.success(`Rubrica de ${categoryLabel(categoryId)} guardada`)
     },
   })
 
-  const { mutate: remover, isPending: removendo } = useMutation({
-    mutationFn: ({ categoryId }: { categoryId: string }) => gravarRubricas(declared.filter((r) => r.categoryId !== categoryId)),
-    onSuccess: (proximo, { categoryId }) => {
-      aplicar(proximo)
+  const { mutate: deleteRubric, isPending: deletingRubric } = useMutation({
+    mutationFn: ({ categoryId }: { categoryId: string }) => saveRubrics(declared.filter((r) => r.categoryId !== categoryId)),
+    onSuccess: (saved, { categoryId }) => {
+      apply(saved)
       toast.success(`Rubrica de ${categoryLabel(categoryId)} removida`)
     },
   })
 
-  const onChange = useCallback((categoryId: string, patch: Partial<BudgetCategory>) => editar({ categoryId, patch }), [editar])
+  const onChange = useCallback((categoryId: string, patch: Partial<BudgetCategory>) => updateRubric({ categoryId, patch }), [updateRubric])
   // ABRE a pergunta em vez de remover: mutação instantânea e sem formulário pede confirmação
   // (`mutation-confirmation.md` §1), e uma rubrica removida por engano leva o teto e os itens dela.
-  const onRemove = useCallback((categoryId: string) => setRubricaParaRemover(categoryId), [])
+  const onRemove = useCallback((categoryId: string) => setRubricPendingDeletion(categoryId), [])
 
   // Uma categoria só pode ter UMA rubrica: duas somariam duas vezes o mesmo teto, e a tela
   // mostraria duas barras medindo o mesmo gasto.
@@ -187,7 +187,7 @@ export function RubricasPageContent() {
           {/* Adicionar é ESCOLHER A CATEGORIA, então a lista precisa existir — a categoria é a
                 identidade da rubrica e não se troca depois. O que mudou foi o CONTROLE: um
                 combobox afirma um valor, e isto é uma ação. Ver `add-rubric-button.tsx`. */}
-          {available.length > 0 && <AddRubricButton options={available} disabled={adicionando} onPick={(categoryId) => adicionar({ categoryId })} />}
+          {available.length > 0 && <AddRubricButton options={available} disabled={creatingRubric} onPick={(categoryId) => createRubric({ categoryId })} />}
         </div>
       </header>
 
@@ -217,18 +217,18 @@ export function RubricasPageContent() {
           {/* A lista inteira espera enquanto uma linha grava: editar e remover reordenam o
               mesmo agregado, e deixar a segunda linha editável durante a gravação da primeira
               faria a segunda partir de um retrato vencido. */}
-          <RubricList rubrics={rubrics} windowLabel={windowLabel} disabled={editando || removendo} onChange={onChange} onRemove={onRemove} />
+          <RubricList rubrics={rubrics} windowLabel={windowLabel} disabled={updatingRubric || deletingRubric} onChange={onChange} onRemove={onRemove} />
         </CardContent>
       </Card>
 
       {/* A pergunta nomeia a categoria e diz o que sai junto: uma rubrica pode ter itens detalhados,
           e quem só vê a barra não sabe que eles existem. */}
-      <AlertDialog open={rubricaParaRemover !== null} onOpenChange={(aberto) => !aberto && setRubricaParaRemover(null)}>
+      <AlertDialog open={rubricPendingDeletion !== null} onOpenChange={(open) => !open && setRubricPendingDeletion(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remover esta rubrica?</AlertDialogTitle>
             <AlertDialogDescription>
-              O teto de <strong>{rubricaParaRemover ? categoryLabel(rubricaParaRemover) : ''}</strong> sai do planejamento, com os itens detalhados dele. O gasto já lançado continua onde está.
+              O teto de <strong>{rubricPendingDeletion ? categoryLabel(rubricPendingDeletion) : ''}</strong> sai do planejamento, com os itens detalhados dele. O gasto já lançado continua onde está.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -236,8 +236,8 @@ export function RubricasPageContent() {
             <AlertDialogAction
               variant="destructive"
               onClick={() => {
-                if (rubricaParaRemover) remover({ categoryId: rubricaParaRemover })
-                setRubricaParaRemover(null)
+                if (rubricPendingDeletion) deleteRubric({ categoryId: rubricPendingDeletion })
+                setRubricPendingDeletion(null)
               }}
             >
               Remover

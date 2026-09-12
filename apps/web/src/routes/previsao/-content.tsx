@@ -83,8 +83,8 @@ export function PrevisaoPageContent() {
   const queryClient = useQueryClient()
   // A mesma leitura da Configuração, e a mesma chave — a explicação de por que o `queryFn` não é
   // o de fábrica está em `routes/configuracao/-content.tsx`.
-  const { data: declarado } = useQuery({ queryKey: api().config.get.key(), queryFn: () => services().config.load(), initialData: declarations })
-  const planned = declarado.planned
+  const { data: declared } = useQuery({ queryKey: api().config.get.key(), queryFn: () => services().config.load(), initialData: declarations })
+  const planned = declared.planned
   const [editing, setEditing] = useState<PlannedEntry | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   // A janela da prévia sai das próprias regras, não do filtro do cabeçalho: começa no mês
@@ -161,7 +161,7 @@ export function PrevisaoPageContent() {
   )
 
   /** A lista inteira volta pelo serviço, que valida o agregado (§3: um agregado, uma escrita). */
-  const gravarPrevistos = useCallback((next: PlannedEntry[]) => services().config.replace({ ...declarado, planned: next }), [declarado])
+  const savePlanned = useCallback((next: PlannedEntry[]) => services().config.replace({ ...declared, planned: next }), [declared])
 
   /**
    * O resultado entra no cache NA HORA, e a chave é invalidada em seguida — as duas coisas.
@@ -170,9 +170,9 @@ export function PrevisaoPageContent() {
    * apagaria a primeira. Sem a invalidação, a tela passaria a confiar na resposta de uma escrita
    * como se fosse leitura.
    */
-  const aplicar = useCallback(
-    (proximo: Awaited<ReturnType<typeof gravarPrevistos>>) => {
-      queryClient.setQueryData(api().config.get.key(), proximo)
+  const apply = useCallback(
+    (saved: Awaited<ReturnType<typeof savePlanned>>) => {
+      queryClient.setQueryData(api().config.get.key(), saved)
       void queryClient.invalidateQueries({ queryKey: api().config.key() })
     },
     [queryClient],
@@ -185,24 +185,24 @@ export function PrevisaoPageContent() {
    * quem acabou de excluir Aluguel precisa ler que Aluguel saiu, porque é a única confirmação
    * de que clicou na linha certa. Nenhuma trata erro: ele é um só, no provider.
    */
-  const { mutate: excluir, isPending: excluindo } = useMutation({
-    mutationFn: ({ entry }: { entry: PlannedEntry }) => gravarPrevistos(planned.filter((e) => e.id !== entry.id)),
-    onSuccess: (proximo, { entry }) => {
-      aplicar(proximo)
+  const { mutate: deleteEntry, isPending: deletingEntry } = useMutation({
+    mutationFn: ({ entry }: { entry: PlannedEntry }) => savePlanned(planned.filter((e) => e.id !== entry.id)),
+    onSuccess: (saved, { entry }) => {
+      apply(saved)
       toast.success(`"${entry.label}" excluído dos previstos`)
     },
   })
 
-  const { mutate: gravarEntrada, isPending: gravandoEntrada } = useMutation({
-    mutationFn: ({ next }: { next: PlannedEntry[]; label: string; criando: boolean }) => gravarPrevistos(next),
-    onSuccess: (proximo, { label, criando }) => {
-      aplicar(proximo)
-      toast.success(criando ? `"${label}" adicionado aos previstos` : `"${label}" atualizado`)
+  const { mutate: saveEntry, isPending: savingEntry } = useMutation({
+    mutationFn: ({ next }: { next: PlannedEntry[]; label: string; creating: boolean }) => savePlanned(next),
+    onSuccess: (saved, { label, creating }) => {
+      apply(saved)
+      toast.success(creating ? `"${label}" adicionado aos previstos` : `"${label}" atualizado`)
     },
   })
 
   /** Enquanto QUALQUER das duas grava, a lista inteira espera: as duas reescrevem o agregado. */
-  const saving = excluindo || gravandoEntrada
+  const saving = deletingEntry || savingEntry
 
   /**
    * ABRE a pergunta em vez de excluir.
@@ -211,8 +211,8 @@ export function PrevisaoPageContent() {
    * linha não mostra. A `mutation-confirmation.md` §1 não admite disparo direto no `onClick` de uma
    * mutação instantânea, e aqui o motivo tem nome.
    */
-  const [previstoParaExcluir, setPrevistoParaExcluir] = useState<PlannedEntry | null>(null)
-  const removeEntry = useCallback((entry: PlannedEntry) => setPrevistoParaExcluir(entry), [])
+  const [entryPendingDeletion, setEntryPendingDeletion] = useState<PlannedEntry | null>(null)
+  const removeEntry = useCallback((entry: PlannedEntry) => setEntryPendingDeletion(entry), [])
   const submitEntry = useCallback(
     (values: Omit<PlannedEntry, 'id'>) => {
       // Editar preserva o id; criar inventa um que não colide com nenhum existente — a
@@ -225,15 +225,15 @@ export function PrevisaoPageContent() {
       // tecla dela produzia.
       if (editing) {
         const next = planned.map((e) => (e.id === editing.id ? { ...values, id: editing.id, exceptions: editing.exceptions } : e))
-        gravarEntrada({ next, label: values.label, criando: false })
+        saveEntry({ next, label: values.label, creating: false })
         return
       }
       const usados = new Set(planned.map((e) => e.id))
       let n = planned.length + 1
       while (usados.has(`regra-${n}`)) n += 1
-      gravarEntrada({ next: [...planned, { ...values, id: `regra-${n}` }], label: values.label, criando: true })
+      saveEntry({ next: [...planned, { ...values, id: `regra-${n}` }], label: values.label, creating: true })
     },
-    [editing, planned, gravarEntrada],
+    [editing, planned, saveEntry],
   )
 
   const preview = useMemo<ForecastRow[]>(() => {
@@ -273,7 +273,7 @@ export function PrevisaoPageContent() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Previsão</h1>
-            <p className="text-xs text-muted-foreground">Nada é extrapolado do histórico: os meses à frente mostram só o que está declarado aqui, mais as parcelas de cartão já compradas.</p>
+            <p className="text-xs text-muted-foreground">Nada é extrapolado do histórico: os meses à frente mostram só o que está declared aqui, mais as parcelas de cartão já compradas.</p>
           </div>
           {/* O disparador de criação mora no cabeçalho da PÁGINA, e não no da seção: esta tela
               não tem faixa de controles onde pendurá-lo (§12.4 da `tables-and-listings.md`), e
@@ -374,13 +374,13 @@ export function PrevisaoPageContent() {
           gráfico e a tabela já se moveram junto com a lista. O aviso só faz sentido onde o
           efeito de fato espera um refresh. */}
 
-      <AlertDialog open={previstoParaExcluir !== null} onOpenChange={(aberto) => !aberto && setPrevistoParaExcluir(null)}>
+      <AlertDialog open={entryPendingDeletion !== null} onOpenChange={(open) => !open && setEntryPendingDeletion(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir este lançamento previsto?</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{previstoParaExcluir?.label}</strong> sai da previsão
-              {Object.keys(previstoParaExcluir?.exceptions ?? {}).length > 0 ? `, com as ${Object.keys(previstoParaExcluir?.exceptions ?? {}).length} exceções por mês que ele tem` : ''}. Não há como
+              <strong>{entryPendingDeletion?.label}</strong> sai da previsão
+              {Object.keys(entryPendingDeletion?.exceptions ?? {}).length > 0 ? `, com as ${Object.keys(entryPendingDeletion?.exceptions ?? {}).length} exceções por mês que ele tem` : ''}. Não há como
               desfazer.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -389,8 +389,8 @@ export function PrevisaoPageContent() {
             <AlertDialogAction
               variant="destructive"
               onClick={() => {
-                if (previstoParaExcluir) excluir({ entry: previstoParaExcluir })
-                setPrevistoParaExcluir(null)
+                if (entryPendingDeletion) deleteEntry({ entry: entryPendingDeletion })
+                setEntryPendingDeletion(null)
               }}
             >
               Excluir

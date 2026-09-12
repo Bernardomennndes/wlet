@@ -153,10 +153,10 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
    * verdade em seguida. Se a gravação falhar, o aviso global diz — e a linha volta sozinha, porque
    * o refetch da invalidação desfaz o otimismo.
    */
-  const { mutate: gravarAjuste } = useMutation({
+  const { mutate: saveOverride } = useMutation({
     mutationFn: ({ id, categoryId }: { id: string; categoryId: string | null }) => services().overrides.set(id, categoryId),
-    onSuccess: (proximos, { categoryId }) => {
-      queryClient.setQueryData(api().overrides.list.key(), proximos)
+    onSuccess: (saved, { categoryId }) => {
+      queryClient.setQueryData(api().overrides.list.key(), saved)
       toast.success(categoryId ? `Lançamento movido para ${categoryLabel(categoryId)}` : 'Lançamento devolvido à categoria automática')
     },
     // `onSettled` e não `onSuccess`: a invalidação precisa acontecer também no ERRO. O otimismo
@@ -177,9 +177,9 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
         else delete next[id]
         return next
       })
-      gravarAjuste({ id, categoryId })
+      saveOverride({ id, categoryId })
     },
-    [queryClient, gravarAjuste],
+    [queryClient, saveOverride],
   )
 
   const months = useMemo(() => monthsBetween(period.from, period.to), [period])

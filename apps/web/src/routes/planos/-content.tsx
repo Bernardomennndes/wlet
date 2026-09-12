@@ -39,7 +39,7 @@ export function PlanosPageContent() {
    * criar, editar ou descartar um muda o número que a Visão geral e a Previsão mostram. As duas
    * leem o MESMO cache de planos, pela mesma chave — invalidá-la move as três telas juntas.
    */
-  const aplicar = () => {
+  const apply = () => {
     void queryClient.invalidateQueries({ queryKey: api().plans.list.key() })
   }
 
@@ -52,60 +52,60 @@ export function PlanosPageContent() {
    *
    * Nenhuma trata erro — ele é um só, no `MutationCache` do provider.
    */
-  const { mutate: criarPlano, isPending: criandoPlano } = useMutation({
+  const { mutate: createPlan, isPending: creatingPlan } = useMutation({
     mutationFn: (plan: Omit<Plan, 'id'>) => services().plans.addPlan(plan),
-    onSuccess: (plano) => {
-      aplicar()
-      toast.success(`Plano "${plano.label}" criado`)
+    onSuccess: (created) => {
+      apply()
+      toast.success(`Plano "${created.label}" criado`)
     },
   })
 
-  const { mutate: editarPlano, isPending: editandoPlano } = useMutation({
+  const { mutate: updatePlan, isPending: updatingPlan } = useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: Partial<Omit<Plan, 'id'>> }) => services().plans.updatePlan(id, patch),
-    onSuccess: (plano) => {
-      aplicar()
-      toast.success(`Plano "${plano.label}" atualizado`)
+    onSuccess: (created) => {
+      apply()
+      toast.success(`Plano "${created.label}" atualizado`)
     },
   })
 
-  const { mutate: removerPlano, isPending: removendoPlano } = useMutation({
+  const { mutate: deletePlan, isPending: deletingPlan } = useMutation({
     // O rótulo viaja nas variáveis porque `removePlan` devolve `void`: depois de apagado não há
     // de onde tirá-lo, e "Plano removido" não confirma que era AQUELE que a pessoa mirou.
     mutationFn: ({ id }: { id: string; label: string }) => services().plans.removePlan(id),
     onSuccess: (_, { label }) => {
-      aplicar()
+      apply()
       toast.success(`Plano "${label}" removido`)
     },
   })
 
-  const { mutate: criarGrupo, isPending: criandoGrupo } = useMutation({
+  const { mutate: createGroup, isPending: creatingGroup } = useMutation({
     mutationFn: (group: Omit<PlanGroup, 'id'>) => services().plans.addGroup(group),
-    onSuccess: (grupo) => {
-      aplicar()
-      toast.success(`Grupo "${grupo.label}" criado`)
+    onSuccess: (createdGroup) => {
+      apply()
+      toast.success(`Grupo "${createdGroup.label}" criado`)
     },
   })
 
-  const { mutate: removerGrupo, isPending: removendoGrupo } = useMutation({
+  const { mutate: deleteGroup, isPending: deletingGroup } = useMutation({
     mutationFn: ({ id }: { id: string; label: string }) => services().plans.removeGroup(id),
     onSuccess: (_, { label }) => {
-      aplicar()
+      apply()
       // A frase diz o que NÃO aconteceu, porque a regra não é óbvia e o serviço a aplica: apagar
       // um grupo não apaga os planos dele — eles ficam soltos.
       toast.success(`Grupo "${label}" removido — os planos dele continuam na lista`)
     },
   })
 
-  const { mutate: importarPlanos, isPending: importando } = useMutation({
-    mutationFn: (proximos: ReturnType<typeof parsePlans>) => services().plans.replaceAll(proximos),
-    onSuccess: (proximos) => {
-      aplicar()
-      toast.success(`${proximos.items.length} ${plural(proximos.items.length, 'plano importado', 'planos importados')}`)
+  const { mutate: replaceAllPlans, isPending: importing } = useMutation({
+    mutationFn: (saved: ReturnType<typeof parsePlans>) => services().plans.replaceAll(saved),
+    onSuccess: (saved) => {
+      apply()
+      toast.success(`${saved.items.length} ${plural(saved.items.length, 'plano importado', 'planos importados')}`)
     },
   })
 
   /** Qualquer escrita em voo trava a lista: as seis reescrevem o mesmo catálogo. */
-  const gravando = criandoPlano || editandoPlano || removendoPlano || criandoGrupo || removendoGrupo || importando
+  const saving = creatingPlan || updatingPlan || deletingPlan || creatingGroup || deletingGroup || importing
 
   const [open, setOpen] = useState(false)
   const [groupOpen, setGroupOpen] = useState(false)
@@ -119,8 +119,8 @@ export function PlanosPageContent() {
    * A lista tem N planos, e montar um `AlertDialog` por linha colocaria N portais na árvore para
    * que no máximo um abra. O estado guarda QUEM, e o diálogo é um só.
    */
-  const [planoParaRemover, setPlanoParaRemover] = useState<Plan | null>(null)
-  const [grupoParaRemover, setGrupoParaRemover] = useState<PlanGroup | null>(null)
+  const [planPendingDeletion, setPlanPendingDeletion] = useState<Plan | null>(null)
+  const [groupPendingDeletion, setGroupPendingDeletion] = useState<PlanGroup | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
   const lastMonth = monthsWithData.at(-1) ?? new Date().toISOString().slice(0, 7)
@@ -245,7 +245,7 @@ export function PlanosPageContent() {
     reader.onload = () => {
       try {
         // `parsePlans` é a fronteira: o arquivo veio de fora e nada nele é confiável.
-        importarPlanos(parsePlans(JSON.parse(String(reader.result))))
+        replaceAllPlans(parsePlans(JSON.parse(String(reader.result))))
       } catch {
         // Arquivo ILEGÍVEL — JSON quebrado, não um plano inválido. Esse caso não passa pela
         // escrita, então não há erro do servidor para o aviso global mostrar; a lista fica como
@@ -265,17 +265,17 @@ export function PlanosPageContent() {
             <p className="text-xs text-muted-foreground">O que você pretende comprar. Só os planos decididos entram na previsão.</p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
-            <Button variant="outline" disabled={gravando} onClick={() => setGroupOpen(true)}>
-              <FolderPlus data-icon="inline-start" /> Novo grupo
+            <Button variant="outline" disabled={saving} onClick={() => setGroupOpen(true)}>
+              <FolderPlus data-icon="inline-start" /> Novo createdGroup
             </Button>
             <Button
-              disabled={gravando}
+              disabled={saving}
               onClick={() => {
                 setEditing(null)
                 setOpen(true)
               }}
             >
-              <Plus data-icon="inline-start" /> Novo plano
+              <Plus data-icon="inline-start" /> Novo created
             </Button>
           </div>
         </div>
@@ -300,7 +300,7 @@ export function PlanosPageContent() {
                 mostra cada marca do lado do nome dela — repeti-la aqui em prosa produzia um
                 parágrafo de quatro linhas que ninguém lia, e que empurrava o gráfico para
                 fora da primeira dobra. O detalhe do número vive no ⓘ do headline. */}
-            <CardDescription>Da base ao topo, em ordem de certeza: primeiro o que o mês já tem preso, depois o que esta lista acrescenta. Aponte um plano para ver onde ele cai.</CardDescription>
+            <CardDescription>Da base ao topo, em ordem de certeza: primeiro o que o mês já tem preso, depois o que esta lista acrescenta. Aponte um created para ver onde ele cai.</CardDescription>
           </CardHeader>
           <CardContent>
             <PlanScheduleChart
@@ -334,7 +334,7 @@ export function PlanosPageContent() {
             <EmptyMedia variant="icon">
               <Target />
             </EmptyMedia>
-            <EmptyTitle>Nenhum plano ainda</EmptyTitle>
+            <EmptyTitle>Nenhum created ainda</EmptyTitle>
             <EmptyDescription>Anote o que você pretende comprar — com valor, mês e parcelamento — e a tela de Previsão mostra se cabe.</EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -359,9 +359,9 @@ export function PlanosPageContent() {
           <PlanosDataTable
             groups={groups}
             items={items}
-            onRemove={(id) => setPlanoParaRemover(items.find((p) => p.id === id) ?? null)}
-            onRemoveGroup={(id) => setGrupoParaRemover(groups.find((g) => g.id === id) ?? null)}
-            onUpdate={(id, patch) => editarPlano({ id, patch })}
+            onRemove={(id) => setPlanPendingDeletion(items.find((p) => p.id === id) ?? null)}
+            onRemoveGroup={(id) => setGroupPendingDeletion(groups.find((g) => g.id === id) ?? null)}
+            onUpdate={(id, patch) => updatePlan({ id, patch })}
             onHighlight={setPointed}
             monthsWithData={monthsWithData}
             defaultMonth={nextMonth}
@@ -382,7 +382,7 @@ export function PlanosPageContent() {
           <Button variant="outline" onClick={exportPlans} disabled={items.length === 0 && groups.length === 0}>
             <Download data-icon="inline-start" /> Exportar ({items.length})
           </Button>
-          <Button variant="outline" disabled={importando} onClick={() => fileInput.current?.click()}>
+          <Button variant="outline" disabled={importing} onClick={() => fileInput.current?.click()}>
             <Upload data-icon="inline-start" /> Importar
           </Button>
           <input
@@ -400,16 +400,16 @@ export function PlanosPageContent() {
         </CardContent>
       </Card>
 
-      <GroupDialog open={groupOpen} onOpenChange={setGroupOpen} defaultMonth={nextMonth} monthsWithData={monthsWithData} onSubmit={(group) => criarGrupo(group)} />
+      <GroupDialog open={groupOpen} onOpenChange={setGroupOpen} defaultMonth={nextMonth} monthsWithData={monthsWithData} onSubmit={(group) => createGroup(group)} />
 
       {/* A pergunta nomeia O QUE sai e o que acontece com o resto: num grupo, a regra de que os
           planos dele continuam na lista não é óbvia, e é ela que decide se a pessoa confirma. */}
-      <AlertDialog open={planoParaRemover !== null} onOpenChange={(aberto) => !aberto && setPlanoParaRemover(null)}>
+      <AlertDialog open={planPendingDeletion !== null} onOpenChange={(open) => !open && setPlanPendingDeletion(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover este plano?</AlertDialogTitle>
+            <AlertDialogTitle>Remover este created?</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{planoParaRemover?.label}</strong> sai da lista e da previsão. Não há como desfazer.
+              <strong>{planPendingDeletion?.label}</strong> sai da lista e da previsão. Não há como desfazer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -417,8 +417,8 @@ export function PlanosPageContent() {
             <AlertDialogAction
               variant="destructive"
               onClick={() => {
-                if (planoParaRemover) removerPlano({ id: planoParaRemover.id, label: planoParaRemover.label })
-                setPlanoParaRemover(null)
+                if (planPendingDeletion) deletePlan({ id: planPendingDeletion.id, label: planPendingDeletion.label })
+                setPlanPendingDeletion(null)
               }}
             >
               Remover
@@ -427,12 +427,12 @@ export function PlanosPageContent() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={grupoParaRemover !== null} onOpenChange={(aberto) => !aberto && setGrupoParaRemover(null)}>
+      <AlertDialog open={groupPendingDeletion !== null} onOpenChange={(open) => !open && setGroupPendingDeletion(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover este grupo?</AlertDialogTitle>
+            <AlertDialogTitle>Remover este createdGroup?</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{grupoParaRemover?.label}</strong> sai da lista. Os planos dele NÃO são apagados — ficam soltos.
+              <strong>{groupPendingDeletion?.label}</strong> sai da lista. Os planos dele NÃO são apagados — ficam soltos.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -440,8 +440,8 @@ export function PlanosPageContent() {
             <AlertDialogAction
               variant="destructive"
               onClick={() => {
-                if (grupoParaRemover) removerGrupo({ id: grupoParaRemover.id, label: grupoParaRemover.label })
-                setGrupoParaRemover(null)
+                if (groupPendingDeletion) deleteGroup({ id: groupPendingDeletion.id, label: groupPendingDeletion.label })
+                setGroupPendingDeletion(null)
               }}
             >
               Remover
@@ -458,8 +458,8 @@ export function PlanosPageContent() {
         monthsWithData={monthsWithData}
         editing={editing}
         onSubmit={(plan) => {
-          if (editing) editarPlano({ id: editing.id, patch: plan })
-          else criarPlano(plan)
+          if (editing) updatePlan({ id: editing.id, patch: plan })
+          else createPlan(plan)
         }}
       />
     </div>

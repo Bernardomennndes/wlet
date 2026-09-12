@@ -14,46 +14,46 @@ import { describe, it } from 'node:test'
  * A comparação é POR DOMÍNIO, não pela chave literal: o que importa é a aresta, e a serialização
  * da chave é assunto do `@orpc/tanstack-query`.
  */
-const ARESTAS = [
+const EDGES = [
   {
-    tela: 'configuracao/-content.tsx',
+    screen: 'configuracao/-content.tsx',
     // Teto, cobranças, metas, perfis de conta e regras — cinco seções, cinco escritas, cinco
     // frases. A regra proíbe uma fábrica que receba a mensagem por parâmetro.
-    escritas: 5,
-    invalida: ['config'],
+    writes: 5,
+    invalidates: ['config'],
   },
   {
     // Adicionar, editar e remover rubrica. Três, e não uma, porque o aviso nomeia a categoria.
-    tela: 'rubricas/-content.tsx',
-    escritas: 3,
-    invalida: ['config'],
+    screen: 'rubricas/-content.tsx',
+    writes: 3,
+    invalidates: ['config'],
   },
   {
     // Excluir um previsto, e gravar um (criar ou editar, que compartilham o formulário).
-    tela: 'previsao/-content.tsx',
-    escritas: 2,
-    invalida: ['config'],
+    screen: 'previsao/-content.tsx',
+    writes: 2,
+    invalidates: ['config'],
   },
   {
     // Criar, editar e remover plano; criar e remover grupo; importar a lista inteira.
     // A invalidação de `plans` move TRÊS telas: a lista, a Visão geral e a Previsão leem o mesmo
     // cache, porque plano decidido entra nos meses futuros.
-    tela: 'planos/-content.tsx',
-    escritas: 6,
-    invalida: ['plans'],
+    screen: 'planos/-content.tsx',
+    writes: 6,
+    invalidates: ['plans'],
   },
   {
     // Ler a pasta, reprocessar o que está guardado, e importar um pacote.
     // Uma ingestão reescreve o conjunto INTEIRO, e o id de cada lançamento é `sha1` dos campos
     // dele — reprocessar pode deixar um ajuste manual órfão, então `overrides` entra na lista.
     // A importação escreve nos CINCO contextos, e todos são invalidados.
-    tela: 'dados/-content.tsx',
-    escritas: 3,
-    invalida: ['dataset', 'overrides'],
+    screen: 'dados/-content.tsx',
+    writes: 3,
+    invalidates: ['dataset', 'overrides'],
     // A §5.1 admite `onError` PARA SUPRIMIR o aviso global numa tela com erro próprio, e esta é a
     // única que se qualifica: a mensagem vem do pipeline e nomeia o arquivo que não foi lido —
     // texto que um toast trunca justamente na parte que resolve o problema.
-    erroProprio: true,
+    ownErrorPanel: true,
   },
 ] as const
 
@@ -63,33 +63,33 @@ const ARESTAS = [
  * Recategorizar um lançamento é a única escrita dele que ganha aviso de sucesso; recorte e período
  * não ganham, e o teste abaixo tranca essa distinção para ela não se perder como esquecimento.
  */
-const PROVIDER_FILTROS = { arquivo: 'filters.tsx', escritas: 1, invalida: ['overrides'] } as const
+const FILTERS_PROVIDER = { file: 'filters.tsx', writes: 1, invalidates: ['overrides'] } as const
 
-const raiz = new URL('../../src/routes/', import.meta.url)
+const root = new URL('../../src/routes/', import.meta.url)
 
 /** Sem comentários: eles CITAM as formas proibidas para explicá-las, e contá-los acusaria a prosa. */
-function codigoDe(caminho: string): string {
-  return readFileSync(new URL(caminho, raiz), 'utf8')
+function codeOf(caminho: string): string {
+  return readFileSync(new URL(caminho, root), 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\/\/.*$/gm, '')
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
 }
 
-const contar = (fonte: string, padrao: RegExp) => (fonte.match(padrao) ?? []).length
+const count = (source: string, pattern: RegExp) => (source.match(pattern) ?? []).length
 
 describe('tabela de invalidação', () => {
-  for (const { tela, escritas, invalida } of ARESTAS) {
-    it(`${tela}: ${escritas} escritas, invalidando ${invalida.join(', ')}`, () => {
-      const fonte = codigoDe(tela)
-      assert.equal(contar(fonte, /useMutation\(/g), escritas, 'o número de escritas mudou — atualize a tabela e confira as arestas de cada uma')
+  for (const { screen, writes, invalidates } of EDGES) {
+    it(`${screen}: ${writes} escritas, invalidando ${invalidates.join(', ')}`, () => {
+      const source = codeOf(screen)
+      assert.equal(count(source, /useMutation\(/g), writes, 'o número de escritas mudou — atualize a tabela e confira as arestas de cada uma')
       // Uma frase por escrita, no mínimo: a §5 exige toast de sucesso em TODA mutation, TODA vez.
-      assert.ok(contar(fonte, /toast\.success\(/g) >= escritas, `${contar(fonte, /toast\.success\(/g)} avisos de sucesso para ${escritas} escritas`)
-      assert.match(fonte, /invalidateQueries\(/, 'nenhuma invalidação')
-      for (const dominio of invalida) {
+      assert.ok(count(source, /toast\.success\(/g) >= writes, `${count(source, /toast\.success\(/g)} avisos de sucesso para ${writes} escritas`)
+      assert.match(source, /invalidateQueries\(/, 'nenhuma invalidação')
+      for (const domain of invalidates) {
         // `api().plans.key()` invalida o grupo inteiro; `api().plans.list.key()` só aquela
         // leitura. As duas vêm do contrato, que é o que a §4 exige — o que ela proíbe é a chave
         // montada à mão.
-        assert.match(fonte, new RegExp(`api\\(\\)\\.${dominio}(\\.[A-Za-z]+)?\\.key\\(\\)`), `a chave de ${dominio} não vem do contrato`)
+        assert.match(source, new RegExp(`api\\(\\)\\.${domain}(\\.[A-Za-z]+)?\\.key\\(\\)`), `a chave de ${domain} não vem do contrato`)
       }
     })
   }
@@ -104,62 +104,62 @@ describe('tabela de invalidação', () => {
  * precedente em silêncio.
  */
 describe('o provider de filtros', () => {
-  const fonte = readFileSync(new URL('../../src/providers/filters.tsx', import.meta.url), 'utf8')
+  const source = readFileSync(new URL('../../src/providers/filters.tsx', import.meta.url), 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\/\/.*$/gm, '')
 
-  it(`grava ${PROVIDER_FILTROS.escritas} vez por useMutation, invalidando ${PROVIDER_FILTROS.invalida.join(', ')}`, () => {
-    assert.equal(contar(fonte, /useMutation\(/g), PROVIDER_FILTROS.escritas)
-    for (const dominio of PROVIDER_FILTROS.invalida) assert.match(fonte, new RegExp(`api\\(\\)\\.${dominio}\\.list\\.key\\(\\)`), `a chave de ${dominio} não vem do contrato`)
+  it(`grava ${FILTERS_PROVIDER.writes} vez por useMutation, invalidando ${FILTERS_PROVIDER.invalidates.join(', ')}`, () => {
+    assert.equal(count(source, /useMutation\(/g), FILTERS_PROVIDER.writes)
+    for (const domain of FILTERS_PROVIDER.invalidates) assert.match(source, new RegExp(`api\\(\\)\\.${domain}\\.list\\.key\\(\\)`), `a chave de ${domain} não vem do contrato`)
   })
 
   it('o tema também grava sem aviso de sucesso, e o erro passa pela tradução', () => {
-    const tema = readFileSync(new URL('../../src/providers/theme.tsx', import.meta.url), 'utf8')
+    const themeSource = readFileSync(new URL('../../src/providers/theme.tsx', import.meta.url), 'utf8')
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\/\/.*$/gm, '')
-    assert.match(tema, /preferences\.setTheme/)
-    assert.match(tema, /toast\.error\(translateRemoteError\(cause\)\.message\)/, 'a falha de tema precisa chegar à tela, não ao console')
-    assert.doesNotMatch(tema, /toast\.success/)
+    assert.match(themeSource, /preferences\.setTheme/)
+    assert.match(themeSource, /toast\.error\(translateRemoteError\(cause\)\.message\)/, 'a falha de tema precisa chegar à tela, não ao console')
+    assert.doesNotMatch(themeSource, /toast\.success/)
     // `console.error` para falha de GRAVAÇÃO é o defeito que esta bateria persegue: ele promete
     // que guardou e não guardou. O do boot é outra coisa e vive em `main.tsx`.
-    assert.doesNotMatch(tema, /console\.error/)
+    assert.doesNotMatch(themeSource, /console\.error/)
   })
 
   it('recorte e período gravam SEM aviso de sucesso, e isso é decisão', () => {
     // Um aviso a cada mês arrastado é a definição do toast que se aprende a ignorar. O erro, esse
     // aparece: `persist` manda a falha para o mesmo aviso global das outras escritas.
-    assert.match(fonte, /persist\(services\(\)\.preferences\.setScope/)
-    assert.match(fonte, /persist\(services\(\)\.preferences\.setPeriod/)
-    assert.match(fonte, /toast\.error\(translateRemoteError\(cause\)\.message\)/, 'a falha de preferência precisa chegar à tela, não ao console')
-    assert.doesNotMatch(fonte, /toast\.success\([^)]*(recorte|período|periodo)/i)
+    assert.match(source, /persist\(services\(\)\.preferences\.setScope/)
+    assert.match(source, /persist\(services\(\)\.preferences\.setPeriod/)
+    assert.match(source, /toast\.error\(translateRemoteError\(cause\)\.message\)/, 'a falha de preferência precisa chegar à tela, não ao console')
+    assert.doesNotMatch(source, /toast\.success\([^)]*(recorte|período|periodo)/i)
   })
 })
 
 describe('nenhum tratamento de erro no ponto de uso', () => {
-  const telas: string[] = []
-  const varrer = (dir: URL, prefixo: string) => {
+  const screens: string[] = []
+  const walk = (dir: URL, prefix: string) => {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
-      if (e.isDirectory()) varrer(new URL(`${e.name}/`, dir), `${prefixo}${e.name}/`)
-      else if (e.name.endsWith('.tsx')) telas.push(`${prefixo}${e.name}`)
+      if (e.isDirectory()) walk(new URL(`${e.name}/`, dir), `${prefix}${e.name}/`)
+      else if (e.name.endsWith('.tsx')) screens.push(`${prefix}${e.name}`)
     }
   }
-  varrer(raiz, '')
+  walk(root, '')
 
-  const comErroProprio = ARESTAS.filter((a) => 'erroProprio' in a && a.erroProprio).map((a) => a.tela)
+  const withOwnErrorPanel = EDGES.filter((a) => 'ownErrorPanel' in a && a.ownErrorPanel).map((a) => a.screen)
 
   it('nenhuma rota passa onError, salvo as que têm painel de erro DECLARADO aqui', () => {
-    const ofensoras = telas.filter((t) => /onError/.test(codigoDe(t))).filter((t) => !comErroProprio.some((declarada) => t.endsWith(declarada)))
-    assert.deepEqual(ofensoras, [], 'a §5 proíbe tratar erro de escrita no ponto de uso; a exceção é a tela com painel de erro próprio, e ela precisa ser declarada na tabela acima')
+    const offenders = screens.filter((t) => /onError/.test(codeOf(t))).filter((t) => !withOwnErrorPanel.some((declared) => t.endsWith(declared)))
+    assert.deepEqual(offenders, [], 'a §5 proíbe tratar erro de escrita no ponto de uso; a exceção é a tela com painel de erro próprio, e ela precisa ser declarada na tabela acima')
   })
 
   it('e a exceção declarada realmente USA o onError — senão ela é uma licença em branco', () => {
-    // Uma entrada `erroProprio: true` que sobrevive à remoção do painel abriria a exceção para
+    // Uma entrada `ownErrorPanel: true` que sobrevive à remoção do painel abriria a exceção para
     // qualquer coisa que mexesse naquele arquivo depois.
-    for (const tela of comErroProprio) assert.match(codigoDe(tela), /onError/, `${tela} está declarada com erro próprio e não passa onError`)
+    for (const screen of withOwnErrorPanel) assert.match(codeOf(screen), /onError/, `${screen} está declarada com erro próprio e não passa onError`)
   })
 
   it('e as rotas conferidas são muitas — o varredor não parou de olhar', () => {
-    assert.ok(telas.length > 30, `só ${telas.length} telas varridas`)
+    assert.ok(screens.length > 30, `só ${screens.length} telas varridas`)
   })
 })
 
