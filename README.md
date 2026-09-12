@@ -122,6 +122,8 @@ packages/db/             Drizzle: schema por entidade, migrations versionadas
 packages/ui/             os componentes shadcn (base-mira, Base UI) e as composições
                          próprias — AppCombobox, MonthPicker, MoneyInput, QuantityInput
 packages/lib/            o que app e interface dividem: format, cn, portable
+packages/env/            o `.env` da RAIZ, achado subindo até o pnpm-workspace.yaml,
+                         para o `cwd` de cada pacote não decidir o que ele enxerga
 config/tsconfig/         as bases que todo pacote estende
 ```
 
@@ -145,6 +147,17 @@ Todos a partir da raiz:
 
 `pnpm check` roda as duas suítes: a do app não depende de nada, a do servidor precisa de
 `DATABASE_URL`.
+
+### O `.env`
+
+É **um arquivo só, na raiz** — copie o `.env.example` para `.env` e preencha. Todo pacote o lê de
+lá, esteja o comando sendo disparado de onde estiver: a busca sobe até o `pnpm-workspace.yaml` em
+vez de olhar o diretório corrente. Precedência: o **ambiente real** ganha do `.env.local`, que
+ganha do `.env`.
+
+Só as variáveis com prefixo `VITE_` chegam ao navegador — é essa regra que mantém a
+`DATABASE_URL` e o `AUTH_SECRET` fora do bundle, mesmo morando no mesmo arquivo que a
+`VITE_API_URL`.
 
 ## Licença
 

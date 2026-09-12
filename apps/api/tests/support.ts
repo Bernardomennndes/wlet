@@ -1,5 +1,6 @@
 import { createDb, type Db, eq, users } from '@wlet/db'
 import { createAuth } from '@wlet/auth'
+import { loadRootEnv } from '@wlet/env'
 
 /**
  * O banco dos testes.
@@ -8,6 +9,10 @@ import { createAuth } from '@wlet/auth'
  * vem do `userId`, que é o eixo de todo o schema. Testar assim não é atalho — é exercitar
  * justamente a garantia que mais importa aqui, a de que uma pessoa não enxerga o dado de outra.
  */
+// A suíte lê o mesmo `.env` da raiz que o servidor: exigir a variável exportada à mão antes de
+// rodar os testes seria um segundo jeito de configurar a mesma coisa.
+loadRootEnv()
+
 export const url = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL ?? 'postgresql://wlet:wlet@localhost:5433/wlet'
 
 /**

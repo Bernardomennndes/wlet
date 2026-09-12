@@ -4,6 +4,7 @@ import { OpenAPIHandler } from '@orpc/openapi/fetch'
 import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4'
 import { createAuth } from '@wlet/auth'
 import { createDb } from '@wlet/db'
+import { loadRootEnv } from '@wlet/env'
 import { resolveSession } from './shared/auth'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
@@ -25,6 +26,16 @@ import { preferencesRouter } from './routers/preferences'
  * navegador, testável com curl, e documentável sozinha. É o mesmo desenho do `@blips/api`, onde
  * o contrato descreve HTTP e o cliente é só um consumidor tipado dele.
  */
+/**
+ * O `.env` da RAIZ, antes de qualquer leitura de `process.env`.
+ *
+ * A chamada é explícita, e não um import com efeito colateral, porque a ordem aqui é o que
+ * decide se as conferências abaixo enxergam as variáveis: deixá-la implícita na ordem dos
+ * imports faria um reordenamento inocente derrubar o arranque com "DATABASE_URL não está
+ * definida" sobre um `.env` perfeitamente preenchido.
+ */
+loadRootEnv()
+
 const url = process.env.DATABASE_URL
 if (!url) {
   // Falhar AQUI, no arranque, e não na primeira consulta: um servidor que sobe sem banco

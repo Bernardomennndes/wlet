@@ -48,6 +48,9 @@ importers:
       '@wlet/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@wlet/env':
+        specifier: workspace:*
+        version: link:../../packages/env
       '@wlet/ingest':
         specifier: workspace:*
         version: link:../../packages/ingest
@@ -229,6 +232,9 @@ importers:
       '@types/node':
         specifier: ^24.13.3
         version: 24.13.3
+      '@wlet/env':
+        specifier: workspace:*
+        version: link:../env
       '@wlet/tsconfig':
         specifier: workspace:*
         version: link:../../config/tsconfig
@@ -245,6 +251,18 @@ importers:
         specifier: ^2.1.10
         version: 2.1.10(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
     devDependencies:
+      '@wlet/tsconfig':
+        specifier: workspace:*
+        version: link:../../config/tsconfig
+      typescript:
+        specifier: ~6.0.2
+        version: 6.0.3
+
+  packages/env:
+    devDependencies:
+      '@types/node':
+        specifier: ^24.13.3
+        version: 24.13.3
       '@wlet/tsconfig':
         specifier: workspace:*
         version: link:../../config/tsconfig

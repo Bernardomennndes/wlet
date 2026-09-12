@@ -129,6 +129,41 @@ O repositório é um workspace pnpm orquestrado por Turborepo, no molde da Selfi
 - `docker compose up -d` sobe o Postgres de desenvolvimento na porta **5433**, para não brigar
   com um Postgres local já instalado. `pnpm --filter @wlet/db db:push` cria as tabelas.
 
+## O `.env`
+
+- **É UM arquivo, na RAIZ, e todo pacote o lê de lá** (`@wlet/env`). Cada comando roda com o
+  `cwd` na PRÓPRIA pasta — `pnpm --filter @wlet/api-server dev` entra em `apps/api/` antes de
+  executar —, então qualquer leitura relativa ao `cwd` procuraria um `apps/api/.env` que não
+  existe. A busca SOBE a partir do arquivo do próprio pacote até achar o `pnpm-workspace.yaml`,
+  que é a definição de "a raiz deste workspace": assim o resultado não depende de onde o comando
+  foi disparado. Um `.env` por pacote resolveria o mesmo problema e traria de volta o que o
+  monorepo veio resolver — a mesma `DATABASE_URL` escrita em três lugares, divergindo no
+  primeiro ajuste.
+- **Não entrou dependência: `process.loadEnvFile` é do próprio Node** (20.12+, e o `engines` da
+  raiz declara o piso). Ele tem a MESMA precedência do `dotenv` — medido: o que já está no
+  ambiente ganha do arquivo —, que é a ordem que importa em produção, porque a variável real do
+  provedor não pode ser sobrescrita por um arquivo esquecido no disco. O `dotenv` só
+  acrescentaria expansão de `${VAR}`, que este repositório não usa.
+- **A chamada é EXPLÍCITA (`loadRootEnv()`), não um import com efeito colateral.** As
+  conferências de arranque do servidor leem `process.env` no corpo do módulo, e deixar a ordem
+  implícita na ordem dos imports faria um reordenamento inocente derrubar o arranque com
+  "DATABASE_URL não está definida" sobre um `.env` perfeitamente preenchido.
+- **A ordem é `.env.local` ANTES de `.env`, e é ela que dá precedência ao `.local`**: como o Node
+  não sobrescreve chave já definida, quem lê primeiro vence. É de propósito a mesma precedência
+  do Vite — o `apps/web` lê os dois pelo `envDir`, e duas regras diferentes para os mesmos dois
+  arquivos fariam o mesmo valor significar coisas distintas conforme quem lesse.
+- **Arquivo ausente não é erro.** O app sem servidor não precisa de variável nenhuma, e um clone
+  recém-feito ainda não tem `.env`. Quem exige uma variável é quem depende dela, no arranque,
+  com a mensagem que diz como obtê-la.
+- **O `apps/web` chega no MESMO arquivo pelo `envDir` do Vite, e isso eleva o que o prefixo
+  `VITE_` protege.** A `DATABASE_URL` e o `AUTH_SECRET` agora moram ao lado da `VITE_API_URL`, e
+  quem impede os dois de irem para o bundle é só essa regra. **Não afrouxe o `envPrefix`.**
+  Conferido com canário: um valor único sem prefixo escrito no `.env` da raiz não aparece em
+  nenhum dos 83 arquivos do `dist/`, e o com prefixo aparece.
+- **O `.env` está em `globalDependencies` do turbo.** Sem isso, mudar uma variável devolveria o
+  resultado em cache da configuração anterior — o pacote lê do ARQUIVO, que o turbo não enxerga
+  pela declaração de `env` da tarefa.
+
 ## Comandos
 
 - `scripts/seed.ts` roda o MESMO casamento do ingest (`src/lib/ingest/matching.ts`) antes de gravar, e os `*.config.example.ts` declaram os nomes que ele inventa. Sem isso o dataset fictício nasce sem `plannedId` nem `receivableId`, e um clone novo abre a tela de Pagamentos dizendo que nove meses de aluguel estão vencidos — num conjunto que paga o aluguel todo mês. Mudou um estabelecimento no seed? O `.example` acompanha.

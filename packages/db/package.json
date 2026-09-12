@@ -20,6 +20,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
+    "@wlet/env": "workspace:*",
     "@wlet/tsconfig": "workspace:*",
     "drizzle-kit": "^0.31.6",
     "typescript": "~6.0.2"

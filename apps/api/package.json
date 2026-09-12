@@ -18,6 +18,7 @@
     "@wlet/auth": "workspace:*",
     "@wlet/db": "workspace:*",
     "@wlet/domain": "workspace:*",
+    "@wlet/env": "workspace:*",
     "@wlet/ingest": "workspace:*",
     "@wlet/lib": "workspace:*",
     "@wlet/services": "workspace:*",
