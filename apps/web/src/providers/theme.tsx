@@ -20,16 +20,34 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // acompanhar o sistema quando ele mudasse.
   const [theme, setTheme] = useState<'light' | 'dark'>(() => readUrlTheme() ?? preloaded().preferences.theme ?? systemTheme())
 
-  const toggleTheme = useCallback(() => setTheme((t) => (t === 'dark' ? 'light' : 'dark')), [])
+  /**
+   * Trocar o tema GRAVA. O efeito abaixo não.
+   *
+   * A gravação morava no efeito, e três coisas quebravam por causa disso. A primeira contradizia
+   * o comentário logo acima: quando ninguém escolheu, o estado nasce de `systemTheme()`, e o
+   * efeito persistia esse palpite como se fosse uma escolha — daí em diante o app parava de
+   * acompanhar o sistema. A segunda é que todo boot mandava uma escrita que ninguém pediu. A
+   * terceira só apareceu com a tela de entrada: ali o `ThemeProvider` monta ANTES de haver
+   * sessão, e as duas escritas voltavam 401 com o erro no console de quem só queria entrar.
+   *
+   * Gravar no HANDLER resolve as três de uma vez, e é o que a §2 da construção de componentes
+   * pede: efeito sincroniza com sistema externo, não reage a evento.
+   */
+  const toggleTheme = useCallback(() => {
+    const proximo = theme === 'dark' ? 'light' : 'dark'
+    setTheme(proximo)
+    void services()
+      .preferences.setTheme(proximo)
+      .catch((cause: unknown) => console.error('[wlet] não foi possível guardar o tema:', cause))
+  }, [theme])
 
   const value = useMemo<ThemeValue>(() => ({ theme, toggleTheme }), [theme, toggleTheme])
 
+  // O que sobra no efeito é sincronização com o DOM, que é exatamente o que um efeito serve para
+  // fazer: a classe e o `color-scheme` vivem fora do React e precisam acompanhar o estado.
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
     document.documentElement.style.colorScheme = theme
-    void services()
-      .preferences.setTheme(theme)
-      .catch((cause: unknown) => console.error('[wlet] não foi possível guardar o tema:', cause))
   }, [theme])
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
