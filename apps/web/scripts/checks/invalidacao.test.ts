@@ -34,7 +34,23 @@ const ARESTAS = [
     escritas: 2,
     invalida: ['config'],
   },
+  {
+    // Criar, editar e remover plano; criar e remover grupo; importar a lista inteira.
+    // A invalidação de `plans` move TRÊS telas: a lista, a Visão geral e a Previsão leem o mesmo
+    // cache, porque plano decidido entra nos meses futuros.
+    tela: 'planos/-content.tsx',
+    escritas: 6,
+    invalida: ['plans'],
+  },
 ] as const
+
+/**
+ * O provider de filtros também grava, e ele não é uma rota — por isso entra à parte.
+ *
+ * Recategorizar um lançamento é a única escrita dele que ganha aviso de sucesso; recorte e período
+ * não ganham, e o teste abaixo tranca essa distinção para ela não se perder como esquecimento.
+ */
+const PROVIDER_FILTROS = { arquivo: 'filters.tsx', escritas: 1, invalida: ['overrides'] } as const
 
 const raiz = new URL('../../src/routes/', import.meta.url)
 
@@ -55,9 +71,12 @@ describe('tabela de invalidação', () => {
       assert.equal(contar(fonte, /useMutation\(/g), escritas, 'o número de escritas mudou — atualize a tabela e confira as arestas de cada uma')
       // Uma frase por escrita, no mínimo: a §5 exige toast de sucesso em TODA mutation, TODA vez.
       assert.ok(contar(fonte, /toast\.success\(/g) >= escritas, `${contar(fonte, /toast\.success\(/g)} avisos de sucesso para ${escritas} escritas`)
+      assert.match(fonte, /invalidateQueries\(/, 'nenhuma invalidação')
       for (const dominio of invalida) {
-        assert.match(fonte, new RegExp(`invalidateQueries\\(|api\\(\\)\\.${dominio}\\.key\\(\\)`), `nenhuma invalidação de ${dominio}`)
-        assert.match(fonte, new RegExp(`api\\(\\)\\.${dominio}\\.key\\(\\)`), `a chave de ${dominio} não vem do contrato`)
+        // `api().plans.key()` invalida o grupo inteiro; `api().plans.list.key()` só aquela
+        // leitura. As duas vêm do contrato, que é o que a §4 exige — o que ela proíbe é a chave
+        // montada à mão.
+        assert.match(fonte, new RegExp(`api\\(\\)\\.${dominio}(\\.[A-Za-z]+)?\\.key\\(\\)`), `a chave de ${dominio} não vem do contrato`)
       }
     })
   }
@@ -71,6 +90,26 @@ describe('tabela de invalidação', () => {
  * em que alguém precisar da exceção, este teste obriga a declará-la aqui em vez de abrir o
  * precedente em silêncio.
  */
+describe('o provider de filtros', () => {
+  const fonte = readFileSync(new URL('../../src/providers/filters.tsx', import.meta.url), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '')
+
+  it(`grava ${PROVIDER_FILTROS.escritas} vez por useMutation, invalidando ${PROVIDER_FILTROS.invalida.join(', ')}`, () => {
+    assert.equal(contar(fonte, /useMutation\(/g), PROVIDER_FILTROS.escritas)
+    for (const dominio of PROVIDER_FILTROS.invalida) assert.match(fonte, new RegExp(`api\\(\\)\\.${dominio}\\.list\\.key\\(\\)`), `a chave de ${dominio} não vem do contrato`)
+  })
+
+  it('recorte e período gravam SEM aviso de sucesso, e isso é decisão', () => {
+    // Um aviso a cada mês arrastado é a definição do toast que se aprende a ignorar. O erro, esse
+    // aparece: `persist` manda a falha para o mesmo aviso global das outras escritas.
+    assert.match(fonte, /persist\(services\(\)\.preferences\.setScope/)
+    assert.match(fonte, /persist\(services\(\)\.preferences\.setPeriod/)
+    assert.match(fonte, /toast\.error\(translateRemoteError\(cause\)\.message\)/, 'a falha de preferência precisa chegar à tela, não ao console')
+    assert.doesNotMatch(fonte, /toast\.success\([^)]*(recorte|período|periodo)/i)
+  })
+})
+
 describe('nenhum tratamento de erro no ponto de uso', () => {
   const telas: string[] = []
   const varrer = (dir: URL, prefixo: string) => {

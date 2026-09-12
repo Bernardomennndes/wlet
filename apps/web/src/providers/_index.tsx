@@ -3,7 +3,6 @@ import { BrowserRouter } from 'react-router'
 import { Toaster } from '@wlet/ui/components/sonner'
 import { TooltipProvider } from '@wlet/ui/components/tooltip'
 import { FiltersProvider } from './filters'
-import { PlansProvider } from './plans'
 import { QueryProvider } from './query'
 import { ThemeProvider } from './theme'
 
@@ -11,7 +10,9 @@ import { ThemeProvider } from './theme'
  * Composition root: a ordem de aninhamento dos providers existe num lugar só.
  *
  * O SidebarProvider fica de fora de propósito — ele é o wrapper de layout que o par
- * Sidebar/SidebarInset do registry exige, e vive no app-shell.
+ * Sidebar/SidebarInset do registry exige, e vive no app-shell. O `PlansProvider` SAIU: o que ele
+ * guardava era uma segunda cópia de um dado que a chave de cache já mantém em acordo entre as
+ * três telas que o leem.
  *
  * **O `QueryProvider` é o mais externo, e a ordem importa.** Ele é quem guarda o cache e o
  * tratamento global de erro de escrita; qualquer provider que venha ACIMA dele não pode ler nem
@@ -28,9 +29,7 @@ export function Provider({ children }: { children: ReactNode }) {
       <QueryProvider>
         <ThemeProvider>
           <FiltersProvider>
-            <PlansProvider>
-              <TooltipProvider>{children}</TooltipProvider>
-            </PlansProvider>
+            <TooltipProvider>{children}</TooltipProvider>
           </FiltersProvider>
         </ThemeProvider>
         <Toaster />

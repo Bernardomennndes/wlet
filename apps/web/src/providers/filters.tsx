@@ -1,4 +1,9 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { categoryLabel } from '@wlet/domain'
+import { translateRemoteError } from '@wlet/services/shared/domain/errors'
+import { toast } from '@wlet/ui/toast'
+import { api } from '@/api'
 import { services } from '@/services'
 import { preloaded } from './preloaded'
 import { META, firstMonthWithData, isMonth, lastMonthWithData, monthsBetween, projectionHorizon, selectTransactions, type Overrides, type Period, type Scope } from '@/lib/finance'
@@ -74,9 +79,10 @@ function clampPeriod(p: Period): Period {
 }
 
 export function FiltersProvider({ children }: { children: ReactNode }) {
-  // A LEITURA vem do que o boot já carregou, síncrona; a ESCRITA vai pelos serviços, que é
-  // onde a validação e a tradução de erro moram. Ler daqui é o que permite o inicializador de
-  // `useState` continuar síncrono depois de a preferência passar a vir do servidor.
+  const queryClient = useQueryClient()
+  // Recorte e período nascem do que o boot carregou, e o inicializador de `useState` é síncrono
+  // por definição — é por isso que essa metade não virou `useQuery`. Ver o bloco sobre os dois
+  // logo abaixo.
   const saved = preloaded().preferences
 
   const [scope, setScopeState] = useState<Scope>(() => readUrl().scope ?? saved.scope ?? 'all')
@@ -85,18 +91,35 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
     const base = saved.period ?? defaultPeriod()
     return clampPeriod({ from: url.from ?? base.from, to: url.to ?? base.to })
   })
-  const [overrides, setOverrides] = useState<Overrides>(() => preloaded().overrides)
 
   /**
-   * A tela não espera a gravação, mas a falha não pode sumir.
+   * Os AJUSTES são dado, e por isso vêm do cache — ao contrário de recorte e período.
    *
-   * Persistir é efeito colateral do que a pessoa acabou de fazer; segurar o render até o
-   * servidor responder deixaria um clique em "Empresa" travando a interface. Mas engolir o
-   * erro faria o app prometer uma persistência que não aconteceu — com a rede caída ou a sessão
-   * expirada isso é o caso NORMAL, não a exceção.
+   * A chave vem do contrato (§4), e `queryFn` do serviço: `list()` é o que o adapter usa para
+   * saber o que MUDOU na próxima gravação, e pular o serviço aqui o deixaria com um retrato vazio.
+   */
+  const { data: overrides } = useQuery({
+    queryKey: api().overrides.list.key(),
+    queryFn: () => services().overrides.list(),
+    initialData: () => preloaded().overrides,
+  })
+
+  /**
+   * **Recorte e período NÃO ganham aviso de sucesso, e isso é decisão, não esquecimento.**
+   *
+   * A §5 pede toast em toda mutação porque toda mutação é algo que a pessoa mandou guardar. Trocar
+   * o recorte para "Pessoa jurídica" ou arrastar o período não é isso: é o que ela está OLHANDO, e
+   * a confirmação já está na tela inteira se redesenhando. Um aviso a cada mês arrastado seria a
+   * definição do toast que se aprende a ignorar — exatamente o que a regra quer evitar.
+   *
+   * O ERRO, esse aparece: a gravação falhada passa pelo mesmo aviso global das outras escritas, e
+   * não mais por um `console.error` que ninguém lê. Um app que promete lembrar a preferência e não
+   * lembra precisa dizer.
    */
   const persist = useCallback((promise: Promise<unknown>) => {
-    void promise.catch((cause: unknown) => console.error('[wlet] não foi possível guardar a preferência:', cause))
+    // A MESMA tradução do `MutationCache`: "sua sessão expirou" e "o servidor não respondeu"
+    // pedem coisas diferentes de quem lê, e um texto fixo apagaria essa diferença.
+    void promise.catch((cause: unknown) => toast.error(translateRemoteError(cause).message))
   }, [])
 
   const setScope = useCallback(
@@ -119,17 +142,44 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
     [persist],
   )
 
+  /**
+   * Recategorizar JÁ É um "guardar", e por isso este ganha aviso — com o nome da categoria.
+   *
+   * A diferença para o recorte não é de tamanho: a pessoa está corrigindo o que o ingest decidiu
+   * sobre um lançamento, e o efeito disso reaparece em toda tela que soma por categoria. Confirmar
+   * qual categoria entrou é o que separa "cliquei certo" de "cliquei na linha de cima".
+   *
+   * A tela não espera a resposta: `setQueryData` move a tabela na hora, e a invalidação traz a
+   * verdade em seguida. Se a gravação falhar, o aviso global diz — e a linha volta sozinha, porque
+   * o refetch da invalidação desfaz o otimismo.
+   */
+  const { mutate: gravarAjuste } = useMutation({
+    mutationFn: ({ id, categoryId }: { id: string; categoryId: string | null }) => services().overrides.set(id, categoryId),
+    onSuccess: (proximos, { categoryId }) => {
+      queryClient.setQueryData(api().overrides.list.key(), proximos)
+      toast.success(categoryId ? `Lançamento movido para ${categoryLabel(categoryId)}` : 'Lançamento devolvido à categoria automática')
+    },
+    // `onSettled` e não `onSuccess`: a invalidação precisa acontecer também no ERRO. O otimismo
+    // abaixo já mexeu na tabela, e sem este refetch uma falha deixaria a tela mostrando uma
+    // categoria que o servidor não tem — a mentira mais cara que um ajuste manual pode contar.
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: api().overrides.list.key() })
+    },
+  })
+
   const setOverride = useCallback(
     (id: string, categoryId: string | null) => {
-      setOverrides((prev) => {
-        const next = { ...prev }
+      // Otimismo ANTES da resposta: a tabela de transações é longa, e esperar a rede para pintar a
+      // linha faria o clique parecer perdido.
+      queryClient.setQueryData<Overrides>(api().overrides.list.key(), (prev) => {
+        const next = { ...(prev ?? {}) }
         if (categoryId) next[id] = categoryId
         else delete next[id]
         return next
       })
-      persist(services().overrides.set(id, categoryId))
+      gravarAjuste({ id, categoryId })
     },
-    [persist],
+    [queryClient, gravarAjuste],
   )
 
   const months = useMemo(() => monthsBetween(period.from, period.to), [period])

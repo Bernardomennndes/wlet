@@ -1,3 +1,4 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useRef, useState } from 'react'
 import { Download, FolderPlus, Plus, Target, Upload } from '@phosphor-icons/react'
 import { KpiCard, KpiCardGrid, KpiHeadline } from '@/components/kpi'
@@ -5,7 +6,7 @@ import { Button } from '@wlet/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@wlet/ui/components/empty'
 import { useDocumentTitle } from '@/hooks/use-document-title'
-import type { Plan } from '@wlet/domain'
+import type { Plan, PlanGroup } from '@wlet/domain'
 import { ACCOUNT_MAP, lastMonthWithData, monthsBetween, projectionHorizon, shiftMonth } from '@/lib/finance'
 import { formatBRL, formatMonthShort, plural } from '@wlet/lib/format'
 import { installmentAmount, parsePlans, planMonths, planOccursIn, planScheduleByMonth, planTotal, scheduledPlans } from '@wlet/domain/plans'
@@ -13,7 +14,10 @@ import { useFilters } from '@/providers/use-filters'
 import { buildForecast } from '@/lib/forecast'
 import { plannedInScope } from '@/lib/planned'
 import { receivablesInScope } from '@/lib/receivables'
+import { toast } from '@wlet/ui/toast'
+import { api } from '@/api'
 import { usePlans } from '@/providers/use-plans'
+import { services } from '@/services'
 import { PLANOS_METRICS } from './-metric-definitions'
 import { PlanosDataTable } from './-components/planos-data-table'
 import { GroupDialog } from './-components/group-dialog'
@@ -24,7 +28,83 @@ export function PlanosPageContent() {
   useDocumentTitle('Planos')
 
   const { monthsWithData, history, scope, period } = useFilters()
-  const { groups, items, decided, addPlan, updatePlan, removePlan, addGroup, removeGroup, data, replaceAll } = usePlans()
+  const { groups, items, decided } = usePlans()
+  const queryClient = useQueryClient()
+
+  /**
+   * Uma escrita de plano mexe em DOIS lugares, e os dois são invalidados.
+   *
+   * A lista é o óbvio. O outro é a previsão: um plano decidido entra nos meses futuros, então
+   * criar, editar ou descartar um muda o número que a Visão geral e a Previsão mostram. As duas
+   * leem o MESMO cache de planos, pela mesma chave — invalidá-la move as três telas juntas.
+   */
+  const aplicar = () => {
+    void queryClient.invalidateQueries({ queryKey: api().plans.list.key() })
+  }
+
+  /**
+   * SEIS escritas, seis avisos, e cada texto nomeia o plano ou o grupo.
+   *
+   * O `PlansProvider` que morava aqui embrulhava as seis num `run(operation, after)` só: a mesma
+   * frase para adicionar um plano e apagar um grupo, e a falha engolida num `console.error` que
+   * ninguém vê. Era o wrapper que a §5 proíbe, e o custo estava exatamente no que ele economizava.
+   *
+   * Nenhuma trata erro — ele é um só, no `MutationCache` do provider.
+   */
+  const { mutate: criarPlano, isPending: criandoPlano } = useMutation({
+    mutationFn: (plan: Omit<Plan, 'id'>) => services().plans.addPlan(plan),
+    onSuccess: (plano) => {
+      aplicar()
+      toast.success(`Plano "${plano.label}" criado`)
+    },
+  })
+
+  const { mutate: editarPlano, isPending: editandoPlano } = useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: Partial<Omit<Plan, 'id'>> }) => services().plans.updatePlan(id, patch),
+    onSuccess: (plano) => {
+      aplicar()
+      toast.success(`Plano "${plano.label}" atualizado`)
+    },
+  })
+
+  const { mutate: removerPlano, isPending: removendoPlano } = useMutation({
+    // O rótulo viaja nas variáveis porque `removePlan` devolve `void`: depois de apagado não há
+    // de onde tirá-lo, e "Plano removido" não confirma que era AQUELE que a pessoa mirou.
+    mutationFn: ({ id }: { id: string; label: string }) => services().plans.removePlan(id),
+    onSuccess: (_, { label }) => {
+      aplicar()
+      toast.success(`Plano "${label}" removido`)
+    },
+  })
+
+  const { mutate: criarGrupo, isPending: criandoGrupo } = useMutation({
+    mutationFn: (group: Omit<PlanGroup, 'id'>) => services().plans.addGroup(group),
+    onSuccess: (grupo) => {
+      aplicar()
+      toast.success(`Grupo "${grupo.label}" criado`)
+    },
+  })
+
+  const { mutate: removerGrupo, isPending: removendoGrupo } = useMutation({
+    mutationFn: ({ id }: { id: string; label: string }) => services().plans.removeGroup(id),
+    onSuccess: (_, { label }) => {
+      aplicar()
+      // A frase diz o que NÃO aconteceu, porque a regra não é óbvia e o serviço a aplica: apagar
+      // um grupo não apaga os planos dele — eles ficam soltos.
+      toast.success(`Grupo "${label}" removido — os planos dele continuam na lista`)
+    },
+  })
+
+  const { mutate: importarPlanos, isPending: importando } = useMutation({
+    mutationFn: (proximos: ReturnType<typeof parsePlans>) => services().plans.replaceAll(proximos),
+    onSuccess: (proximos) => {
+      aplicar()
+      toast.success(`${proximos.items.length} ${plural(proximos.items.length, 'plano importado', 'planos importados')}`)
+    },
+  })
+
+  /** Qualquer escrita em voo trava a lista: as seis reescrevem o mesmo catálogo. */
+  const gravando = criandoPlano || editandoPlano || removendoPlano || criandoGrupo || removendoGrupo || importando
 
   const [open, setOpen] = useState(false)
   const [groupOpen, setGroupOpen] = useState(false)
@@ -142,7 +222,7 @@ export function PlanosPageContent() {
   }, [pointed])
 
   const exportPlans = () => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const blob = new Blob([JSON.stringify({ groups, items }, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -156,9 +236,12 @@ export function PlanosPageContent() {
     reader.onload = () => {
       try {
         // `parsePlans` é a fronteira: o arquivo veio de fora e nada nele é confiável.
-        replaceAll(parsePlans(JSON.parse(String(reader.result))))
+        importarPlanos(parsePlans(JSON.parse(String(reader.result))))
       } catch {
-        // Arquivo ilegível: a lista atual fica como está, sem estourar a tela.
+        // Arquivo ILEGÍVEL — JSON quebrado, não um plano inválido. Esse caso não passa pela
+        // escrita, então não há erro do servidor para o aviso global mostrar; a lista fica como
+        // está e a tela diz o que houve.
+        toast.error('Este arquivo não é uma lista de planos do WLET.')
       }
     }
     reader.readAsText(file)
@@ -173,10 +256,11 @@ export function PlanosPageContent() {
             <p className="text-xs text-muted-foreground">O que você pretende comprar. Só os planos decididos entram na previsão.</p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setGroupOpen(true)}>
+            <Button variant="outline" disabled={gravando} onClick={() => setGroupOpen(true)}>
               <FolderPlus data-icon="inline-start" /> Novo grupo
             </Button>
             <Button
+              disabled={gravando}
               onClick={() => {
                 setEditing(null)
                 setOpen(true)
@@ -262,9 +346,9 @@ export function PlanosPageContent() {
           <PlanosDataTable
             groups={groups}
             items={items}
-            onRemove={removePlan}
-            onRemoveGroup={removeGroup}
-            onUpdate={updatePlan}
+            onRemove={(id) => removerPlano({ id, label: items.find((p) => p.id === id)?.label ?? 'sem nome' })}
+            onRemoveGroup={(id) => removerGrupo({ id, label: groups.find((g) => g.id === id)?.label ?? 'sem nome' })}
+            onUpdate={(id, patch) => editarPlano({ id, patch })}
             onHighlight={setPointed}
             monthsWithData={monthsWithData}
             defaultMonth={nextMonth}
@@ -285,7 +369,7 @@ export function PlanosPageContent() {
           <Button variant="outline" onClick={exportPlans} disabled={items.length === 0 && groups.length === 0}>
             <Download data-icon="inline-start" /> Exportar ({items.length})
           </Button>
-          <Button variant="outline" onClick={() => fileInput.current?.click()}>
+          <Button variant="outline" disabled={importando} onClick={() => fileInput.current?.click()}>
             <Upload data-icon="inline-start" /> Importar
           </Button>
           <input
@@ -303,7 +387,7 @@ export function PlanosPageContent() {
         </CardContent>
       </Card>
 
-      <GroupDialog open={groupOpen} onOpenChange={setGroupOpen} defaultMonth={nextMonth} monthsWithData={monthsWithData} onSubmit={addGroup} />
+      <GroupDialog open={groupOpen} onOpenChange={setGroupOpen} defaultMonth={nextMonth} monthsWithData={monthsWithData} onSubmit={(group) => criarGrupo(group)} />
 
       <PlanSheet
         open={open}
@@ -313,8 +397,8 @@ export function PlanosPageContent() {
         monthsWithData={monthsWithData}
         editing={editing}
         onSubmit={(plan) => {
-          if (editing) updatePlan(editing.id, plan)
-          else addPlan(plan)
+          if (editing) editarPlano({ id: editing.id, patch: plan })
+          else criarPlano(plan)
         }}
       />
     </div>
