@@ -1,6 +1,17 @@
 import { z } from 'zod'
 import { entity, month, regexWire } from '../../shared/shape'
 
+/**
+ * A origem NÃO publica schema nomeado — e é por isso que os nomes daqui são nossos.
+ *
+ * Quem serve estas rotas é o `apps/api` desta mesma árvore, com `@orpc/server` sobre Hono. Não
+ * há classe de servidor a espelhar: do outro lado há handlers que montam objeto a partir do
+ * Drizzle. Quem vier procurar a classe da origem para conferir um campo não vai achar uma — a
+ * junção que a substitui é a do COMPILADOR, porque `os.router(...)` em `apps/api/src/main.ts` é
+ * `implement(wletContract)` e um campo que mude aqui quebra o handler antes de qualquer
+ * requisição.
+ */
+
 const dueOn = z.union([z.object({ kind: z.literal('day'), day: z.number().int().min(1).max(31) }), z.object({ kind: z.literal('business-day'), nth: z.number().int().min(1).max(23) })])
 
 const matchRule = z.object({ merchants: z.array(z.string()), accountId: z.string().optional(), amountBetween: z.tuple([z.number(), z.number()]).optional() })

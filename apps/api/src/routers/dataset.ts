@@ -1,10 +1,22 @@
-import { accounts, datasetBlobs, type Db, eq, sourceFiles, transactions, transfers } from '@wlet/db'
+import { ORPCError } from '@orpc/server'
+import type { DatasetResponse } from '@wlet/api'
+import { accounts, and, datasetBlobs, type Db, eq, sourceFiles, transactions, transfers } from '@wlet/db'
 import type { Dataset } from '@wlet/domain'
 import { runIngest } from '@wlet/ingest'
 import { nodeEnv } from '@wlet/ingest/node-env'
 import { os } from '../shared/context'
 import { readDeclarations } from '../shared/declarations'
 import { money, toMoney } from '../shared/wire'
+
+/**
+ * O que basta para PUBLICAR um conjunto — as cinco partes, sem o relatório.
+ *
+ * Vem do CONTRATO e não do domínio, e a diferença aparece num campo: a classe de um ativo é
+ * `z.string()` no fio (valor novo não pode derrubar a resposta inteira) e união fechada no
+ * domínio. Tipando pelo contrato, os dois produtores assinam — o `IngestResult` do pipeline,
+ * cujas uniões cabem em `string`, e o corpo do `PUT /dataset`, que é o contrato em pessoa.
+ */
+type Conjunto = Pick<DatasetResponse, 'accounts' | 'transactions' | 'transfers' | 'meta' | 'investments'>
 
 /**
  * O conjunto ingerido — e o lugar onde o pipeline roda no servidor.
@@ -85,24 +97,25 @@ export function datasetRouter(db: Db) {
         toTransactionId: t.toTransactionId,
         description: t.description,
       })),
-      // Mesmo caso do `meta`: a coluna é jsonb e volta `unknown`. O contrato declara os três
-      // campos como `z.unknown()` (shape.ts:65-69), então o tipo do domínio assina sem estreitar
-      // nada — o que o cast faz é dizer de ONDE o valor veio, em vez de calar o objeto inteiro.
+      // Mesmo caso do `meta`: a coluna é jsonb e volta `unknown`. O cast diz de ONDE o valor
+      // veio — o pipeline —, e o contrato agora declara os três campos com forma de verdade, de
+      // modo que a validação de saída confere o que está DENTRO da série, e não só que ela existe.
       investments: blob.investments as Dataset['investments'],
     }
   }
 
   /**
-   * Roda o pipeline e publica o resultado.
+   * Publica um conjunto — venha ele do pipeline ou de um pacote importado.
    *
    * A publicação é numa TRANSAÇÃO e o conjunto anterior só cai depois do novo ser aceito: meio
    * conjunto gravado é pior que nenhum, e um erro no meio deixaria a pessoa sem extrato nenhum.
    * É a mesma garantia que o `dbReplaceAll` dá no navegador, com o mesmo motivo.
+   *
+   * Recebe o conjunto em vez de rodar o pipeline porque os dois caminhos gravam a MESMA coisa:
+   * uma segunda cópia destas inserções para a importação divergiria da primeira no dia em que
+   * uma coluna entrasse — e a divergência só apareceria com dado real.
    */
-  const publicar = async (userId: string, arquivos: { path: string; bytes: Uint8Array }[]) => {
-    const config = await readDeclarations(db, userId)
-    const resultado = await runIngest({ sources: arquivos, ...config, now: new Date().toISOString(), env: nodeEnv })
-
+  const publicarConjunto = async (userId: string, resultado: Conjunto) => {
     await db.transaction(async (tx) => {
       await tx.delete(transactions).where(eq(transactions.userId, userId))
       await tx.delete(transfers).where(eq(transfers.userId, userId))
@@ -183,8 +196,34 @@ export function datasetRouter(db: Db) {
         .values({ userId, meta: resultado.meta, investments: resultado.investments })
         .onConflictDoUpdate({ target: datasetBlobs.userId, set: { meta: resultado.meta, investments: resultado.investments, updatedAt: new Date() } })
     })
+  }
 
+  /**
+   * Roda o pipeline e publica o resultado.
+   *
+   * O `config` vem do SERVIDOR e não do cliente: quem manda é a configuração gravada, e aceitar
+   * a do cliente deixaria o pipeline rodar com uma que o `GET /config` não confirma.
+   */
+  const publicar = async (userId: string, arquivos: { path: string; bytes: Uint8Array }[]) => {
+    const config = await readDeclarations(db, userId)
+    const resultado = await runIngest({ sources: arquivos, ...config, now: new Date().toISOString(), env: nodeEnv })
+    await publicarConjunto(userId, resultado)
     return { dataset: (await lerConjunto(userId))!, report: resultado.report }
+  }
+
+  /**
+   * Substitui a pasta de arquivos guardados, sem rodar nada.
+   *
+   * SUBSTITUI e não acrescenta, pela mesma razão que em `ingest`: um extrato que a pessoa
+   * apagou não pode continuar produzindo lançamentos na próxima reingestão.
+   */
+  const gravarFontes = async (userId: string, fontes: { path: string; contentBase64: string }[]) => {
+    await db.transaction(async (tx) => {
+      await tx.delete(sourceFiles).where(eq(sourceFiles.userId, userId))
+      if (fontes.length) {
+        await tx.insert(sourceFiles).values(fontes.map((s) => ({ userId, path: s.path, content: s.contentBase64, bytes: Buffer.from(s.contentBase64, 'base64').length })))
+      }
+    })
   }
 
   return {
@@ -192,24 +231,34 @@ export function datasetRouter(db: Db) {
 
     ingest: os.dataset.ingest.handler(async ({ context, input }) => {
       const arquivos = input.sources.map((s) => ({ path: s.path, bytes: new Uint8Array(Buffer.from(s.contentBase64, 'base64')) }))
-      // Os arquivos são guardados ANTES de rodar, e a pasta nova SUBSTITUI a anterior: um
-      // extrato que a pessoa apagou não pode continuar produzindo lançamentos.
-      await db.transaction(async (tx) => {
-        await tx.delete(sourceFiles).where(eq(sourceFiles.userId, context.userId))
-        if (input.sources.length) {
-          await tx.insert(sourceFiles).values(input.sources.map((s) => ({ userId: context.userId, path: s.path, content: s.contentBase64, bytes: Buffer.from(s.contentBase64, 'base64').length })))
-        }
-      })
+      // Os arquivos são guardados ANTES de rodar: o pipeline pode falhar no meio, e sem eles a
+      // pessoa teria de escolher a pasta de novo para tentar outra vez.
+      await gravarFontes(context.userId, input.sources)
       return publicar(context.userId, arquivos)
     }),
 
     reingest: os.dataset.reingest.handler(async ({ context }) => {
       const guardados = await db.select().from(sourceFiles).where(eq(sourceFiles.userId, context.userId))
-      if (!guardados.length) throw new Error('NoSourcesError')
+      // `ORPCError` e não `new Error('NoSourcesError')`: o segundo virava 500 sem corpo, e a tela
+      // mostrava "erro de rede" para o que é um estado previsto — não há o que reprocessar. O
+      // nome da classe também não atravessava o fio, então ninguém do outro lado o distinguia.
+      if (!guardados.length) throw new ORPCError('BAD_REQUEST', { message: 'Não há arquivos guardados para reprocessar.' })
       return publicar(
         context.userId,
         guardados.map((f) => ({ path: f.path, bytes: new Uint8Array(Buffer.from(f.content, 'base64')) })),
       )
+    }),
+
+    /**
+     * Grava um conjunto PRONTO, sem passar pelo pipeline — o caminho da importação.
+     *
+     * Reingerir aqui seria o defeito, não o zelo: o `transaction.id` é `sha1` de sete campos
+     * incluindo o `profile.id` do perfil de conta, então recalcular trocaria todo id — e os
+     * ajustes manuais de categoria, chaveados por eles, virariam órfãos em silêncio.
+     */
+    replace: os.dataset.replace.handler(async ({ context, input }) => {
+      await publicarConjunto(context.userId, input)
+      return { ok: true as const }
     }),
 
     reset: os.dataset.reset.handler(async ({ context }) => {
@@ -221,8 +270,33 @@ export function datasetRouter(db: Db) {
     }),
 
     sources: os.dataset.sources.handler(async ({ context }) => {
-      const rows = await db.select().from(sourceFiles).where(eq(sourceFiles.userId, context.userId))
+      // Sem o `content`: são ~15 MB em base64 somados, e quem lista quer saber o que há, não
+      // baixar tudo. O conteúdo sai por `sourceContent`, um arquivo por vez.
+      const rows = await db.select({ path: sourceFiles.path, bytes: sourceFiles.bytes, uploadedAt: sourceFiles.uploadedAt }).from(sourceFiles).where(eq(sourceFiles.userId, context.userId))
       return rows.map((f) => ({ path: f.path, bytes: f.bytes, uploadedAt: f.uploadedAt.toISOString() }))
+    }),
+
+    /**
+     * O conteúdo de UM arquivo. É ela que torna possível exportar um pacote completo.
+     *
+     * A seleção é por coluna e não `select()`: trazer a linha inteira não custaria nada aqui,
+     * mas deixar explícito que o `content` é o que se está pedindo é o que impede alguém de
+     * reusar esta consulta numa listagem e mover megabytes sem perceber.
+     */
+    sourceContent: os.dataset.sourceContent.handler(async ({ context, input }) => {
+      const [row] = await db
+        .select({ content: sourceFiles.content })
+        .from(sourceFiles)
+        .where(and(eq(sourceFiles.userId, context.userId), eq(sourceFiles.path, input.path)))
+      // `null` e não erro: listar e buscar são duas requisições, e um arquivo apagado entre uma
+      // e outra é estado previsto — quem exporta pula e segue, em vez de perder o pacote.
+      return row ? { path: input.path, contentBase64: row.content } : null
+    }),
+
+    /** Repõe os arquivos guardados sem rodar o pipeline — a outra metade da importação. */
+    writeSources: os.dataset.writeSources.handler(async ({ context, input }) => {
+      await gravarFontes(context.userId, input.sources)
+      return { ok: true as const }
     }),
   }
 }

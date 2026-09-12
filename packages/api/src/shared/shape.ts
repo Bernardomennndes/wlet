@@ -18,15 +18,3 @@ export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 
 export const entity = z.enum(['PF', 'PJ'])
 export const scope = z.enum(['all', 'PF', 'PJ'])
-
-/**
- * O envelope de erro do domínio.
- *
- * Os serviços já lançam erros nomeados (`IncompleteDatasetError`, `InvalidConfigError`,
- * `NoSourcesError`) e o `code` os preserva através do fio — sem ele, o cliente receberia "500"
- * e teria de adivinhar pela mensagem, que é texto para humano e muda.
- */
-export const domainError = z.object({
-  code: z.enum(['INCOMPLETE_DATASET', 'INVALID_CONFIG', 'NO_SOURCES', 'NOT_FOUND', 'UNAUTHORIZED']),
-  message: z.string(),
-})

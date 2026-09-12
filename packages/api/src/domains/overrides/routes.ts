@@ -1,5 +1,6 @@
 import { oc } from '@orpc/contract'
 import { z } from 'zod'
+import { overridesMap, transactionId } from './shape'
 
 /**
  * Os ajustes manuais de categoria, por id de transação.
@@ -12,10 +13,10 @@ import { z } from 'zod'
  * ingest decidiu", o outro é "não mexi nisto".
  */
 export const overridesRoutes = {
-  list: oc.route({ method: 'GET', path: '/overrides' }).output(z.record(z.string(), z.string())),
+  list: oc.route({ method: 'GET', path: '/overrides' }).output(overridesMap),
   set: oc
     .route({ method: 'PUT', path: '/overrides/{transactionId}' })
-    .input(z.object({ transactionId: z.string(), categoryId: z.string().nullable() }))
-    .output(z.record(z.string(), z.string())),
+    .input(z.object({ transactionId, categoryId: z.string().nullable() }))
+    .output(overridesMap),
   clear: oc.route({ method: 'DELETE', path: '/overrides' }).output(z.object({ ok: z.literal(true) })),
 }

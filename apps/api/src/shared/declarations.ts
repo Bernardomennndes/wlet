@@ -9,6 +9,23 @@ type StoredProfile = Omit<AccountProfile, 'match'> & {
 import { fromRegexWire, money, toRegexWire, type RegexWire } from './wire'
 
 /**
+ * O orçamento de quem nunca declarou um.
+ *
+ * `monthlyLimit: 0` diz "limite zero" onde o dado diz "nunca configurou", e `warnAt: 0.75` é
+ * política de produto — as duas coisas deveriam ser decisão de tela, sobre um `budget` nulo. Não
+ * são ainda porque o tipo `Declarations` do pipeline (`@wlet/ingest`) exige o orçamento presente,
+ * e afrouxá-lo é mudança fora deste pacote. Até lá, o padrão mora AQUI, num lugar só, em vez de
+ * repetido em cada `insert` — dois padrões diferentes para o mesmo vazio seriam pior.
+ */
+export const ORCAMENTO_VAZIO = { monthlyLimit: 0, warnAt: 0.75, byCategory: [] as { categoryId: string; amount: number }[] }
+
+/** O orçamento gravado, ou `undefined` quando o que está lá não é um: `{}` é o caso real. */
+function orcamentoGravado(valor: unknown) {
+  const b = valor as { monthlyLimit?: unknown; warnAt?: unknown } | null | undefined
+  return b && typeof b.monthlyLimit === 'number' && typeof b.warnAt === 'number' ? (b as typeof ORCAMENTO_VAZIO) : undefined
+}
+
+/**
  * A configuração declarada, montada de quatro tabelas e uma linha de `settings`.
  *
  * Vive fora do router porque tem DOIS consumidores que não podem divergir: o `GET /config`, que
@@ -78,7 +95,12 @@ export async function readDeclarations(db: Db, userId: string) {
       ...(r.count ? { count: Number(r.count) } : {}),
       ...(r.accountId ? { accountId: r.accountId } : {}),
     })),
-    budget: (conf?.budget as { monthlyLimit: number; warnAt: number }) ?? { monthlyLimit: 0, warnAt: 0.75, byCategory: [] },
+    // Conferido pelo CONTEÚDO e não por `??`. A linha de `settings` nasce com `budget: {}`
+    // quando a pessoa mexe numa preferência antes de salvar configuração alguma, e `{}` não é
+    // nullish: o `??` não disparava, o `GET /config` devolvia `{}` e a validação de saída
+    // recusava a RESPOSTA INTEIRA por `monthlyLimit`/`warnAt` ausentes — a pessoa perdia a
+    // configuração toda por causa de um orçamento que ela nunca abriu.
+    budget: orcamentoGravado(conf?.budget) ?? ORCAMENTO_VAZIO,
     goals: metas.map((g) => ({
       id: g.id,
       label: g.label,

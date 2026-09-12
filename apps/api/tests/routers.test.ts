@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { after, describe, it } from 'node:test'
 import { call } from '@orpc/server'
 import { configRouter } from '../src/routers/config'
+import { datasetRouter } from '../src/routers/dataset'
 import { overridesRouter } from '../src/routers/overrides'
 import { plansRouter } from '../src/routers/plans'
 import { preferencesRouter } from '../src/routers/preferences'
@@ -46,23 +47,41 @@ describe('preferências', () => {
   })
 })
 
+/**
+ * Os ids aqui têm a FORMA do que o ingest emite — doze hexadecimais, o `sha1` cortado.
+ *
+ * Eram `'abc123'`, `'x'` e `'compartilhado'`, e passavam: o contrato aceitava `z.string()` cru.
+ * Fixture que o servidor real recusaria prova menos do que parece — foi assim que um espaço de
+ * chave errado atravessou uma suíte verde neste repositório.
+ */
+const ID_A = 'a1b2c3d4e5f6'
+const ID_B = '0f1e2d3c4b5a'
+
 describe('ajustes de categoria', () => {
   it('grava, lê e REMOVE com nulo', async () => {
     const { context } = await comUsuario()
     const r = overridesRouter(d)
     assert.deepEqual(await call(r.list, undefined, { context }), {})
-    await call(r.set, { transactionId: 'abc123', categoryId: 'mercado' }, { context })
-    assert.deepEqual(await call(r.list, undefined, { context }), { abc123: 'mercado' })
+    await call(r.set, { transactionId: ID_A, categoryId: 'mercado' }, { context })
+    assert.deepEqual(await call(r.list, undefined, { context }), { [ID_A]: 'mercado' })
     // `null` é "volte ao que o ingest decidiu" — diferente de gravar categoria vazia.
-    assert.deepEqual(await call(r.set, { transactionId: 'abc123', categoryId: null }, { context }), {})
+    assert.deepEqual(await call(r.set, { transactionId: ID_A, categoryId: null }, { context }), {})
+  })
+
+  it('recusa id que não tem a forma do que o ingest emite', async () => {
+    // A tabela `overrides` não tem chave estrangeira de propósito — o ajuste sobrevive a uma
+    // reingestão —, então nada mais no caminho recusaria uma chave inventada: ela entraria e
+    // ficaria órfã para sempre.
+    const { context } = await comUsuario()
+    await assert.rejects(() => call(overridesRouter(d).set, { transactionId: 'abc', categoryId: 'mercado' }, { context }))
   })
 
   it('regravar o mesmo id SUBSTITUI, não duplica', async () => {
     const { context } = await comUsuario()
     const r = overridesRouter(d)
-    await call(r.set, { transactionId: 'x', categoryId: 'mercado' }, { context })
-    const depois = await call(r.set, { transactionId: 'x', categoryId: 'lazer' }, { context })
-    assert.deepEqual(depois, { x: 'lazer' })
+    await call(r.set, { transactionId: ID_B, categoryId: 'mercado' }, { context })
+    const depois = await call(r.set, { transactionId: ID_B, categoryId: 'lazer' }, { context })
+    assert.deepEqual(depois, { [ID_B]: 'lazer' })
   })
 
   it('o ajuste de uma pessoa NÃO aparece para outra', async () => {
@@ -70,7 +89,7 @@ describe('ajustes de categoria', () => {
     const a = await comUsuario()
     const b = await comUsuario()
     const r = overridesRouter(d)
-    await call(r.set, { transactionId: 'compartilhado', categoryId: 'mercado' }, { context: a.context })
+    await call(r.set, { transactionId: ID_A, categoryId: 'mercado' }, { context: a.context })
     assert.deepEqual(await call(r.list, undefined, { context: b.context }), {})
   })
 })
@@ -141,5 +160,123 @@ describe('configuração', () => {
     )
     assert.equal(volta.planned[0].amount, 1500)
     assert.equal('match' in volta.planned[0], false, 'sem credor, o campo não existe')
+  })
+})
+
+/**
+ * Um conjunto MÍNIMO e completo — as cinco partes, uma conta e um lançamento.
+ *
+ * Ele existe para exercitar o caminho da IMPORTAÇÃO, que é o único que grava um conjunto sem
+ * rodar o pipeline. Montá-lo à mão é o ponto: se o contrato ganhar um campo obrigatório, este
+ * literal para de compilar — que é exatamente o que se quer de um teste do contrato.
+ */
+const conjunto = {
+  accounts: [
+    {
+      id: 'inter-pj',
+      name: 'Inter PJ',
+      bank: 'Inter',
+      bankCode: '077',
+      type: 'checking' as const,
+      entity: 'PJ' as const,
+      holder: 'Fulano',
+      externalId: '9988776',
+      coverage: { from: '2026-01-01', to: '2026-01-31' },
+      reportedBalance: null,
+      sources: ['docs/inter.ofx'],
+      transactionCount: 1,
+    },
+  ],
+  meta: {
+    generatedAt: '2026-01-31T12:00:00.000Z',
+    sourceFiles: [{ path: 'docs/inter.ofx', account: 'inter-pj', transactions: 1, skippedAsDuplicate: false }],
+    totals: { transactions: 1, transfers: 0, accounts: 1 },
+    months: ['2026-01'],
+  },
+  transactions: [
+    {
+      id: 'a1b2c3d4e5f6',
+      accountId: 'inter-pj',
+      entity: 'PJ' as const,
+      date: '2026-01-10',
+      postedDate: '2026-01-10',
+      amount: -123.45,
+      description: 'Mercado',
+      rawDescription: 'MERCADO X LTDA',
+      merchant: 'Mercado X',
+      kind: 'statement' as const,
+      categoryId: 'mercado',
+      categoryRule: 'mercado',
+      installment: null,
+      invoice: null,
+      transferId: null,
+      transferKind: null,
+      counterpartAccountId: null,
+      receivableId: null,
+      plannedId: null,
+      source: 'docs/inter.ofx',
+      fitId: null,
+    },
+  ],
+  transfers: [],
+  investments: { snapshot: null, series: [], income: [] },
+}
+
+describe('conjunto', () => {
+  it('importar GRAVA o conjunto, sem reingerir', async () => {
+    // O no-op que este teste fecha: o repositório remoto tinha `save` vazio, então importar um
+    // pacote descartava o conjunto inteiro e a tela dizia "Importado".
+    const { context } = await comUsuario()
+    const r = datasetRouter(d)
+    assert.equal(await call(r.get, undefined, { context }), null, 'quem nunca importou não tem conjunto')
+
+    assert.deepEqual(await call(r.replace, conjunto, { context }), { ok: true })
+    const lido = await call(r.get, undefined, { context })
+    assert.equal(lido?.transactions.length, 1)
+    // O id tem de SOBREVIVER: é ele que chaveia os ajustes manuais de categoria.
+    assert.equal(lido?.transactions[0].id, 'a1b2c3d4e5f6')
+    assert.equal(lido?.transactions[0].amount, -123.45, 'o valor volta como número, não como texto do `numeric`')
+    assert.equal(lido?.accounts[0].coverage?.to, '2026-01-31')
+  })
+
+  it('os arquivos-fonte voltam COM conteúdo, um a um', async () => {
+    // Sem esta rota, exportar gerava um pacote com `sources: []` — e o destino ficava sem o que
+    // reprocessar, porque a listagem só devolvia metadado.
+    const { context } = await comUsuario()
+    const r = datasetRouter(d)
+    const conteudo = Buffer.from('OFXHEADER:100\nDATA').toString('base64')
+
+    assert.deepEqual(await call(r.writeSources, { sources: [{ path: 'docs/inter.ofx', contentBase64: conteudo }] }, { context }), { ok: true })
+
+    const listados = await call(r.sources, undefined, { context })
+    assert.equal(listados.length, 1)
+    assert.equal(listados[0].path, 'docs/inter.ofx')
+    assert.equal('contentBase64' in listados[0], false, 'a listagem não move megabytes')
+
+    assert.deepEqual(await call(r.sourceContent, { path: 'docs/inter.ofx' }, { context }), { path: 'docs/inter.ofx', contentBase64: conteudo })
+    // Caminho que não está guardado é estado previsto, não falha: listar e buscar são duas
+    // requisições, e quem exporta pula o que sumiu entre uma e outra.
+    assert.equal(await call(r.sourceContent, { path: 'docs/sumiu.ofx' }, { context }), null)
+  })
+
+  it('repor a pasta SUBSTITUI a anterior', async () => {
+    // Um extrato que a pessoa apagou não pode continuar produzindo lançamentos na reingestão.
+    const { context } = await comUsuario()
+    const r = datasetRouter(d)
+    await call(r.writeSources, { sources: [{ path: 'docs/velho.ofx', contentBase64: 'dmVsaG8=' }] }, { context })
+    await call(r.writeSources, { sources: [{ path: 'docs/novo.ofx', contentBase64: 'bm92bw==' }] }, { context })
+    const listados = await call(r.sources, undefined, { context })
+    assert.deepEqual(
+      listados.map((f) => f.path),
+      ['docs/novo.ofx'],
+    )
+  })
+
+  it('o conjunto de uma pessoa NÃO aparece para outra', async () => {
+    const a = await comUsuario()
+    const b = await comUsuario()
+    const r = datasetRouter(d)
+    await call(r.replace, conjunto, { context: a.context })
+    assert.equal(await call(r.get, undefined, { context: b.context }), null)
   })
 })

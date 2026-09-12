@@ -1,6 +1,19 @@
 import { z } from 'zod'
 import { entity, isoDate, month } from '../../shared/shape'
 
+/**
+ * A origem NÃO publica schema nomeado — e é por isso que os nomes daqui são nossos.
+ *
+ * Quem serve estas rotas é o `apps/api` desta mesma árvore, com `@orpc/server` sobre Hono. Não
+ * há classe de servidor a espelhar (nem Pydantic, nem nada): o que existe do outro lado são
+ * handlers que montam objeto a partir do Drizzle. Quem vier procurar `AccountResponse` numa
+ * origem não vai achar — não porque o nome esteja errado, mas porque não há uma.
+ *
+ * A junção que substitui a do nome é a do COMPILADOR: `apps/api/src/main.ts` monta o router com
+ * `os.router(...)`, que é `implement(wletContract)`, então um campo que mude aqui quebra o
+ * handler em compilação — antes de qualquer requisição.
+ */
+
 export const account = z.object({
   id: z.string(),
   name: z.string(),
@@ -62,10 +75,59 @@ export const datasetMeta = z.object({
   months: z.array(month),
 })
 
+/** Uma posição da carteira na data do relatório da B3. */
+const investmentHolding = z.object({
+  code: z.string(),
+  /**
+   * `z.string()` e não `z.enum`: a classe do ativo é cadastro da corretora, e na SAÍDA um valor
+   * novo derrubaria a resposta inteira — a tela de Patrimônio morreria por causa de um papel.
+   */
+  kind: z.string(),
+  label: z.string(),
+  quantity: z.number(),
+  value: z.number(),
+})
+
+/** A posição na data do relatório — `asOf` é quando você exportou, não "hoje". */
+const investmentSnapshot = z.object({
+  asOf: isoDate,
+  source: z.string(),
+  holdings: z.array(investmentHolding),
+  /** Só os papéis. O patrimônio é este mais o `cash`. */
+  total: z.number(),
+  cash: z.number(),
+  /** Ações entram na série a CUSTO: preço histórico exigiria uma fonte com cadastro. */
+  equityAtCost: z.boolean(),
+})
+
+/** Um mês da evolução patrimonial. `contributed` é o aporte líquido acumulado. */
+const patrimonyPoint = z.object({
+  month,
+  contributed: z.number(),
+  fixedIncome: z.number(),
+  equity: z.number(),
+  cash: z.number(),
+  total: z.number(),
+  /** O que os MESMOS aportes valeriam a 100% do CDI — a régua, e não um índice de ações. */
+  benchmark: z.number(),
+})
+
+/** Os proventos de um mês, separados pelas três naturezas: elas têm tributação diferente. */
+const incomeMonth = z.object({ month, dividends: z.number(), jcp: z.number(), yields: z.number(), total: z.number() })
+
+/**
+ * A carteira reconstruída.
+ *
+ * Os três campos eram `z.unknown()`, e `z.unknown()` não declara campo nenhum: o
+ * `ResponseValidationPlugin` conferia que `series` era um array e nada sobre o que havia dentro
+ * dele — para justamente a tela que lê a série INTEIRA. A forma existe e é nomeada em
+ * `@wlet/domain` (`InvestmentSnapshot`, `PatrimonyPoint`, `IncomeMonth`); o contrato espelha
+ * essa, campo a campo.
+ */
 export const investments = z.object({
-  snapshot: z.unknown().nullable(),
-  series: z.array(z.unknown()),
-  income: z.array(z.unknown()),
+  snapshot: investmentSnapshot.nullable(),
+  series: z.array(patrimonyPoint),
+  income: z.array(incomeMonth),
 })
 
 /**
@@ -90,8 +152,16 @@ export const ingestReport = z.object({
   duplicated: z.array(z.object({ accountId: z.string(), count: z.number().int() })),
   unknownAccounts: z.array(z.string()),
   pdfProblems: z.array(z.string()),
-  unmatchedTransfers: z.array(z.object({ date: isoDate, accountId: z.string(), amount: z.number(), description: z.string() })),
-  uncategorized: z.array(z.object({ date: isoDate, accountId: z.string(), amount: z.number(), description: z.string() })),
+  /**
+   * Os dois carregam a TRANSAÇÃO inteira, e não quatro campos dela.
+   *
+   * O pipeline os tipa como `Transaction[]` (`@wlet/ingest`, `IngestReport`) e o handler devolve
+   * `resultado.report` cru: enquanto o contrato declarava só `date`/`accountId`/`amount`/
+   * `description`, a validação de saída podava os outros dezoito campos em silêncio — e quem
+   * quisesse abrir a transferência sem contraparte não tinha nem o `id` dela.
+   */
+  unmatchedTransfers: z.array(transaction),
+  uncategorized: z.array(transaction),
   plannedProblems: z.array(z.string()),
   receivableProblems: z.array(z.string()),
   goalProblems: z.array(z.string()),
@@ -99,10 +169,28 @@ export const ingestReport = z.object({
   investmentProblems: z.array(z.string()),
 })
 
-/** Um arquivo-fonte subindo. Base64 porque JSON não tem tipo binário — custa +33% e não há alternativa. */
-export const sourceFileUpload = z.object({ path: z.string(), contentBase64: z.string() })
+/**
+ * A chave de um arquivo-fonte é o CAMINHO com que ele subiu.
+ *
+ * Não é uuid nem id gerado: a chave primária de `source_files` é `(user_id, path)`, e é por ela
+ * que a reingestão reencontra o arquivo. Declarar `z.string()` cru aceitaria `''`, que é uma
+ * chave que o banco grava e ninguém consegue endereçar depois — daí o `min(1)`, que é a forma
+ * exata do que o servidor emite.
+ */
+export const sourcePath = z.string().min(1)
 
-export const storedSource = z.object({ path: z.string(), bytes: z.number().int(), uploadedAt: z.string() })
+/** Um arquivo-fonte subindo. Base64 porque JSON não tem tipo binário — custa +33% e não há alternativa. */
+export const sourceFileUpload = z.object({ path: sourcePath, contentBase64: z.string() })
+
+/** O que a listagem devolve: o metadado de cada arquivo guardado, sem o conteúdo — ver `dataset.sourceContent`. */
+export const storedSource = z.object({ path: sourcePath, bytes: z.number().int(), uploadedAt: z.string() })
+
+/**
+ * O conteúdo de UM arquivo guardado — o mesmo par `path`/`contentBase64` do upload, no sentido
+ * inverso. É o MESMO schema de propósito: subir e baixar o mesmo arquivo por formas diferentes
+ * deixaria as duas divergirem no primeiro campo que alguém acrescentasse.
+ */
+export const storedSourceContent = sourceFileUpload
 
 export type DatasetResponse = z.infer<typeof dataset>
 export type IngestReportResponse = z.infer<typeof ingestReport>

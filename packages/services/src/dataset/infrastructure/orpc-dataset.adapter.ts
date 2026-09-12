@@ -1,5 +1,5 @@
 import type { Dataset } from '@wlet/domain'
-import { toBase64 } from '@wlet/lib/portable'
+import { fromBase64, toBase64 } from '@wlet/lib/portable'
 import type { SourceFile } from '@wlet/ingest/io'
 import type { Declarations } from '@wlet/ingest/pipeline'
 import type { RemoteDeps } from '../../shared/infrastructure/orpc'
@@ -10,19 +10,24 @@ import type { SourceStore } from '../domain/ports/source-store'
 /**
  * O conjunto, no servidor.
  *
- * `save` e `clear` existem na porta porque o adapter de IndexedDB precisa deles — lá o
- * navegador é quem grava o que o worker produziu. Aqui a gravação é CONSEQUÊNCIA da ingestão,
- * que já aconteceu do outro lado, então `save` não tem o que fazer. Ele não lança: a porta
- * descreve uma capacidade que este adapter satisfaz de outro jeito, e um erro aqui quebraria
- * um serviço que está funcionando como deve.
+ * `save` grava um conjunto PRONTO, sem passar pelo pipeline: é o caminho da IMPORTAÇÃO de um
+ * pacote, e a diferença entre ele e `ingest` é o motivo de a rota existir. Reingerir os
+ * arquivos do pacote recalcularia todo `transaction.id` — que é `sha1` de sete campos,
+ * incluindo o `profile.id` do perfil de conta — e todo ajuste manual de categoria, chaveado
+ * por esse id, viraria órfão em silêncio.
+ *
+ * Enquanto este método era um corpo vazio ele MENTIA sobre sucesso: a importação descartava o
+ * conjunto inteiro e a tela dizia "Importado".
  */
 export function makeOrpcDatasetRepository({ client }: RemoteDeps): DatasetRepository {
   return {
     async find() {
       return (await client.dataset.get()) as Dataset | null
     },
-    async save() {
-      // Publicado pelo próprio servidor no fim da ingestão — ver `IngestRunner` abaixo.
+    async save(data: Dataset) {
+      // `PUT /dataset` publica numa transação só — meio conjunto gravado é pior que nenhum, e é
+      // por isso que o corpo vai inteiro e não paginado.
+      await client.dataset.replace(data)
     },
     async clear() {
       await client.dataset.reset()
@@ -44,15 +49,26 @@ export function makeOrpcDatasetRepository({ client }: RemoteDeps): DatasetReposi
  */
 export function makeOrpcIngestRunner({ client }: RemoteDeps): IngestRunner {
   return {
-    async run(sources: SourceFile[], _config: Declarations, _now: string) {
-      const { dataset, report } = await client.dataset.ingest({
-        // `toBase64` e não `btoa(String.fromCharCode(...bytes))`: o spread de um Uint8Array de
-        // megabytes estoura a pilha de argumentos ANTES de qualquer rede, com um `RangeError` que
-        // não fala em tamanho. O helper converte em fatias de 32 KB, e o docblock dele em
-        // `@wlet/lib/portable` já registrava essa lição — este adapter é que a reimplementou
-        // quebrada. Os 11,4 MB de extratos reais que `backup.ts` documenta nunca passavam daqui.
-        sources: sources.map((s) => ({ path: s.path, contentBase64: toBase64(s.bytes) })),
-      })
+    async run(_sources: SourceFile[], _config: Declarations, _now: string) {
+      /**
+       * Processa o que JÁ ESTÁ no servidor, e por isso `sources` é ignorado.
+       *
+       * O serviço chama `sourceStore.save(sources)` imediatamente antes de `run`
+       * (`dataset.service.ts`, em `ingest`) — então, quando esta linha executa, os arquivos
+       * acabaram de subir por `PUT /dataset/sources`. Mandá-los de novo em `POST /dataset/ingest`
+       * subiria os MESMOS ~15 MB uma segunda vez e reescreveria a tabela `source_files` duas
+       * vezes por ingestão. Foi o defeito que a primeira ligação de `save` introduziu: o
+       * `ingest` do servidor também grava a pasta, e ninguém olhou o chamador.
+       *
+       * `reingest` é exatamente "rode o pipeline sobre o que está guardado", e existia sem
+       * nenhum chamador. É a rota certa para este par — o upload é de `save`, o processamento é
+       * daqui, e cada byte sobe uma vez só.
+       *
+       * No adapter LOCAL nada disso se aplica: lá `save` grava no IndexedDB e o runner recebe os
+       * buffers. A diferença é do transporte, não do caso de uso, que é o que a porta existe para
+       * absorver.
+       */
+      const { dataset, report } = await client.dataset.reingest({})
       return { ...(dataset as unknown as Record<string, unknown>), report } as never
     },
   }
@@ -61,24 +77,43 @@ export function makeOrpcIngestRunner({ client }: RemoteDeps): IngestRunner {
 /**
  * Os arquivos-fonte, no servidor.
  *
- * `save` é vazio pela mesma razão do repositório: o `POST /dataset/ingest` já os guarda, numa
- * transação, ANTES de rodar. Guardá-los de novo daqui seria uma segunda cópia do mesmo dado —
- * e, pior, uma que poderia divergir.
+ * `save` e `load` existem aqui pelas duas pontas do PACOTE: importar um pacote precisa repor os
+ * originais sem rodar o pipeline (senão o primeiro `reingest` seguinte falha por não haver
+ * fonte nenhuma), e exportar um pacote precisa trazê-los de volta. Nenhuma das duas passa por
+ * `ingest`, que guarda os arquivos apenas como efeito colateral de reprocessá-los.
  */
 export function makeOrpcSourceStore({ client }: RemoteDeps): SourceStore {
   return {
-    async save() {
-      // Guardados pelo servidor, dentro da mesma transação da ingestão.
+    async save(sources: SourceFile[]) {
+      // `PUT /dataset/sources` SUBSTITUI a pasta inteira, como o adapter de IndexedDB faz: um
+      // extrato que a pessoa apagou não pode continuar produzindo lançamentos. Base64 pelo
+      // mesmo motivo do `ingest` acima — JSON não tem tipo binário —, e pelo mesmo helper.
+      await client.dataset.writeSources({
+        sources: sources.map((s) => ({ path: s.path, contentBase64: toBase64(s.bytes) })),
+      })
     },
+
     async load() {
-      // O servidor não devolve o CONTEÚDO dos arquivos: eles existem lá para reprocessar, e
-      // trazê-los de volta seria mover megabytes para nada. Quem quer reprocessar chama
-      // `reingest`; quem quer exportar chama o pacote.
-      return []
+      // Duas etapas porque a listagem é só METADADO: trazer os ~15 MB de base64 em toda chamada
+      // que só quer contar arquivos é o que a rota `sources` recusa a fazer. O conteúdo vem UM a
+      // UM, que é a unidade natural (base64 não se corta ao meio).
+      const stored = await client.dataset.sources()
+      const files: SourceFile[] = []
+      // Sequencial, e não `Promise.all`: são megabytes por resposta, e disparar N de uma vez
+      // colocaria a pasta inteira em voo — exatamente o que a rota por arquivo evita.
+      for (const { path } of stored) {
+        const file = await client.dataset.sourceContent({ path })
+        // `null` é ESTADO PREVISTO e não falha: listar e buscar são duas requisições, e um
+        // arquivo apagado entre uma e outra some daqui em vez de derrubar a exportação inteira.
+        if (file) files.push({ path: file.path, bytes: fromBase64(file.contentBase64) })
+      }
+      return files
     },
+
     async count() {
       return (await client.dataset.sources()).length
     },
+
     async clear() {
       await client.dataset.reset()
     },

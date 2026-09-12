@@ -1,5 +1,6 @@
 import { createDb, eq, settings } from '@wlet/db'
 import { os } from '../shared/context'
+import { ORCAMENTO_VAZIO } from '../shared/declarations'
 
 /**
  * As preferências vivem numa coluna JSONB de `settings`.
@@ -27,7 +28,10 @@ export function preferencesRouter(db: ReturnType<typeof createDb>) {
       const next = { ...vazio, ...(row?.preferences as object), ...input }
       await db
         .insert(settings)
-        .values({ userId: context.userId, preferences: next, budget: {}, accountProfiles: [], rules: [], selfNamePatterns: [] })
+        // O `budget` é o vazio DECLARADO e não `{}`: a coluna é `notNull` e alguém tem de
+        // preenchê-la aqui, mas `{}` não é um orçamento — era ele que fazia o `GET /config`
+        // seguinte ser recusado inteiro pela validação de saída.
+        .values({ userId: context.userId, preferences: next, budget: ORCAMENTO_VAZIO, accountProfiles: [], rules: [], selfNamePatterns: [] })
         .onConflictDoUpdate({ target: settings.userId, set: { preferences: next } })
       return next as typeof vazio
     }),
