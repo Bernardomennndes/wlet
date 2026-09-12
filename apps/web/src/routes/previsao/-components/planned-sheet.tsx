@@ -12,7 +12,7 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { ToggleGroup, ToggleGroupItem } from '@wlet/ui/components/toggle-group'
 import { CATEGORIES } from '@wlet/domain'
 import { entityKinds, flowKinds, plannedRecurrences, type Entity, type PlannedEntry, type Recurrence } from '@wlet/domain'
-import { DueOnField } from '@/components/due-on-field'
+import { DueOnField, MAX_BUSINESS_DAY_OF_MONTH, MAX_DAY_OF_MONTH } from '@/components/due-on-field'
 
 const CATEGORY_ITEMS = CATEGORIES.map((c) => ({ value: c.id, label: c.label, description: c.description }))
 
@@ -61,7 +61,12 @@ const schema = z
      * até outra coisa mudar. `undefined` é estado legítimo — regra sem dia não entra no mês em
      * curso, porque não há como saber se ela já aconteceu.
      */
-    dueOn: z.union([z.object({ kind: z.literal('day'), day: z.number().int().min(1).max(31) }), z.object({ kind: z.literal('business-day'), nth: z.number().int().min(1).max(23) })]).optional(),
+    dueOn: z
+      .union([
+        z.object({ kind: z.literal('day'), day: z.number().int().min(1).max(MAX_DAY_OF_MONTH) }),
+        z.object({ kind: z.literal('business-day'), nth: z.number().int().min(1).max(MAX_BUSINESS_DAY_OF_MONTH) }),
+      ])
+      .optional(),
   })
   // Parcelada sem contagem não tem fim, e a janela dela iria ao infinito na projeção — é a
   // mesma recusa que `assertPlanned` faz no serviço, dita aqui antes de chegar lá.
@@ -70,8 +75,45 @@ const schema = z
       ctx.addIssue({ code: 'custom', path: ['count'], message: 'Uma regra parcelada precisa do número de parcelas.' })
     }
   })
+  /**
+   * A SAÍDA do schema É o payload — e é por isso que a conversão mora aqui, não no `handleSubmit`.
+   *
+   * Ela vivia lá dentro: o credor virava lista, `count` e `endMonth` sumiam por ramo, `match`
+   * nascia condicional. O efeito era que `z.output` descrevia uma forma e o objeto que de fato
+   * saía era outra, montada à mão — nenhum `safeParse` conseguia provar o que a tela produz, e
+   * o `tsc` não tinha o que comparar. Com o `.transform()`, o schema volta a ser a função
+   * inteira (entra digitação, sai o lançamento), e a anotação de retorno faz o compilador ser o
+   * juiz: mudar `PlannedEntry` quebra AQUI, na hora.
+   *
+   * `exceptions` NÃO entra: não há campo para ela na gaveta, e um payload que carrega dado que
+   * nenhuma tecla produziu é adaptador disfarçado. Quem edita é que a preserva, do mesmo jeito
+   * que já preserva o `id` — ver `submitEntry` em `previsao/-content.tsx`.
+   */
+  .transform((values): Omit<PlannedEntry, 'id'> => {
+    const merchants = values.merchants
+      .split(',')
+      .map((m) => m.trim().toUpperCase())
+      .filter(Boolean)
+    return {
+      label: values.label,
+      amount: values.amount,
+      kind: values.kind,
+      categoryId: values.categoryId,
+      entity: values.entity,
+      recurrence: values.recurrence,
+      startMonth: values.startMonth,
+      // Os três abaixo SOMEM quando não se aplicam, em vez de irem como zero ou vazio:
+      // `count` só existe em parcelada, `endMonth` só em mensal com prazo, e `match` só
+      // quando há credor — e é a ausência dele que mantém a regra como mera projeção.
+      count: values.recurrence === 'installments' ? values.count : undefined,
+      endMonth: values.recurrence === 'monthly' && values.endMonth ? values.endMonth : undefined,
+      dueOn: values.dueOn,
+      match: merchants.length ? { merchants } : undefined,
+    }
+  })
 
-type FormValues = z.infer<typeof schema>
+/** O que os CAMPOS coletam. A saída é outra coisa — é `Omit<PlannedEntry, 'id'>`, acima. */
+type FormValues = z.input<typeof schema>
 
 /**
  * A gaveta que COMPÕE um lançamento previsto.
@@ -147,7 +189,9 @@ function PlannedForm({
   minMonth: string
   onSubmit: (entry: Omit<PlannedEntry, 'id'>) => void
 }) {
-  const form = useForm<FormValues>({
+  // Três parâmetros porque a entrada e a saída do schema deixaram de ser a mesma coisa: os
+  // campos coletam `FormValues`, o `handleSubmit` entrega o lançamento já montado.
+  const form = useForm<FormValues, unknown, Omit<PlannedEntry, 'id'>>({
     resolver: zodResolver(schema),
     defaultValues: {
       label: editing?.label ?? '',
@@ -169,31 +213,9 @@ function PlannedForm({
     <form
       ref={formRef}
       className="flex-1 space-y-4 overflow-y-auto px-4 py-2"
-      onSubmit={form.handleSubmit((values) => {
-        const merchants = values.merchants
-          .split(',')
-          .map((m) => m.trim().toUpperCase())
-          .filter(Boolean)
-        onSubmit({
-          label: values.label.trim(),
-          amount: values.amount,
-          kind: values.kind,
-          categoryId: values.categoryId,
-          entity: values.entity,
-          recurrence: values.recurrence,
-          startMonth: values.startMonth,
-          // Os três abaixo SOMEM quando não se aplicam, em vez de irem como zero ou vazio:
-          // `count` só existe em parcelada, `endMonth` só em mensal com prazo, e `match` só
-          // quando há credor — e é a ausência dele que mantém a regra como mera projeção.
-          count: values.recurrence === 'installments' ? values.count : undefined,
-          endMonth: values.recurrence === 'monthly' && values.endMonth ? values.endMonth : undefined,
-          dueOn: values.dueOn,
-          match: merchants.length ? { merchants } : undefined,
-          // As exceções não cabem numa gaveta de nove campos, mas não podem se perder ao
-          // editar: elas atravessam intactas.
-          exceptions: editing?.exceptions,
-        })
-      })}
+      // Passagem DIRETA, sem lambda que "arruma um campinho": é ela que faz o `tsc` conferir
+      // de graça que a saída do schema serve quem consome o formulário.
+      onSubmit={form.handleSubmit(onSubmit)}
     >
       <Field>
         <FieldLabel htmlFor="planned-label">Nome</FieldLabel>
@@ -222,6 +244,7 @@ function PlannedForm({
               </ToggleGroup>
             )}
           />
+          <FieldError errors={[form.formState.errors.kind]} />
         </Field>
       </div>
 
@@ -251,6 +274,7 @@ function PlannedForm({
               </ToggleGroup>
             )}
           />
+          <FieldError errors={[form.formState.errors.entity]} />
         </Field>
         <Field>
           <FieldLabel>Recorrência</FieldLabel>
@@ -261,6 +285,7 @@ function PlannedForm({
               <AppCombobox items={plannedRecurrences.map((r) => ({ value: r.value, label: r.label }))} value={field.value} onValueChange={field.onChange} aria-label="Recorrência" className="w-full" />
             )}
           />
+          <FieldError errors={[form.formState.errors.recurrence]} />
         </Field>
       </div>
 
@@ -290,6 +315,7 @@ function PlannedForm({
               render={({ field }) => <MonthPicker value={field.value || form.getValues('startMonth')} onValueChange={field.onChange} min={minMonth} aria-label="Último mês" className="w-full" />}
             />
             <FieldDescription>Deixe no mês inicial para uma regra sem prazo.</FieldDescription>
+            <FieldError errors={[form.formState.errors.endMonth]} />
           </Field>
         )}
       </div>
@@ -306,12 +332,14 @@ function PlannedForm({
           )}
         />
         <FieldDescription>Sem dia declarado, a regra não entra no mês em curso — não há como saber se ela já aconteceu.</FieldDescription>
+        <FieldError errors={[form.formState.errors.dueOn]} />
       </Field>
 
       <Field>
         <FieldLabel htmlFor="planned-merchants">Credor (opcional)</FieldLabel>
         <Input id="planned-merchants" placeholder="NOME COMO APARECE NO BANCO" {...form.register('merchants')} />
         <FieldDescription>Separe por vírgula quando mais de um nome quita a mesma conta. Com credor, a regra ganha situação de pagamento.</FieldDescription>
+        <FieldError errors={[form.formState.errors.merchants]} />
       </Field>
     </form>
   )

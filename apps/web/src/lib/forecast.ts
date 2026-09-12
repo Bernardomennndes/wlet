@@ -260,14 +260,14 @@ function expenseByCategory(input: Input, month: string, committedByCat: Map<stri
     sources.plan += value
   }
 
-  for (const rubrica of BUDGET.byCategory ?? []) {
-    const planejado = rubricAmount(rubrica)
-    const already = out.get(rubrica.categoryId) ?? 0
-    if (planejado <= already) continue
+  for (const rubric of BUDGET.byCategory ?? []) {
+    const planned = rubricAmount(rubric)
+    const already = out.get(rubric.categoryId) ?? 0
+    if (planned <= already) continue
     // Só o que ela ACRESCENTA entra na origem: a rubrica é piso, então a parte já coberta por
     // parcela ou por conta declarada pertence àquelas origens, não a esta.
-    sources.rubric += planejado - already
-    out.set(rubrica.categoryId, planejado)
+    sources.rubric += planned - already
+    out.set(rubric.categoryId, planned)
   }
 
   for (const receivable of input.receivables) {
@@ -435,13 +435,13 @@ export function forecastItems(input: Omit<Input, 'targets'>, month: string, pend
   }
 
   if (!partial) {
-    for (const rubrica of BUDGET.byCategory ?? []) {
-      const planejado = rubricAmount(rubrica)
-      const already = gross.get(rubrica.categoryId) ?? 0
-      if (planejado <= already) continue
-      const extra = planejado - already
-      gross.set(rubrica.categoryId, planejado)
-      items.push({ key: `rubric-${rubrica.categoryId}`, date: null, label: 'Gasto planejado', categoryId: rubrica.categoryId, amount: -extra, origin: 'rubric' })
+    for (const rubric of BUDGET.byCategory ?? []) {
+      const planned = rubricAmount(rubric)
+      const already = gross.get(rubric.categoryId) ?? 0
+      if (planned <= already) continue
+      const extra = planned - already
+      gross.set(rubric.categoryId, planned)
+      items.push({ key: `rubric-${rubric.categoryId}`, date: null, label: 'Gasto planejado', categoryId: rubric.categoryId, amount: -extra, origin: 'rubric' })
     }
   }
 

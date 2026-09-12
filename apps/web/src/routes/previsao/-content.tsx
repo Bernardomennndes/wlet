@@ -160,7 +160,12 @@ export function PrevisaoPageContent() {
       // Editar preserva o id; criar inventa um que não colide com nenhum existente — a
       // validação do serviço recusa ids repetidos, e um contador sobre o TAMANHO da lista
       // repetiria assim que alguém apagasse uma regra do meio.
-      if (editing) return writePlanned(planned.map((e) => (e.id === editing.id ? { ...values, id: editing.id } : e)))
+      //
+      // As exceções por mês viajam pelo mesmo caminho do id, e pelo mesmo motivo: não há campo
+      // para elas na gaveta, então elas não podem sair de lá — quem edita é que as carrega
+      // intactas. Enquanto a gaveta as devolvia no payload, ela afirmava um dado que nenhuma
+      // tecla dela produzia.
+      if (editing) return writePlanned(planned.map((e) => (e.id === editing.id ? { ...values, id: editing.id, exceptions: editing.exceptions } : e)))
       const usados = new Set(planned.map((e) => e.id))
       let n = planned.length + 1
       while (usados.has(`regra-${n}`)) n += 1
@@ -208,28 +213,33 @@ export function PrevisaoPageContent() {
             <h1 className="text-lg font-semibold tracking-tight">Previsão</h1>
             <p className="text-xs text-muted-foreground">Nada é extrapolado do histórico: os meses à frente mostram só o que está declarado aqui, mais as parcelas de cartão já compradas.</p>
           </div>
+          {/* O disparador de criação mora no cabeçalho da PÁGINA, e não no da seção: esta tela
+              não tem faixa de controles onde pendurá-lo (§12.4 da `tables-and-listings.md`), e
+              é exatamente onde Planos e Rubricas já põem o deles. Um botão de criar que muda de
+              lugar conforme a tela anula a memória que a pessoa construiu na tela anterior — é
+              esse o custo, não a estética. */}
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Button
+              disabled={saving}
+              onClick={() => {
+                setEditing(null)
+                setSheetOpen(true)
+              }}
+            >
+              {/* O rótulo NOMEIA O DESTINO (§12.1): é o mesmo texto do `SheetTitle` da gaveta
+                  que ele abre. "Adicionar" sozinho não diz nem o que se adiciona. */}
+              <Plus /> Novo lançamento previsto
+            </Button>
+          </div>
         </div>
       </header>
 
       <Card>
-        <CardHeader className="flex flex-row items-start justify-between gap-4">
-          <div className="space-y-1.5">
-            <CardTitle>Lançamentos previstos</CardTitle>
-            <CardDescription>
-              Declarado por você e guardado NESTE navegador — <code className="font-mono">scripts/planned.config.ts</code> só semeia um navegador que ainda não tem nada.
-            </CardDescription>
-          </div>
-          <Button
-            size="sm"
-            className="shrink-0"
-            disabled={saving}
-            onClick={() => {
-              setEditing(null)
-              setSheetOpen(true)
-            }}
-          >
-            <Plus /> Adicionar
-          </Button>
+        <CardHeader>
+          <CardTitle>Lançamentos previstos</CardTitle>
+          <CardDescription>
+            Declarado por você e guardado NESTE navegador — <code className="font-mono">scripts/planned.config.ts</code> só semeia um navegador que ainda não tem nada.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {planned.length === 0 ? (

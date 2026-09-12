@@ -24,6 +24,13 @@ interface Props {
  * isso, porque a comparação passa a ser de comprimento, não de alinhamento.
  */
 export function MonthlyList({ rows, segmentsByMonth, openMonth, onSelect }: Props) {
+  // Sem mês nenhum, a mensagem ENTRA NO LUGAR da lista. Uma lista não tem cabeçalho, então um
+  // `<ul>` vazio não explica o que caberia nele — só ocupa espaço enquanto o cartão promete
+  // "clique num mês" sobre nada. É a §3 da `data-list.md`, e diverge de propósito da tabela
+  // vazia, que fica. A guarda mora aqui, e não no call site, porque é este componente que
+  // sabe que a forma é lista.
+  if (rows.length === 0) return <p className="text-xs text-muted-foreground">Nenhum mês no período escolhido.</p>
+
   return (
     <DataList aria-label="Meses do período">
       {rows.map((month) => (

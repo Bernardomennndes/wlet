@@ -70,7 +70,7 @@ let instance: Services | null = null
 
 export function services(): Services {
   if (!instance) {
-    instance = apiUrl ? remoto(apiUrl) : local()
+    instance = apiUrl ? remote(apiUrl) : local()
   }
   return instance
 }
@@ -101,7 +101,7 @@ function local(): Services {
  * É o que a camada hexagonal comprou: os casos de uso, as validações e os 168 testes seguem
  * idênticos — só muda quem responde às portas. Nenhuma tela sabe a diferença.
  */
-function remoto(baseUrl: string): Services {
+function remote(baseUrl: string): Services {
   const deps = { client: createWletClient({ baseUrl, token: () => localStorage.getItem('wlet.token') }) }
   return {
     dataset: makeDatasetService({

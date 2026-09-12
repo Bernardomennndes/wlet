@@ -20,6 +20,18 @@ import type { PaymentMode, Plan, PlanGroup, PlanStatus } from '@wlet/domain'
  * sozinha o que estiver gravado sob o prefixo antigo: um navegador que já usou a versão
  * "wallet" continua abrindo com os planos dele.
  */
+/**
+ * Em quantas vezes um parcelamento pode ser dividido: de 2 a 99.
+ *
+ * Mora no DOMÍNIO porque é regra do domínio, e porque ela estava escrita em TRÊS lugares — a
+ * gaveta, a edição em linha e este validador. Três verdades para a mesma regra divergem no
+ * primeiro ajuste: mudar o teto num deles deixaria a tabela aceitando o que a gaveta recusa,
+ * sem nada quebrar.
+ *
+ * Uma só vez NÃO é parcelamento: `1×` é à vista, e o app tem uma forma própria para dizer isso.
+ */
+export const isInstallmentCount = (n: number) => Number.isInteger(n) && n > 1 && n <= 99
+
 export const PLANS_KEY = 'plans'
 
 /**
@@ -102,7 +114,7 @@ export function parsePlans(raw: unknown): PlansData {
     if (!CATEGORY_MAP[categoryId]) continue
 
     // Parcelamento fora de 2..99 é engano de digitação, não intenção.
-    const times = (n: unknown) => (typeof n === 'number' && Number.isInteger(n) && n > 1 && n <= 99 ? n : undefined)
+    const times = (n: unknown) => (typeof n === 'number' && isInstallmentCount(n) ? n : undefined)
     const price = (n: unknown) => (typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : undefined)
 
     let cash: number | undefined

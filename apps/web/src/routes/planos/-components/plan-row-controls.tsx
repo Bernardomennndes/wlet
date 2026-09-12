@@ -5,6 +5,7 @@ import { Button } from '@wlet/ui/components/button'
 import { Input } from '@wlet/ui/components/input'
 import { MonthPicker } from '@wlet/ui/components/month-picker'
 import { paymentModes, type PaymentMode, type Plan } from '@wlet/domain'
+import { isInstallmentCount } from '@wlet/domain/plans'
 import { formatBRL } from '@wlet/lib/format'
 import { installmentAmount, planInstallments } from '@wlet/domain/plans'
 
@@ -77,7 +78,10 @@ export function InstallmentsCell({ plan, onUpdate }: { plan: Plan; onUpdate: (pa
   if (plan.payment !== 'financed') return null
 
   const setInstallments = (n: number) => {
-    if (!Number.isInteger(n) || n < 2 || n > 99) return false
+    // A faixa vem do MESMO lugar que a gaveta usa. Estava reescrita aqui (`n < 2 || n > 99`),
+    // e a duplicata não quebrava nada: ela só garantia que mexer no limite de um dos dois
+    // arquivos deixaria o outro aceitando o que o primeiro recusa.
+    if (!isInstallmentCount(n)) return false
     onUpdate({ financed: { total: plan.financed?.total ?? plan.cash, installments: n }, payment: 'financed' })
     return true
   }

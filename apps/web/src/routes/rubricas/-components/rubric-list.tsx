@@ -1,12 +1,10 @@
 import { ListBullets, Plus, Trash } from '@phosphor-icons/react'
 import { CategoryBadge } from '@/components/category-badge'
 import { DataList, DataListField, DataListItem, DataListItemFields, DataListItemHeader } from '@/components/data-list/data-list'
-import { useState } from 'react'
 import { NotInformed } from '@/components/not-informed'
 import { BarProgress } from '@wlet/ui/components/bar-progress'
 import { Button } from '@wlet/ui/components/button'
-import { MoneyInput } from '@wlet/ui/components/money-input'
-import { RubricItemRow } from './rubric-item-row'
+import { RubricAmountForm, RubricItemForm } from './rubricas-form'
 import type { BudgetCategory, BudgetItem } from '@wlet/domain'
 import { BUDGET, BUDGET_STATE, budgetState } from '@/lib/budget'
 import { formatBRL, formatPercent } from '@wlet/lib/format'
@@ -55,31 +53,6 @@ interface Props {
  * estoura o trilho não tem como ser comparada com a da rubrica vizinha — mesma decisão do
  * cartão de orçamento da Visão geral.
  */
-/**
- * O valor de uma rubrica sem composição.
- *
- * É componente próprio porque precisa de estado — o rascunho que só sobe no blur — e um hook
- * não pode viver dentro do `map` da lista. Mesmo motivo e mesmo remédio da linha de item: com
- * a gravação por tecla, `saving` desabilitava o campo e o foco ia para o `body`.
- */
-function RubricAmountField({ rubric, onCommit }: { rubric: Rubric; onCommit: (amount: number) => void }) {
-  const [draft, setDraft] = useState<number | null>(null)
-  return (
-    <MoneyInput
-      aria-label={`Planejado para ${rubric.label}`}
-      value={draft ?? rubric.amount}
-      onValueChange={setDraft}
-      onBlur={() => {
-        if (draft !== null && draft !== rubric.amount) onCommit(draft)
-        setDraft(null)
-      }}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') event.currentTarget.blur()
-      }}
-    />
-  )
-}
-
 export function RubricList({ rubrics, windowLabel, disabled, onChange, onRemove }: Props) {
   if (rubrics.length === 0) {
     return <NotInformed>Nenhuma rubrica declarada</NotInformed>
@@ -112,7 +85,7 @@ export function RubricList({ rubrics, windowLabel, disabled, onChange, onRemove 
                   <span className="w-32 text-right font-mono tabular-nums">{formatBRL(rubric.amount)}</span>
                 ) : (
                   <div className="w-32">
-                    <RubricAmountField rubric={rubric} onCommit={(amount) => onChange(rubric.categoryId, { amount })} />
+                    <RubricAmountForm label={rubric.label} amount={rubric.amount} onCommit={(amount) => onChange(rubric.categoryId, { amount })} />
                   </div>
                 )}
                 <Button
@@ -167,7 +140,7 @@ export function RubricList({ rubrics, windowLabel, disabled, onChange, onRemove 
                   // campo a cada tecla.
                   // biome-ignore lint/suspicious/noArrayIndexKey: ver acima
                   <li key={index}>
-                    <RubricItemRow
+                    <RubricItemForm
                       item={item}
                       disabled={disabled}
                       onChange={(patch) => setItem(index, patch)}

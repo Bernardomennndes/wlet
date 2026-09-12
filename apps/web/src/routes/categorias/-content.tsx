@@ -2,27 +2,23 @@ import { useCallback, useMemo } from 'react'
 import { SERIES_SWATCH } from '@/components/charts/chart-theme'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { Link, useSearchParams } from 'react-router'
-import { MagnifyingGlassMinus } from '@phosphor-icons/react'
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
-import { CategoryBadge } from '@/components/category-badge'
 import { CHART_TOKENS } from '@/components/charts/chart-theme'
 import { TransactionTable } from '@/components/transaction-table'
 import { Button } from '@wlet/ui/components/button'
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@wlet/ui/components/chart'
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@wlet/ui/components/empty'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@wlet/ui/components/table'
 import { categoryColor } from '@/lib/chart-tokens'
 import { CATEGORIES, CATEGORY_MAP, categoryGroupLabel, type Category } from '@wlet/domain'
 import { ACCOUNT_MAP, detectRecurring, lastMonthWithData, sum, summarizeByCategory, summarizeByMerchant } from '@/lib/finance'
 import { buildCategoryForecast } from '@/lib/forecast'
 import { plannedInScope } from '@/lib/planned'
 import { receivablesInScope } from '@/lib/receivables'
-import { formatAxis, formatBRL, formatDate, formatMonthLongLabel, formatMonthShort, formatPercent, plural } from '@wlet/lib/format'
+import { formatAxis, formatBRL, formatMonthLongLabel, formatMonthShort, formatPercent, plural } from '@wlet/lib/format'
 import { useFilters } from '@/providers/use-filters'
 import { BarList, type BarListItem } from './-components/bar-list'
+import { CategoriasDataTable } from './-components/categorias-data-table'
 import { CategoryStackChart } from './-components/category-stack-chart'
-import { VariabilityBadge } from './-components/variability-badge'
 
 /** Estático: a legenda lista o catálogo, não o recorte. */
 const EXPENSE_CATEGORIES = CATEGORIES.filter((c) => c.kind === 'expense')
@@ -227,58 +223,7 @@ export function CategoriasPageContent() {
               <CardDescription>Contrapartes que aparecem em vários meses do período. Base para revisar assinaturas e contas fixas.</CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Seis colunas numa coluna estreita do grid: o padding padrão de célula
-                  (p-2) somaria ~96px e jogaria "Último" para fora do cartão. */}
-              <Table className="min-w-[560px] [&_:is(th,td)]:px-1.5">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Contraparte</TableHead>
-                    <TableHead>Categoria</TableHead>
-                    <TableHead className="text-right">Meses</TableHead>
-                    <TableHead className="text-right">Média/mês</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="text-right">Último</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="tabular-nums">
-                  {recurring.slice(0, 20).map((r) => (
-                    <TableRow key={r.merchant}>
-                      <TableCell className="font-medium">
-                        <span className="flex items-center gap-1.5">
-                          <span className="max-w-44 truncate" title={r.merchant}>
-                            {r.merchant}
-                          </span>
-                          <VariabilityBadge variability={r.variability} />
-                        </span>
-                      </TableCell>
-                      <TableCell className="max-w-40 truncate">
-                        <CategoryBadge value={r.categoryId} />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {r.months.length}/{months.length}
-                      </TableCell>
-                      <TableCell className="text-right">{formatBRL(r.monthlyAverage)}</TableCell>
-                      <TableCell className="text-right font-medium">{formatBRL(r.total)}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">{formatDate(r.lastDate)}</TableCell>
-                    </TableRow>
-                  ))}
-                  {/* Estado vazio DENTRO da tabela: o cabeçalho é o que explica o que a listagem contém. */}
-                  {recurring.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6}>
-                        <Empty>
-                          <EmptyHeader>
-                            <EmptyMedia variant="icon">
-                              <MagnifyingGlassMinus />
-                            </EmptyMedia>
-                            <EmptyTitle>Nenhuma contraparte se repete em três ou mais meses no recorte e no período selecionados.</EmptyTitle>
-                          </EmptyHeader>
-                        </Empty>
-                      </TableCell>
-                    </TableRow>
-                  ) : null}
-                </TableBody>
-              </Table>
+              <CategoriasDataTable rows={recurring} monthsInPeriod={months.length} />
             </CardContent>
           </Card>
 

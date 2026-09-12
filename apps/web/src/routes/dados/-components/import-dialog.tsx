@@ -1,8 +1,12 @@
 import { Warning } from '@phosphor-icons/react'
-import { useState } from 'react'
+import { useRef } from 'react'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Controller, useForm, useWatch } from 'react-hook-form'
+import { z } from 'zod'
 import { Button } from '@wlet/ui/components/button'
 import { Checkbox } from '@wlet/ui/components/checkbox'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@wlet/ui/components/dialog'
+import { Field, FieldContent, FieldDescription, FieldError, FieldLabel, FieldLegend, FieldSet, FieldTitle } from '@wlet/ui/components/field'
 import { PACKAGE_PARTS, type PackageContents, type PackagePart } from '@wlet/services/backup'
 
 /**
@@ -39,6 +43,23 @@ function describe(part: PackagePart, contents: PackageContents): { label: string
   }
 }
 
+/**
+ * A escolha é um FORMULÁRIO, e não um punhado de caixinhas guardadas num `useState`.
+ *
+ * Ela fica PENDENTE esperando o botão do rodapé e só então alimenta uma escrita que substitui
+ * o armazenamento inteiro — é exatamente o caso que a `forms.md` §1 cobre. O que era um
+ * `disabled={selected.size === 0}` (um botão morto, sem dizer por quê) vira a mensagem do
+ * schema, dita no lugar onde se escolhe.
+ *
+ * A lista de valores sai de `PACKAGE_PARTS`, do próprio serviço de cópia: uma parte nova no
+ * pacote tem de ser erro de compilação aqui, não uma caixinha que ninguém lembrou de somar.
+ */
+const schema = z.object({
+  parts: z.array(z.enum(PACKAGE_PARTS)).min(1, 'Escolha ao menos uma parte para importar.'),
+})
+
+type FormValues = z.infer<typeof schema>
+
 export function ImportDialog({
   contents,
   open,
@@ -50,19 +71,13 @@ export function ImportDialog({
   onOpenChange: (open: boolean) => void
   onConfirm: (parts: PackagePart[]) => void
 }) {
-  // Tudo o que o arquivo tem vem MARCADO: quem exportou tudo e importa em outra máquina quer
-  // tudo, e desmarcar é a exceção. O estado é recriado a cada arquivo pela `key` no chamador.
   const present = contents ? PACKAGE_PARTS.filter((p) => describe(p, contents) !== null) : []
-  const [selected, setSelected] = useState<Set<PackagePart>>(() => new Set(present))
-
-  const toggle = (part: PackagePart) => {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(part)) next.delete(part)
-      else next.add(part)
-      return next
-    })
-  }
+  const formRef = useRef<HTMLFormElement>(null)
+  // Tudo o que o arquivo tem vem MARCADO: quem exportou tudo e importa em outra máquina quer
+  // tudo, e desmarcar é a exceção. O formulário nasce com esses valores em vez de ser corrigido
+  // por um efeito depois — a `key` no chamador o remonta a cada arquivo.
+  const { control, handleSubmit } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { parts: present } })
+  const parts = useWatch({ control, name: 'parts' })
 
   /**
    * O aviso que só a análise do id explica.
@@ -71,8 +86,11 @@ export function ImportDialog({
    * conjunto sem as declarações que o produziram deixa os dois em desacordo — e o estrago não
    * aparece na hora: ele aparece no próximo reprocessamento, que gera ids diferentes e apaga
    * todo ajuste manual de categoria sem dizer nada.
+   *
+   * É AVISO, não impedimento: importar só os lançamentos é uma escolha legítima de quem sabe o
+   * que está fazendo, então ele não vira erro do schema — sai como descrição do campo.
    */
-  const idsAtRisk = selected.has('dataset') && contents?.declarations !== null && !selected.has('declarations')
+  const idsAtRisk = parts.includes('dataset') && contents?.declarations !== null && !parts.includes('declarations')
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -82,38 +100,67 @@ export function ImportDialog({
           <DialogDescription>Escolha o que trazer. Cada parte marcada SUBSTITUI o que existe hoje neste navegador — nada é mesclado.</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 text-xs">
-          {contents &&
-            present.map((part) => {
-              const info = describe(part, contents)
-              if (!info) return null
-              return (
-                <label key={part} className="flex cursor-pointer items-start gap-2">
-                  <Checkbox checked={selected.has(part)} onCheckedChange={() => toggle(part)} className="mt-0.5" />
-                  <span>
-                    <span className="font-medium">{info.label}</span>
-                    <span className="text-muted-foreground block">{info.detail}</span>
-                  </span>
-                </label>
-              )
-            })}
-          {present.length === 0 && <p className="text-muted-foreground">Este arquivo não tem nenhuma parte reconhecível.</p>}
+        {/* O botão de confirmar vive no rodapé, FORA do `<form>`, e submete pelo `formRef` —
+            é a §4 da `forms.md`. */}
+        <form ref={formRef} onSubmit={handleSubmit((values) => onConfirm(values.parts))} className="text-xs">
+          <Controller
+            control={control}
+            name="parts"
+            render={({ field, fieldState }) => (
+              <FieldSet>
+                <FieldLegend variant="label">O que trazer do arquivo</FieldLegend>
+                {contents &&
+                  present.map((part) => {
+                    const info = describe(part, contents)
+                    if (!info) return null
+                    return (
+                      <FieldLabel key={part} htmlFor={`parte-${part}`}>
+                        <Field orientation="horizontal">
+                          <Checkbox
+                            id={`parte-${part}`}
+                            checked={field.value.includes(part)}
+                            onCheckedChange={() => {
+                              // A ordem de `PACKAGE_PARTS` é preservada em vez da ordem de
+                              // clique: a lista que sai daqui é a mesma que a importação lê, e
+                              // depender de quem foi marcado primeiro seria diferença invisível
+                              // entre duas execuções idênticas.
+                              field.onChange(field.value.includes(part) ? field.value.filter((p) => p !== part) : PACKAGE_PARTS.filter((p) => p === part || field.value.includes(p)))
+                            }}
+                          />
+                          <FieldContent>
+                            <FieldTitle>{info.label}</FieldTitle>
+                            <FieldDescription>{info.detail}</FieldDescription>
+                          </FieldContent>
+                        </Field>
+                      </FieldLabel>
+                    )
+                  })}
+                {present.length === 0 && <FieldDescription>Este arquivo não tem nenhuma parte reconhecível.</FieldDescription>}
 
-          {idsAtRisk && (
-            <p className="text-destructive flex items-start gap-2">
-              <Warning className="mt-0.5 shrink-0" />
-              Trazer os lançamentos sem as declarações deixa os dois em desacordo: o identificador de cada lançamento depende do perfil de conta, e o próximo reprocessamento mudaria todos, apagando os
-              ajustes manuais de categoria.
-            </p>
-          )}
-        </div>
+                {idsAtRisk && (
+                  <FieldDescription className="text-destructive flex items-start gap-2">
+                    <Warning className="mt-0.5 shrink-0" />
+                    <span>
+                      Trazer os lançamentos sem as declarações deixa os dois em desacordo: o identificador de cada lançamento depende do perfil de conta, e o próximo reprocessamento mudaria todos,
+                      apagando os ajustes manuais de categoria.
+                    </span>
+                  </FieldDescription>
+                )}
+
+                <FieldError errors={[fieldState.error]} />
+              </FieldSet>
+            )}
+          />
+        </form>
 
         <DialogFooter>
           <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button size="sm" disabled={selected.size === 0} onClick={() => onConfirm([...selected])}>
-            Importar {selected.size} {selected.size === 1 ? 'parte' : 'partes'}
+          {/* Só o arquivo sem parte alguma desabilita o botão — a escolha vazia é recusada pelo
+              schema, com mensagem, e não por um botão que não responde. */}
+          <Button size="sm" disabled={present.length === 0} onClick={() => formRef.current?.requestSubmit()}>
+            Importar {parts.length} {parts.length === 1 ? 'parte' : 'partes'}
           </Button>
         </DialogFooter>
       </DialogContent>

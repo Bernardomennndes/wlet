@@ -24,9 +24,9 @@ export function workspaceRoot(from: string = import.meta.dirname): string | null
   let dir = from
   for (;;) {
     if (existsSync(join(dir, MARCADOR))) return dir
-    const acima = dirname(dir)
-    if (acima === dir) return null
-    dir = acima
+    const parent = dirname(dir)
+    if (parent === dir) return null
+    dir = parent
   }
 }
 
@@ -45,12 +45,12 @@ export function workspaceRoot(from: string = import.meta.dirname): string | null
 export function loadRootEnv(): string[] {
   const root = workspaceRoot()
   if (!root) return []
-  const lidos: string[] = []
-  for (const nome of ['.env.local', '.env']) {
-    const caminho = join(root, nome)
-    if (!existsSync(caminho)) continue
-    process.loadEnvFile(caminho)
-    lidos.push(caminho)
+  const loaded: string[] = []
+  for (const name of ['.env.local', '.env']) {
+    const path = join(root, name)
+    if (!existsSync(path)) continue
+    process.loadEnvFile(path)
+    loaded.push(path)
   }
-  return lidos
+  return loaded
 }

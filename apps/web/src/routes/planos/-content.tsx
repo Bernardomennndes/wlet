@@ -15,7 +15,7 @@ import { plannedInScope } from '@/lib/planned'
 import { receivablesInScope } from '@/lib/receivables'
 import { usePlans } from '@/providers/use-plans'
 import { PLANOS_METRICS } from './-metric-definitions'
-import { PlanList } from './-components/plan-list'
+import { PlanosDataTable } from './-components/planos-data-table'
 import { GroupDialog } from './-components/group-dialog'
 import { type PlanHighlight, PlanScheduleChart } from './-components/plan-schedule-chart'
 import { PlanSheet } from './-components/plan-sheet'
@@ -229,7 +229,13 @@ export function PlanosPageContent() {
         </Card>
       ) : null}
 
-      {items.length === 0 && groups.length === 0 ? (
+      {/* O convite da primeira vez ACOMPANHA a tabela, não a substitui.
+          Ele era o outro lado de um ternário, e o que sumia junto com a tabela era o
+          cabeçalho das colunas — a única coisa que explica o que a listagem guarda
+          justamente quando não há nenhuma linha de onde inferir. A moldura fica montada
+          sempre; o vazio é uma linha dela (`data-table.md` §7.1 e `route-organization.md`
+          §3.2). */}
+      {items.length === 0 && groups.length === 0 && (
         <Empty className="border">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -239,36 +245,36 @@ export function PlanosPageContent() {
             <EmptyDescription>Anote o que você pretende comprar — com valor, mês e parcelamento — e a tela de Previsão mostra se cabe.</EmptyDescription>
           </EmptyHeader>
         </Empty>
-      ) : (
-        /* A tabela SANGRA até a borda do cartão: `pb-0` tira o respiro de baixo do próprio
-            `Card` e `px-0` o das laterais do `CardContent`. Recuada, ela desenhava uma segunda
-            moldura por dentro da primeira — duas arestas paralelas a dezesseis pixels uma da
-            outra, que não hierarquizam nada. Sangrando, a borda do cartão passa a ser a aresta
-            externa da grade, e as divisórias das linhas encostam nela. O respiro das pontas
-            passou para as células (`BLEED`, em `plan-list.tsx`). */
-        <Card className="pb-0">
-          <CardHeader>
-            <CardTitle>A lista</CardTitle>
-            <CardDescription>A caixinha decide o que entra na previsão. Forma, parcelas e mês se editam na própria linha.</CardDescription>
-          </CardHeader>
-          <CardContent className="px-0">
-            <PlanList
-              groups={groups}
-              items={items}
-              onRemove={removePlan}
-              onRemoveGroup={removeGroup}
-              onUpdate={updatePlan}
-              onHighlight={setPointed}
-              monthsWithData={monthsWithData}
-              defaultMonth={nextMonth}
-              onEdit={(plan) => {
-                setEditing(plan)
-                setOpen(true)
-              }}
-            />
-          </CardContent>
-        </Card>
       )}
+
+      {/* A tabela SANGRA até a borda do cartão: `pb-0` tira o respiro de baixo do próprio
+          `Card` e `px-0` o das laterais do `CardContent`. Recuada, ela desenhava uma segunda
+          moldura por dentro da primeira — duas arestas paralelas a dezesseis pixels uma da
+          outra, que não hierarquizam nada. Sangrando, a borda do cartão passa a ser a aresta
+          externa da grade, e as divisórias das linhas encostam nela. O respiro das pontas
+          passou para as células (`BLEED`, em `planos-data-table.tsx`). */}
+      <Card className="pb-0">
+        <CardHeader>
+          <CardTitle>A lista</CardTitle>
+          <CardDescription>A caixinha decide o que entra na previsão. Forma, parcelas e mês se editam na própria linha.</CardDescription>
+        </CardHeader>
+        <CardContent className="px-0">
+          <PlanosDataTable
+            groups={groups}
+            items={items}
+            onRemove={removePlan}
+            onRemoveGroup={removeGroup}
+            onUpdate={updatePlan}
+            onHighlight={setPointed}
+            monthsWithData={monthsWithData}
+            defaultMonth={nextMonth}
+            onEdit={(plan) => {
+              setEditing(plan)
+              setOpen(true)
+            }}
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

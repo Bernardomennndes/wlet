@@ -1,15 +1,15 @@
-import { ArrowCounterClockwise, ArrowsLeftRight, MagnifyingGlassMinus } from '@phosphor-icons/react'
+import { ArrowCounterClockwise, ArrowsLeftRight, Database, MagnifyingGlassMinus } from '@phosphor-icons/react'
 import { CategoryBadge } from '@/components/category-badge'
 import { EntityBadge } from '@/components/entity-badge'
 import { AppCombobox } from '@wlet/ui/components/app-combobox'
 import { Button } from '@wlet/ui/components/button'
 import { ButtonGroup } from '@wlet/ui/components/button-group'
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@wlet/ui/components/empty'
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@wlet/ui/components/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@wlet/ui/components/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@wlet/ui/components/tooltip'
 import { CATEGORIES, categoryLabel } from '@wlet/domain'
 import { useTransactionPaging, type TransactionPaging } from '@/hooks/use-transaction-paging'
-import { ACCOUNT_MAP, type ViewTransaction } from '@/lib/finance'
+import { ACCOUNT_MAP, META, type ViewTransaction } from '@/lib/finance'
 import { formatDate, formatSigned } from '@wlet/lib/format'
 import { useFilters } from '@/providers/use-filters'
 import { cn } from '@wlet/lib/utils'
@@ -42,6 +42,12 @@ interface Props {
    */
   paging?: TransactionPaging
   /**
+   * Limpa o recorte de quem montou a tabela. Chega de fora porque os filtros NÃO moram aqui:
+   * cada tela tem os seus (os de Transações vivem na URL), e a tabela não tem como desfazer o
+   * que não conhece. Sem ele o estado "sem resultados" ainda é honesto — só perde o atalho.
+   */
+  onClearFilters?: () => void
+  /**
    * A tabela rola por dentro e o cabeçalho fica preso no topo. O scroll tem de ser do
    * contêiner do `Table` — ele já é `overflow-x-auto`, então é ELE o scrollport de um
    * `sticky`, e um pai rolando por fora deixaria o cabeçalho parado junto com a tabela.
@@ -50,11 +56,20 @@ interface Props {
   scrollable?: boolean
 }
 
-export function TransactionTable({ rows, compact = false, paging: external, scrollable = false }: Props) {
+export function TransactionTable({ rows, compact = false, paging: external, onClearFilters, scrollable = false }: Props) {
   const { overrides, setOverride } = useFilters()
   const own = useTransactionPaging(rows)
   const paging = external ?? own
   const visible = rows.slice(0, paging.limit)
+  /**
+   * Vazio ≠ sem resultados, e a frase errada MENTE.
+   *
+   * "Nenhuma transação com esses filtros" afirmava que existe dado e o recorte não casou — falso
+   * em clone novo, onde não há extrato nenhum e nem filtro aplicado. A condição do conjunto vazio
+   * é a mesma da faixa global (`EmptyDatasetBanner`): `META.months` vazio. Ela é lida aqui, e não
+   * recebida por prop, porque é um fato do dataset, igual em toda tela — não decisão do pai.
+   */
+  const noDataset = META.months.length === 0
 
   return (
     <div className={cn('flex flex-col', scrollable && 'h-full min-h-0 [&>[data-slot=table-container]]:min-h-0 [&>[data-slot=table-container]]:flex-1 [&>[data-slot=table-container]]:overflow-y-auto')}>
@@ -84,11 +99,21 @@ export function TransactionTable({ rows, compact = false, paging: external, scro
               <TableCell colSpan={compact ? 4 : 5}>
                 <Empty>
                   <EmptyHeader>
-                    <EmptyMedia variant="icon">
-                      <MagnifyingGlassMinus />
-                    </EmptyMedia>
-                    <EmptyTitle>Nenhuma transação com esses filtros.</EmptyTitle>
+                    <EmptyMedia variant="icon">{noDataset ? <Database /> : <MagnifyingGlassMinus />}</EmptyMedia>
+                    <EmptyTitle>{noDataset ? 'Nenhum extrato foi lido ainda' : 'Nenhuma transação neste recorte'}</EmptyTitle>
+                    <EmptyDescription>
+                      {noDataset
+                        ? 'As transações vêm dos extratos lidos em "Meus dados" — a tabela fica vazia até o primeiro ser importado.'
+                        : 'Nenhum lançamento casa com o recorte atual. Alargue o período ou afrouxe os filtros.'}
+                    </EmptyDescription>
                   </EmptyHeader>
+                  {!noDataset && onClearFilters ? (
+                    <EmptyContent>
+                      <Button variant="outline" onClick={onClearFilters}>
+                        Limpar filtros
+                      </Button>
+                    </EmptyContent>
+                  ) : null}
                 </Empty>
               </TableCell>
             </TableRow>

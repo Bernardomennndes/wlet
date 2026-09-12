@@ -12,7 +12,13 @@ import { cn } from '@wlet/lib/utils'
 import { InstallmentsCell, MonthCell, PaymentCell } from './plan-row-controls'
 
 /**
- * A lista de planos, agrupada — e ela é uma TABELA.
+ * A tabela de planos, agrupada.
+ *
+ * O arquivo chamava-se `plan-list.tsx` e exportava `PlanList`, e o nome era o problema: aqui
+ * `-list` é o que a `data-list.md` define — `ul/li` + `dt/dd`, um item por vez —, e isto é uma
+ * grade de colunas. Nome de uma forma com o markup da outra faz quem procura a listagem passar
+ * direto, e faz a `route-organization.md` §3.2 (que casa por `*-data-table*`) nunca alcançar o
+ * arquivo que ela governa.
  *
  * Era uma `DataList`, e a §0 da `data-table` diz por que deixou de ser: a unidade de leitura
  * mudou. Enquanto um plano era nome e preço, lia-se um item por vez; desde que cada linha
@@ -71,7 +77,7 @@ const BLEED = '[&_td:first-child]:pl-4 [&_td:last-child]:pr-4 [&_th:first-child]
  */
 const TOP_EDGE = 'border-t'
 
-export function PlanList({
+export function PlanosDataTable({
   groups,
   items,
   onEdit,
@@ -255,6 +261,20 @@ export function PlanList({
           </TableBody>
         )
       })}
+
+      {/* O vazio GLOBAL é uma linha da tabela, como o vazio de um grupo logo acima — a moldura
+          (cabeçalho e colunas) fica montada com zero planos. Trocar a tabela inteira por um
+          bloco centrado apagaria justamente o cabeçalho, que é a única explicação do que a
+          listagem contém quando não há nenhuma linha de onde inferir (`data-table.md` §7.1). */}
+      {buckets.length === 0 ? (
+        <TableBody>
+          <TableRow className="hover:bg-transparent">
+            <TableCell colSpan={COLUMNS} className="text-muted-foreground">
+              Nenhum plano na lista.
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      ) : null}
     </Table>
   )
 }

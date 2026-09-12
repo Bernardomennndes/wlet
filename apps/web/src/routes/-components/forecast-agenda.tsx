@@ -1,7 +1,9 @@
+import { CalendarDot } from '@phosphor-icons/react'
 import { Link } from 'react-router'
 import { CategoryBadge } from '@/components/category-badge'
 import { EnumBadge } from '@/components/enum-badge'
 import { NotInformed } from '@/components/not-informed'
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@wlet/ui/components/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@wlet/ui/components/table'
 import { forecastOrigins, type ForecastItem } from '@/lib/forecast'
 import { formatBRL, formatDayMonth } from '@wlet/lib/format'
@@ -45,13 +47,6 @@ function linkOf(item: ForecastItem): { to: string; title: string } {
  * propósito, porque respondem a mesma pergunta em tempos diferentes.
  */
 export function ForecastAgenda({ items, className }: { items: ForecastItem[]; className?: string }) {
-  if (items.length === 0) {
-    return (
-      <div className="p-6">
-        <NotInformed>Nada previsto para este mês</NotInformed>
-      </div>
-    )
-  }
   return (
     <div className={cn('overflow-x-auto', className)}>
       <Table>
@@ -65,38 +60,56 @@ export function ForecastAgenda({ items, className }: { items: ForecastItem[]; cl
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map((item) => {
-            const link = linkOf(item)
-            return (
-              <TableRow key={item.key}>
-                {/* Sem dia é o normal em duas origens, não uma falha do dado: parcela cai na
-                  fatura, cuja data depende do fechamento, e rubrica não tem dia nenhum. */}
-                <TableCell className="whitespace-nowrap tabular-nums">{item.date ? formatDayMonth(item.date) : <NotInformed>No mês</NotInformed>}</TableCell>
-                <TableCell className="whitespace-nowrap">
-                  {/* Âncora de verdade, e só no rótulo: a linha inteira clicável precisaria de
-                    um alvo focável assim mesmo, e aqui o alvo já é o texto que nomeia o item. */}
-                  <Link to={link.to} title={link.title} className="rounded-sm underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/40">
-                    {item.label}
-                  </Link>
-                  {item.installment ? (
-                    <span className="text-muted-foreground">
-                      {' '}
-                      · parcela {item.installment.current} de {item.installment.total}
-                    </span>
-                  ) : null}
-                </TableCell>
-                <TableCell>
-                  <CategoryBadge value={item.categoryId} />
-                </TableCell>
-                <TableCell>
-                  <EnumBadge option={ORIGINS.get(item.origin)} value={item.origin} />
-                </TableCell>
-                <TableCell className={cn('whitespace-nowrap text-right font-medium tabular-nums', item.amount > 0 && 'text-[var(--status-good-text)]')}>
-                  {item.amount > 0 ? `+ ${formatBRL(item.amount)}` : `− ${formatBRL(Math.abs(item.amount))}`}
-                </TableCell>
-              </TableRow>
-            )
-          })}
+          {/* Estado vazio DENTRO da tabela: o cabeçalho — Quando, O quê, Categoria, Origem,
+              Valor — é o que explica o que a agenda contém, e some justamente quando não há
+              nenhuma linha de onde inferir isso. */}
+          {items.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={5}>
+                <Empty>
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <CalendarDot />
+                    </EmptyMedia>
+                    <EmptyTitle>Nada previsto para este mês.</EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
+              </TableCell>
+            </TableRow>
+          ) : (
+            items.map((item) => {
+              const link = linkOf(item)
+              return (
+                <TableRow key={item.key}>
+                  {/* Sem dia é o normal em duas origens, não uma falha do dado: parcela cai na
+                    fatura, cuja data depende do fechamento, e rubrica não tem dia nenhum. */}
+                  <TableCell className="whitespace-nowrap tabular-nums">{item.date ? formatDayMonth(item.date) : <NotInformed>No mês</NotInformed>}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {/* Âncora de verdade, e só no rótulo: a linha inteira clicável precisaria de
+                      um alvo focável assim mesmo, e aqui o alvo já é o texto que nomeia o item. */}
+                    <Link to={link.to} title={link.title} className="rounded-sm underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/40">
+                      {item.label}
+                    </Link>
+                    {item.installment ? (
+                      <span className="text-muted-foreground">
+                        {' '}
+                        · parcela {item.installment.current} de {item.installment.total}
+                      </span>
+                    ) : null}
+                  </TableCell>
+                  <TableCell>
+                    <CategoryBadge value={item.categoryId} />
+                  </TableCell>
+                  <TableCell>
+                    <EnumBadge option={ORIGINS.get(item.origin)} value={item.origin} />
+                  </TableCell>
+                  <TableCell className={cn('whitespace-nowrap text-right font-medium tabular-nums', item.amount > 0 && 'text-[var(--status-good-text)]')}>
+                    {item.amount > 0 ? `+ ${formatBRL(item.amount)}` : `− ${formatBRL(Math.abs(item.amount))}`}
+                  </TableCell>
+                </TableRow>
+              )
+            })
+          )}
         </TableBody>
       </Table>
     </div>

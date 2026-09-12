@@ -15,15 +15,16 @@ const MONTH = /^\d{4}-\d{2}$/
 const schema = z
   .object({
     label: z.string().trim().min(1, 'Dê um nome ao grupo.'),
-    // A janela é opcional, e a ausência dela se escreve como string vazia — não como um mês
-    // qualquer que depois seria confundido com uma escolha.
-    from: z.string(),
-    to: z.string(),
+    // A janela é opcional, e a ausência dela se escreve `null` — não string vazia, e não um
+    // mês qualquer que depois seria confundido com uma escolha (`forms.md` §3). O seletor de
+    // mês fala em string; a conversão fica nele, que é quem não sabe dizer null.
+    from: z.string().nullish(),
+    to: z.string().nullish(),
     note: z.string(),
   })
   .superRefine((values, ctx) => {
-    if (values.from === '') return
-    if (!MONTH.test(values.from) || !MONTH.test(values.to)) {
+    if (!values.from) return
+    if (!MONTH.test(values.from) || !values.to || !MONTH.test(values.to)) {
       ctx.addIssue({ code: 'custom', path: ['to'], message: 'Escolha os dois meses da janela.' })
       return
     }
@@ -31,10 +32,31 @@ const schema = z
       ctx.addIssue({ code: 'custom', path: ['to'], message: 'O fim da janela não pode ser antes do início.' })
     }
   })
+  /**
+   * A SAÍDA do schema já é o grupo — sem adaptador entre o formulário e quem o consome.
+   *
+   * A conversão morava no `handleSubmit`, e o efeito colateral era que o tipo do schema não
+   * era o payload: nada prendia um ao outro, e provar a saída exigiria montar a tela
+   * (`form-output-contract.md` §1.1).
+   */
+  .transform(
+    (values): Omit<PlanGroup, 'id'> => ({
+      label: values.label,
+      from: values.from ?? undefined,
+      to: values.to ?? undefined,
+      // A observação vem de um `<textarea>`, que nunca devolve `null`: aqui o vazio é mesmo a
+      // string em branco, e é ela que vira ausência.
+      note: values.note.trim() || undefined,
+    }),
+  )
 
-type FormValues = z.infer<typeof schema>
+/** O que os CAMPOS guardam — a entrada do schema, antes da conversão. */
+type FormValues = z.input<typeof schema>
 
-const EMPTY: FormValues = { label: '', from: '', to: '', note: '' }
+/** O tipo de `control` depois do `.transform()`: entrada, contexto e saída, nessa ordem. */
+type GroupFormControl = Control<FormValues, unknown, Omit<PlanGroup, 'id'>>
+
+const EMPTY: FormValues = { label: '', from: null, to: null, note: '' }
 
 /**
  * O formulário de um grupo — uma viagem, uma reforma, um setup.
@@ -106,21 +128,15 @@ function GroupForm({
   monthsWithData: string[]
   onSubmit: (group: Omit<PlanGroup, 'id'>) => void
 }) {
-  const { control, register, handleSubmit, setValue, formState } = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: EMPTY })
+  // Os três parâmetros são entrada, contexto e SAÍDA: o `handleSubmit` entrega o que o
+  // `.transform()` produziu, que já é o grupo.
+  const { control, register, handleSubmit, setValue, formState } = useForm<FormValues, unknown, Omit<PlanGroup, 'id'>>({
+    resolver: zodResolver(schema),
+    defaultValues: EMPTY,
+  })
 
   return (
-    <form
-      ref={formRef}
-      onSubmit={handleSubmit((values) =>
-        onSubmit({
-          label: values.label.trim(),
-          from: values.from || undefined,
-          to: values.to || undefined,
-          note: values.note.trim() || undefined,
-        }),
-      )}
-      className="flex flex-col gap-4"
-    >
+    <form ref={formRef} onSubmit={handleSubmit((group) => onSubmit(group))} className="flex flex-col gap-4">
       <Field>
         <FieldLabel htmlFor="grupo-nome">Nome</FieldLabel>
         <Input id="grupo-nome" {...register('label')} placeholder="Viagem ao Chile, setup do escritório…" autoFocus />
@@ -140,6 +156,7 @@ function GroupForm({
       <Field>
         <FieldLabel htmlFor="grupo-nota">Observação</FieldLabel>
         <Textarea id="grupo-nota" {...register('note')} rows={2} placeholder="Opcional" />
+        <FieldError errors={[formState.errors.note]} />
       </Field>
     </form>
   )
@@ -152,10 +169,10 @@ function GroupForm({
  * janela" —, então não há um segundo estado dizendo se o bloco está aberto. Dois estados para
  * a mesma pergunta divergiriam no primeiro ajuste.
  */
-function PeriodField({ control, monthsWithData, onDefine }: { control: Control<FormValues>; defaultMonth: string; monthsWithData: string[]; onDefine: () => void }) {
+function PeriodField({ control, monthsWithData, onDefine }: { control: GroupFormControl; defaultMonth: string; monthsWithData: string[]; onDefine: () => void }) {
   const from = useWatch({ control, name: 'from' })
 
-  if (from === '') {
+  if (!from) {
     return (
       <Button type="button" variant="outline" size="sm" className="self-start" onClick={onDefine}>
         Definir período
@@ -168,10 +185,11 @@ function PeriodField({ control, monthsWithData, onDefine }: { control: Control<F
       <Controller
         control={control}
         name="from"
-        render={({ field }) => (
+        render={({ field, fieldState }) => (
           <Field>
             <FieldLabel htmlFor="grupo-de">De</FieldLabel>
-            <MonthPicker id="grupo-de" value={field.value} onValueChange={field.onChange} withData={monthsWithData} aria-label="Início do grupo" />
+            <MonthPicker id="grupo-de" value={field.value ?? ''} onValueChange={field.onChange} withData={monthsWithData} aria-label="Início do grupo" />
+            <FieldError errors={[fieldState.error]} />
           </Field>
         )}
       />
@@ -181,7 +199,7 @@ function PeriodField({ control, monthsWithData, onDefine }: { control: Control<F
         render={({ field, fieldState }) => (
           <Field>
             <FieldLabel htmlFor="grupo-ate">Até</FieldLabel>
-            <MonthPicker id="grupo-ate" value={field.value} onValueChange={field.onChange} withData={monthsWithData} aria-label="Fim do grupo" />
+            <MonthPicker id="grupo-ate" value={field.value ?? ''} onValueChange={field.onChange} withData={monthsWithData} aria-label="Fim do grupo" />
             <FieldError errors={[fieldState.error]} />
           </Field>
         )}
