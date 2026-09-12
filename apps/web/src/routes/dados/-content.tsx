@@ -1,5 +1,6 @@
 import { ArrowClockwise, ArrowsClockwise, CheckCircle, DownloadSimple, FolderOpen, UploadSimple, Warning } from '@phosphor-icons/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useCallback, useRef, useState } from 'react'
 import { Button } from '@wlet/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
 import { useDocumentTitle } from '@/hooks/use-document-title'
@@ -8,6 +9,8 @@ import type { IngestReport } from '@wlet/ingest/pipeline'
 import { preloaded } from '@/providers/preloaded'
 import { exportState, importState, inspectPackage, type ImportSummary, type PackageContents, type PackagePart } from '@wlet/services/backup'
 import { ImportDialog } from './-components/import-dialog'
+import { toast } from '@wlet/ui/toast'
+import { api } from '@/api'
 import { services } from '@/services'
 
 /**
@@ -24,66 +27,101 @@ import { services } from '@/services'
  * relatório continua chegando inteiro — é a única coisa que explica um número estranho, e perdê-lo
  * na travessia seria trocar um ingest silencioso por outro.
  */
-type State = { kind: 'idle' } | { kind: 'running'; files: number } | { kind: 'done'; report: IngestReport } | { kind: 'failed'; message: string }
+type State = { kind: 'idle' } | { kind: 'done'; report: IngestReport } | { kind: 'failed'; message: string }
 
 export function DadosPageContent() {
   useDocumentTitle('Meus dados')
   const origin = preloaded().datasetOrigin
+  const queryClient = useQueryClient()
   const [state, setState] = useState<State>({ kind: 'idle' })
-  const [stored, setStored] = useState<number | null>(null)
   const input = useRef<HTMLInputElement>(null)
   const backupInput = useRef<HTMLInputElement>(null)
   const [backup, setBackup] = useState<{ kind: 'idle' } | { kind: 'done'; summary: ImportSummary } | { kind: 'failed'; message: string }>({ kind: 'idle' })
   // O arquivo lido fica em espera enquanto o diálogo pergunta o que trazer. Importar direto e
-  // depois avisar seria o oposto do que se quer num app cujo armazenamento é a única cópia.
+  // depois avisar seria o oposto do que se quer numa escrita que SOBRESCREVE o servidor.
   const [pending, setPending] = useState<{ contents: PackageContents; payload: Parameters<typeof importState>[0]; key: number } | null>(null)
 
-  const refreshStorage = useCallback(() => {
-    void services().dataset.storedSources().then(setStored)
-  }, [])
+  /**
+   * Quantos arquivos estão guardados — leitura, e por isso `useQuery`.
+   *
+   * Ela decide se o botão de reprocessar faz sentido; sem ela ele apareceria prometendo algo que
+   * ainda não existe. Era um `useEffect` + `useState` que buscava na montagem, e o efeito não
+   * sincronizava nada com sistema externo — era leitura disfarçada. A chave vem do contrato, então
+   * as três escritas abaixo a invalidam e a contagem se move sozinha.
+   */
+  const { data: stored, refetch: refetchContagem, isFetching: buscandoContagem } = useQuery({ queryKey: api().dataset.sources.key(), queryFn: () => services().dataset.storedSources() })
 
-  // Uma leitura na montagem: quantos arquivos estão guardados decide se o botão de reprocessar
-  // faz sentido, e sem isso ele apareceria prometendo algo que ainda não existe.
-  useEffect(refreshStorage, [refreshStorage])
+  /**
+   * Todo domínio que uma ingestão mexe — e são quase todos.
+   *
+   * O pipeline reescreve o conjunto INTEIRO: lançamentos, contas, transferências, investimentos.
+   * A configuração não muda, mas os ajustes manuais de categoria são chaveados pelo id do
+   * lançamento, e o id é `sha1` dos campos dele — reprocessar pode deixar um ajuste órfão. Listar
+   * as duas chaves aqui é o que impede a tela de somar por uma categoria que já não existe.
+   */
+  const aplicar = () => {
+    for (const chave of [api().dataset.key(), api().overrides.list.key()]) void queryClient.invalidateQueries({ queryKey: chave })
+    void queryClient.invalidateQueries({ queryKey: api().dataset.sources.key() })
+  }
 
   // Sem mapeamento: a configuração JÁ É a forma que o pipeline recebe. Enquanto eram dois
   // tipos, esta função traduzia um no outro — e era ali que os dois podiam divergir.
   const readConfig = useCallback(() => services().config.load(), [])
 
-  const reprocess = useCallback(async () => {
-    setState({ kind: 'running', files: stored ?? 0 })
-    try {
-      const { report } = await services().dataset.reingest(await readConfig(), new Date().toISOString())
+  /**
+   * As DUAS ingestões, e a razão de o `onError` existir aqui.
+   *
+   * É a exceção estreita da §5.1: esta tela mostra o erro num painel PRÓPRIO, porque a mensagem
+   * vem do pipeline e nomeia o arquivo e a linha que não foram lidos — texto que um toast trunca
+   * justamente na parte que resolve o problema. O `onError` local existe para SUPRIMIR o aviso
+   * global, e não para ser um segundo aviso.
+   *
+   * O sucesso ganha toast E painel, e não é redundância: o painel é o RELATÓRIO (duplicado
+   * descartado, fatura recusada, transferência sem contraparte), que é o que explica um número
+   * estranho depois; o toast é a confirmação imediata de que a leitura terminou, para quem
+   * escolheu a pasta e olhou para outro lado.
+   */
+  const falhou = (cause: unknown) => setState({ kind: 'failed', message: cause instanceof Error ? cause.message : String(cause) })
+
+  const { mutate: reprocessar, isPending: reprocessando } = useMutation({
+    mutationFn: async () => services().dataset.reingest(await readConfig(), new Date().toISOString()),
+    onSuccess: ({ report }) => {
       setState({ kind: 'done', report })
-      refreshStorage()
-    } catch (cause) {
-      setState({ kind: 'failed', message: cause instanceof Error ? cause.message : String(cause) })
-    }
-  }, [readConfig, refreshStorage, stored])
+      aplicar()
+      toast.success(`${report.filesRead} ${report.filesRead === 1 ? 'arquivo reprocessado' : 'arquivos reprocessados'}`)
+    },
+    onError: falhou,
+  })
+
+  const { mutate: ler, isPending: lendo } = useMutation({
+    mutationFn: async ({ sources }: { sources: SourceFile[] }) => services().dataset.ingest(sources, await readConfig(), new Date().toISOString()),
+    onSuccess: ({ report }) => {
+      setState({ kind: 'done', report })
+      aplicar()
+      toast.success(`${report.filesRead} ${report.filesRead === 1 ? 'arquivo lido' : 'arquivos lidos'}`)
+    },
+    onError: falhou,
+  })
+
+  /** Uma ingestão em voo trava a outra: as duas reescrevem o conjunto inteiro. */
+  const ingerindo = lendo || reprocessando
 
   const onPick = useCallback(
     async (list: FileList | null) => {
       if (!list?.length) return
-      setState({ kind: 'running', files: list.length })
-      try {
-        // O CAMINHO relativo é a identidade do arquivo para o pipeline: ele distingue
-        // `fatura/xp/` de `extrato/xp/` e é assim que o cartão não vira conta corrente.
-        // `webkitRelativePath` só existe quando se escolhe uma PASTA — por isso o botão pede a
-        // pasta, e não arquivos soltos.
-        const sources: SourceFile[] = await Promise.all(
-          [...list].map(async (file) => ({
-            path: (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name,
-            bytes: new Uint8Array(await file.arrayBuffer()),
-          })),
-        )
-        const { report } = await services().dataset.ingest(sources, await readConfig(), new Date().toISOString())
-        setState({ kind: 'done', report })
-        refreshStorage()
-      } catch (cause) {
-        setState({ kind: 'failed', message: cause instanceof Error ? cause.message : String(cause) })
-      }
+      // O CAMINHO relativo é a identidade do arquivo para o pipeline: ele distingue
+      // `fatura/xp/` de `extrato/xp/` e é assim que o cartão não vira conta corrente.
+      // `webkitRelativePath` só existe quando se escolhe uma PASTA — por isso o botão pede a
+      // pasta, e não arquivos soltos.
+      const sources: SourceFile[] = await Promise.all(
+        [...list].map(async (file) => ({
+          path: (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name,
+          bytes: new Uint8Array(await file.arrayBuffer()),
+        })),
+      )
+      ler({ sources })
     },
-    [readConfig, refreshStorage],
+    [ler],
   )
 
   /**
@@ -125,19 +163,34 @@ export function DadosPageContent() {
     }
   }, [])
 
+  /**
+   * A importação — e o `onError` aqui é a MESMA exceção da §5.1, pelo mesmo motivo.
+   *
+   * O resumo de uma importação é uma lista de PARTES ("conjunto, declarações, planos"), e a falha
+   * dela precisa dizer qual parte não entrou. Painel, não toast.
+   */
+  const { mutate: importar, isPending: importando } = useMutation({
+    mutationFn: ({ payload, parts }: { payload: Parameters<typeof importState>[0]; parts: PackagePart[] }) => importState(payload, parts, services()),
+    onSuccess: (summary) => {
+      setBackup({ kind: 'done', summary })
+      // A importação escreve em TODOS os cinco contextos, então nenhum fica de fora: o pacote pode
+      // trazer conjunto, declarações, planos, ajustes e preferências, e a tela escolhe quais.
+      for (const chave of [api().dataset.key(), api().config.get.key(), api().plans.list.key(), api().overrides.list.key(), api().preferences.get.key(), api().dataset.sources.key()]) {
+        void queryClient.invalidateQueries({ queryKey: chave })
+      }
+      toast.success(`${summary.imported.length} ${summary.imported.length === 1 ? 'parte importada' : 'partes importadas'}`)
+    },
+    onError: (cause) => setBackup({ kind: 'failed', message: cause instanceof Error ? cause.message : String(cause) }),
+  })
+
   const confirmImport = useCallback(
-    async (parts: PackagePart[]) => {
+    (parts: PackagePart[]) => {
       if (!pending) return
       const payload = pending.payload
       setPending(null)
-      try {
-        setBackup({ kind: 'done', summary: await importState(payload, parts, services()) })
-        refreshStorage()
-      } catch (cause) {
-        setBackup({ kind: 'failed', message: cause instanceof Error ? cause.message : String(cause) })
-      }
+      importar({ payload, parts })
     },
-    [pending, refreshStorage],
+    [pending, importar],
   )
 
   return (
@@ -168,14 +221,14 @@ export function DadosPageContent() {
             </div>
             <div>
               <dt className="text-muted-foreground">Arquivos guardados</dt>
-              <dd className="font-mono">{stored === null ? '—' : stored === 0 ? 'nenhum' : String(stored)}</dd>
+              <dd className="font-mono">{stored === undefined ? '—' : stored === 0 ? 'nenhum' : String(stored)}</dd>
             </div>
           </dl>
           {/* A medição de espaço e o pedido de persistência saíram com o armazenamento do
               navegador: os dois falavam da cota do IndexedDB, e o navegador não guarda mais nada
               que o app leia. Quem cuida de espaço e de cópia agora é quem opera o servidor. */}
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={refreshStorage}>
+            <Button size="sm" variant="outline" disabled={buscandoContagem} onClick={() => void refetchContagem()}>
               <ArrowClockwise /> Atualizar
             </Button>
           </div>
@@ -200,15 +253,17 @@ export function DadosPageContent() {
             onChange={(e) => void onPick(e.target.files)}
           />
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={() => input.current?.click()} disabled={state.kind === 'running'}>
-              <FolderOpen /> {state.kind === 'running' ? `Lendo ${state.files} arquivos…` : 'Escolher a pasta docs/'}
+            {/* O pending vai no controle que disparou (§5.2), e o rótulo diz o que está em curso:
+                um botão só desabilitado não distingue "estou lendo" de "não dá para clicar". */}
+            <Button size="sm" onClick={() => input.current?.click()} disabled={ingerindo}>
+              <FolderOpen /> {lendo ? 'Lendo os arquivos…' : 'Escolher a pasta docs/'}
             </Button>
             {/* Só aparece com arquivo guardado: um botão permanentemente desabilitado ocupa o
                 mesmo espaço para dizer que não serve, e antes da primeira leitura ele nem
                 descreve uma ação possível. */}
-            {stored !== null && stored > 0 && (
-              <Button size="sm" variant="outline" onClick={() => void reprocess()} disabled={state.kind === 'running'}>
-                <ArrowsClockwise /> Reprocessar os {stored} arquivos
+            {stored !== undefined && stored > 0 && (
+              <Button size="sm" variant="outline" onClick={() => reprocessar()} disabled={ingerindo}>
+                <ArrowsClockwise /> {reprocessando ? `Reprocessando os ${stored} arquivos…` : `Reprocessar os ${stored} arquivos`}
               </Button>
             )}
           </div>
@@ -240,8 +295,8 @@ export function DadosPageContent() {
             <Button size="sm" variant="outline" onClick={() => void download()}>
               <DownloadSimple /> Exportar
             </Button>
-            <Button size="sm" variant="outline" onClick={() => backupInput.current?.click()}>
-              <UploadSimple /> Importar
+            <Button size="sm" variant="outline" disabled={importando} onClick={() => backupInput.current?.click()}>
+              <UploadSimple /> {importando ? 'Importando…' : 'Importar'}
             </Button>
           </div>
           {backup.kind === 'failed' && (

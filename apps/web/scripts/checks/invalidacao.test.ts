@@ -42,6 +42,19 @@ const ARESTAS = [
     escritas: 6,
     invalida: ['plans'],
   },
+  {
+    // Ler a pasta, reprocessar o que está guardado, e importar um pacote.
+    // Uma ingestão reescreve o conjunto INTEIRO, e o id de cada lançamento é `sha1` dos campos
+    // dele — reprocessar pode deixar um ajuste manual órfão, então `overrides` entra na lista.
+    // A importação escreve nos CINCO contextos, e todos são invalidados.
+    tela: 'dados/-content.tsx',
+    escritas: 3,
+    invalida: ['dataset', 'overrides'],
+    // A §5.1 admite `onError` PARA SUPRIMIR o aviso global numa tela com erro próprio, e esta é a
+    // única que se qualifica: a mensagem vem do pipeline e nomeia o arquivo que não foi lido —
+    // texto que um toast trunca justamente na parte que resolve o problema.
+    erroProprio: true,
+  },
 ] as const
 
 /**
@@ -120,9 +133,17 @@ describe('nenhum tratamento de erro no ponto de uso', () => {
   }
   varrer(raiz, '')
 
-  it('nenhuma rota passa onError a um useMutation', () => {
-    const ofensoras = telas.filter((t) => /onError/.test(codigoDe(t)))
-    assert.deepEqual(ofensoras, [], 'a §5 proíbe tratar erro de escrita no ponto de uso; a exceção é a tela com erro próprio, e ela precisa ser declarada neste teste')
+  const comErroProprio = ARESTAS.filter((a) => 'erroProprio' in a && a.erroProprio).map((a) => a.tela)
+
+  it('nenhuma rota passa onError, salvo as que têm painel de erro DECLARADO aqui', () => {
+    const ofensoras = telas.filter((t) => /onError/.test(codigoDe(t))).filter((t) => !comErroProprio.some((declarada) => t.endsWith(declarada)))
+    assert.deepEqual(ofensoras, [], 'a §5 proíbe tratar erro de escrita no ponto de uso; a exceção é a tela com painel de erro próprio, e ela precisa ser declarada na tabela acima')
+  })
+
+  it('e a exceção declarada realmente USA o onError — senão ela é uma licença em branco', () => {
+    // Uma entrada `erroProprio: true` que sobrevive à remoção do painel abriria a exceção para
+    // qualquer coisa que mexesse naquele arquivo depois.
+    for (const tela of comErroProprio) assert.match(codigoDe(tela), /onError/, `${tela} está declarada com erro próprio e não passa onError`)
   })
 
   it('e as rotas conferidas são muitas — o varredor não parou de olhar', () => {
