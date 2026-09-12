@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { translateRemoteError } from '@wlet/services/shared/domain/errors'
+import { toast } from '@wlet/ui/toast'
 import { services } from '@/services'
 import { preloaded } from './preloaded'
 import { ThemeContext, type ThemeValue } from './use-theme'
@@ -32,13 +34,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
    *
    * Gravar no HANDLER resolve as três de uma vez, e é o que a §2 da construção de componentes
    * pede: efeito sincroniza com sistema externo, não reage a evento.
+   *
+   * **Sem aviso de SUCESSO, pela mesma razão do recorte e do período** (ver `filters.tsx`): o tema
+   * trocado é a tela inteira mudando de cor, e um aviso em cima disso é ruído. O ERRO aparece, e
+   * pela MESMA tradução das outras escritas — engoli-lo num `console.error`, como estava, fazia o
+   * app prometer que lembraria a escolha sem ter lembrado.
    */
   const toggleTheme = useCallback(() => {
     const proximo = theme === 'dark' ? 'light' : 'dark'
     setTheme(proximo)
     void services()
       .preferences.setTheme(proximo)
-      .catch((cause: unknown) => console.error('[wlet] não foi possível guardar o tema:', cause))
+      .catch((cause: unknown) => toast.error(translateRemoteError(cause).message))
   }, [theme])
 
   const value = useMemo<ThemeValue>(() => ({ theme, toggleTheme }), [theme, toggleTheme])

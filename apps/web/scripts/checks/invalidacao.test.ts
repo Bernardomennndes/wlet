@@ -113,6 +113,18 @@ describe('o provider de filtros', () => {
     for (const dominio of PROVIDER_FILTROS.invalida) assert.match(fonte, new RegExp(`api\\(\\)\\.${dominio}\\.list\\.key\\(\\)`), `a chave de ${dominio} não vem do contrato`)
   })
 
+  it('o tema também grava sem aviso de sucesso, e o erro passa pela tradução', () => {
+    const tema = readFileSync(new URL('../../src/providers/theme.tsx', import.meta.url), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '')
+    assert.match(tema, /preferences\.setTheme/)
+    assert.match(tema, /toast\.error\(translateRemoteError\(cause\)\.message\)/, 'a falha de tema precisa chegar à tela, não ao console')
+    assert.doesNotMatch(tema, /toast\.success/)
+    // `console.error` para falha de GRAVAÇÃO é o defeito que esta bateria persegue: ele promete
+    // que guardou e não guardou. O do boot é outra coisa e vive em `main.tsx`.
+    assert.doesNotMatch(tema, /console\.error/)
+  })
+
   it('recorte e período gravam SEM aviso de sucesso, e isso é decisão', () => {
     // Um aviso a cada mês arrastado é a definição do toast que se aprende a ignorar. O erro, esse
     // aparece: `persist` manda a falha para o mesmo aviso global das outras escritas.
