@@ -84,6 +84,18 @@ export function AppCombobox({ value, onValueChange, items, className, id, search
       isItemEqualToValue={(a: SelectOption, b: SelectOption) => a.value === b.value}
       // O `filter` da raiz é o que deixa a descrição participar da busca SEM entrar no rótulo
       // que o gatilho exibe — os dois seriam a mesma string se isso saísse de `itemToStringLabel`.
+      // Realce automático no primeiro casamento da busca.
+      //
+      // Sem isto, digitar e apertar Enter FECHAVA o painel sem escolher nada: a busca filtrava
+      // a lista, mas nenhum item ficava realçado, então o Enter não tinha o que selecionar. Um
+      // no-op silencioso é o pior desfecho possível para um controle de busca — a pessoa
+      // acredita que escolheu.
+      //
+      // Com a busca VAZIA ele não realça nada por conta própria: quem fica realçado é o item
+      // já selecionado, então abrir o painel e apertar Enter confirma o valor que já estava
+      // lá em vez de trocá-lo pelo primeiro da lista. É essa a diferença que torna a prop
+      // segura num seletor de valor, e não só no de ação.
+      autoHighlight
       filter={(item: SelectOption, query: string) => query.trim() === '' || fold(`${item.label} ${item.description ?? ''}`).includes(fold(query.trim()))}
     >
       <ComboboxTrigger id={id} aria-label={aria['aria-label']} render={<Button variant={variant} size={size} className={cn('justify-between font-normal', modified && 'border-ring', className)} />}>
