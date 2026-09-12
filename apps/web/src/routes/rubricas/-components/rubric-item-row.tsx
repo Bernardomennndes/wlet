@@ -54,8 +54,20 @@ export function RubricItemRow({ item, disabled, onChange, onRemove, canRemove }:
     if (event.key === 'Enter') flush()
   }
   return (
-    <ButtonGroup className="w-fit">
-      <InputGroup className="w-64 flex-none">
+    /*
+     * A linha OCUPA a largura toda, e quem absorve a folga é o NOME.
+     *
+     * Ela era `w-fit` com todos os campos em `flex-none`: a peça parava onde o conteúdo
+     * acabava e sobrava metade do cartão vazia à direita. Os campos numéricos continuam em
+     * largura medida de propósito — eles são uma COLUNA, e coluna que muda de largura de uma
+     * linha para a outra deixa de ser comparável, que é a única razão de existir uma coluna.
+     * O nome é o oposto: o conteúdo dele varia a cada item e é o que se lê para achar a linha.
+     *
+     * O `min-w-48` é o que impede o nome de colapsar quando não há folga; abaixo disso a peça
+     * volta a transbordar, e o `overflow-x-auto` do `<ul>` da lista continua dando conta.
+     */
+    <ButtonGroup className="w-full">
+      <InputGroup className="min-w-48 flex-1">
         <InputGroupInput
           aria-label="Nome do item"
           autoComplete="off"

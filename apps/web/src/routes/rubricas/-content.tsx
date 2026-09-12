@@ -1,15 +1,15 @@
 import { Warning } from '@phosphor-icons/react'
+import type { Budget, BudgetCategory } from '@wlet/domain'
+import { CATEGORIES, categoryLabel } from '@wlet/domain'
+import { MONTHLY_OCCURRENCES, monthRange, rubricAmount, rubricSpent, weekRange } from '@wlet/domain/rubric'
+import { formatBRL, formatDayMonth, formatMonthLongLabel } from '@wlet/lib/format'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
+import { ToggleGroup, ToggleGroupItem } from '@wlet/ui/components/toggle-group'
 import { useCallback, useMemo, useState } from 'react'
 import { KpiCard, KpiCardGrid } from '@/components/kpi'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
-import { CATEGORIES, categoryLabel } from '@wlet/domain'
-import type { Budget, BudgetCategory } from '@wlet/domain'
 import { useDeclarations } from '@/hooks/use-declarations'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { lastDateWithData, lastMonthWithData, sum } from '@/lib/finance'
-import { formatBRL, formatDayMonth, formatMonthLongLabel } from '@wlet/lib/format'
-import { ToggleGroup, ToggleGroupItem } from '@wlet/ui/components/toggle-group'
-import { MONTHLY_OCCURRENCES, monthRange, rubricAmount, rubricSpent, weekRange } from '@wlet/domain/rubric'
 import { useFilters } from '@/providers/use-filters'
 import { AddRubricButton } from './-components/add-rubric-button'
 import { RubricList } from './-components/rubric-list'
@@ -105,23 +105,22 @@ export function RubricasPageContent() {
 
   return (
     <div className="space-y-4">
-      <header>
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-lg font-semibold tracking-tight">Rubricas</h1>
-            <p className="text-muted-foreground text-xs">Gasto esperado por categoria. Teto no mês em curso, previsão nos meses futuros — e na projeção é piso, não soma.</p>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            {/* O planejado é declarado por mês; em semana ele é DIVIDIDO, nunca remedido. */}
-            <ToggleGroup variant="outline" spacing={0} value={[base]} onValueChange={(next) => next[0] && setBase(next[0] as Base)} aria-label="Base de leitura">
-              <ToggleGroupItem value="week">Semana</ToggleGroupItem>
-              <ToggleGroupItem value="month">Mês</ToggleGroupItem>
-            </ToggleGroup>
-            {/* Adicionar é ESCOLHER A CATEGORIA, então a lista precisa existir — a categoria é a
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">Rubricas</h1>
+          <p className="text-muted-foreground text-xs">Gasto esperado por categoria. Teto no mês em curso, previsão nos meses futuros — e na projeção é piso, não soma.</p>
+        </div>
+
+        <div className="flex shrink-0 flex-wrap gap-2">
+          {/* O planejado é declarado por mês; em semana ele é DIVIDIDO, nunca remedido. */}
+          <ToggleGroup variant="outline" spacing={0} value={[base]} onValueChange={(next) => next[0] && setBase(next[0] as Base)} aria-label="Base de leitura">
+            <ToggleGroupItem value="week">Semana</ToggleGroupItem>
+            <ToggleGroupItem value="month">Mês</ToggleGroupItem>
+          </ToggleGroup>
+          {/* Adicionar é ESCOLHER A CATEGORIA, então a lista precisa existir — a categoria é a
                 identidade da rubrica e não se troca depois. O que mudou foi o CONTROLE: um
                 combobox afirma um valor, e isto é uma ação. Ver `add-rubric-button.tsx`. */}
-            {available.length > 0 && <AddRubricButton options={available} onPick={(categoryId) => setBudget([...declared, { categoryId, amount: 0 }])} />}
-          </div>
+          {available.length > 0 && <AddRubricButton options={available} onPick={(categoryId) => setBudget([...declared, { categoryId, amount: 0 }])} />}
         </div>
       </header>
 
