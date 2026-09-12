@@ -16,6 +16,8 @@
     "@orpc/client": "^1.14.13",
     "@orpc/contract": "^1.14.13",
     "@orpc/openapi-client": "^1.14.13",
+    "@orpc/tanstack-query": "^1.15.0",
+    "@tanstack/react-query": "^5.102.8",
     "zod": "^4.5.4"
   },
   "devDependencies": {

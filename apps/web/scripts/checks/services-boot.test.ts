@@ -28,10 +28,12 @@ describe('portão de boot', () => {
 
   it('montar os serviços não lê o dataset', async () => {
     // `build()` monta os cinco adapters. Nenhum deles pode tocar o dataset ao ser criado — só
-    // quando um caso de uso for chamado. A URL entra EXPLÍCITA porque a propriedade trancada
-    // aqui não tem nada a ver com de onde ela veio, e `import.meta.env` não existe no Node.
+    // quando um caso de uso for chamado.
+    const { createWletClient } = await import('@wlet/api')
     const { build } = await import('../../src/services.ts')
-    assert.doesNotThrow(() => build('http://servidor.invalido/v1'))
+    // O cliente entra EXPLÍCITO porque a propriedade trancada aqui não tem nada a ver com de onde
+    // a URL veio, e `import.meta.env` não existe no Node.
+    assert.doesNotThrow(() => build(createWletClient({ baseUrl: 'http://servidor.invalido/v1' })))
   })
 
   it('e sem VITE_API_URL a montagem falha DIZENDO o que falta', async () => {

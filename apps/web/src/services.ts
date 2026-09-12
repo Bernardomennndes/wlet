@@ -1,4 +1,4 @@
-import { createWletClient } from '@wlet/api'
+import type { WletClient } from '@wlet/api'
 import { CATEGORY_MAP } from '@wlet/domain'
 import {
   makeConfigService,
@@ -19,7 +19,7 @@ import {
   type PlansService,
   type PreferencesService,
 } from '@wlet/services'
-import { apiUrl } from './api-url'
+import { client } from './api'
 import { makeBundleDeclarations } from './bundle-declarations.adapter'
 import { makeBundleSeed } from './bundle-seed.adapter'
 import { dataset as loadedDataset } from '@/lib/dataset'
@@ -39,9 +39,13 @@ import { dataset as loadedDataset } from '@/lib/dataset'
  * oferecendo, porque o servidor é seu.
  *
  * **Instância única, criada sob demanda.** Os adapters não guardam estado (o servidor é o
- * estado), então instância única é economia, não semântica. Sob demanda porque `apiUrl()` LANÇA
- * quando a variável falta, e fazer isso na avaliação do módulo transformaria um erro de
+ * estado), então instância única é economia, não semântica. Sob demanda porque `client()` LANÇA
+ * quando `VITE_API_URL` falta, e fazer isso na avaliação do módulo transformaria um erro de
  * configuração numa página em branco — o import acontece antes de qualquer `catch` existir.
+ *
+ * **O cliente vem de `./api` e não é montado aqui.** É o MESMO objeto que o `api` do React Query
+ * usa: dois clientes para o mesmo servidor seriam duas configurações de credencial livres para
+ * divergir, e o sintoma — metade do app autenticada e a outra não — só apareceria em produção.
  */
 export interface Services {
   dataset: DatasetService
@@ -54,19 +58,19 @@ export interface Services {
 let instance: Services | null = null
 
 export function services(): Services {
-  instance ??= build(apiUrl())
+  instance ??= build(client())
   return instance
 }
 
 /**
- * Monta os cinco contextos sobre um endereço EXPLÍCITO.
+ * Monta os cinco contextos sobre um cliente EXPLÍCITO.
  *
  * Separada de `services()` para que a montagem possa ser exercitada sem ambiente — é o que
  * `scripts/checks/services-boot.test.ts` faz, e a propriedade que ele tranca (montar não lê o
- * dataset) não tem nada a ver com de onde a URL veio.
+ * dataset) não tem nada a ver com de onde o cliente veio.
  */
-export function build(baseUrl: string): Services {
-  const deps = { client: createWletClient({ baseUrl, token: () => localStorage.getItem('wlet.token') }) }
+export function build(wlet: WletClient): Services {
+  const deps = { client: wlet }
   return {
     dataset: makeDatasetService({
       repository: makeOrpcDatasetRepository(deps),
