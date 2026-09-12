@@ -1,5 +1,5 @@
 import type { AccountProfile } from '@wlet/ingest/pipeline'
-import { fromRegexWire, toRegexWire, type RegexWire, type RemoteDeps } from '../../shared/infrastructure/orpc'
+import { fromRegexWire, remote, toRegexWire, type RegexWire, type RemoteDeps } from '../../shared/infrastructure/orpc'
 import type { ConfigData, ConfigRepository } from '../domain/ports/config-repository'
 
 /** O perfil como ele atravessa: a `RegExp` do `externalId` vira `{source, flags}`. */
@@ -21,7 +21,7 @@ type WireProfile = Omit<AccountProfile, 'match'> & {
 export function makeOrpcConfigRepository({ client }: RemoteDeps): ConfigRepository {
   return {
     async find() {
-      const d = await client.config.get()
+      const d = await remote(() => client.config.get())
       return {
         ...d,
         selfNamePatterns: d.selfNamePatterns.map(fromRegexWire),
@@ -38,20 +38,22 @@ export function makeOrpcConfigRepository({ client }: RemoteDeps): ConfigReposito
     },
 
     async save(data) {
-      await client.config.replace({
-        ...data,
-        selfNamePatterns: data.selfNamePatterns.map(toRegexWire),
-        rules: data.rules.map((r) => ({ ...r, test: toRegexWire(r.test) })),
-        accounts: data.accounts.map((a) => ({
-          ...a,
-          match: {
-            ...(a.match.bankCode !== undefined ? { bankCode: a.match.bankCode } : {}),
-            ...(a.match.accountType !== undefined ? { accountType: a.match.accountType } : {}),
-            ...(a.match.pathIncludes !== undefined ? { pathIncludes: a.match.pathIncludes } : {}),
-            ...(a.match.externalId === undefined ? {} : { externalId: a.match.externalId instanceof RegExp ? toRegexWire(a.match.externalId) : a.match.externalId }),
-          },
-        })),
-      } as never)
+      await remote(() =>
+        client.config.replace({
+          ...data,
+          selfNamePatterns: data.selfNamePatterns.map(toRegexWire),
+          rules: data.rules.map((r) => ({ ...r, test: toRegexWire(r.test) })),
+          accounts: data.accounts.map((a) => ({
+            ...a,
+            match: {
+              ...(a.match.bankCode !== undefined ? { bankCode: a.match.bankCode } : {}),
+              ...(a.match.accountType !== undefined ? { accountType: a.match.accountType } : {}),
+              ...(a.match.pathIncludes !== undefined ? { pathIncludes: a.match.pathIncludes } : {}),
+              ...(a.match.externalId === undefined ? {} : { externalId: a.match.externalId instanceof RegExp ? toRegexWire(a.match.externalId) : a.match.externalId }),
+            },
+          })),
+        } as never),
+      )
     },
   }
 }
