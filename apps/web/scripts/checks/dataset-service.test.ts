@@ -32,7 +32,7 @@ describe('serviço do conjunto ingerido', () => {
       seed: makeFakeSeed(seedDataset()),
     })
     const { data, origin } = await service.load()
-    assert.equal(origin, 'indexeddb')
+    assert.equal(origin, 'stored')
     assert.equal(data.goals.length, 1)
   })
 

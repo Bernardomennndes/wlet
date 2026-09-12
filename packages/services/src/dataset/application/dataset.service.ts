@@ -22,7 +22,16 @@ import type { SourceStore } from '../domain/ports/source-store'
  */
 export const DATASET_PARTS = ['accounts', 'meta', 'transactions', 'transfers', 'investments'] as const
 
-export type DatasetOrigin = 'indexeddb' | 'seed' | 'empty'
+/**
+ * De onde o conjunto veio neste boot.
+ *
+ * `'stored'` era `'indexeddb'` enquanto havia um navegador guardando: o nome dizia a TECNOLOGIA
+ * do armazenamento, e quando ela mudou para Postgres do outro lado de `/v1` o rótulo passou a
+ * mentir para a tela de Meus dados, que o exibe. O que a pessoa precisa saber é se o número na
+ * frente dela é o DELA ou a demonstração que veio no aplicativo — e essa distinção não depende
+ * de onde os bytes moram.
+ */
+export type DatasetOrigin = 'stored' | 'seed' | 'empty'
 
 export interface DatasetServiceDeps {
   repository: DatasetRepository
@@ -76,14 +85,15 @@ function assertComplete(data: Dataset): void {
 export function makeDatasetService({ repository, seed, runner, sources: sourceStore }: DatasetServiceDeps): DatasetService {
   return {
     async load() {
-      // Banco inacessível, corrompido ou lento não pode impedir o app de abrir — a semente
+      // Servidor inacessível, conjunto corrompido ou resposta lenta não podem impedir o app de
+      // abrir — a semente
       // responde, e ela é um app inteiro funcionando. Quem chamou recebe a origem e decide o
       // que dizer na tela.
       try {
         const saved = await repository.find()
         if (saved) {
           assertComplete(saved)
-          return { data: saved, origin: 'indexeddb' as const }
+          return { data: saved, origin: 'stored' as const }
         }
       } catch {
         // cai na semente

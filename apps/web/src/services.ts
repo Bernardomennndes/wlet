@@ -1,16 +1,3 @@
-import { dataset as loadedDataset } from '@/lib/dataset'
-import {
-  createConfigService,
-  createDatasetService,
-  createOverridesService,
-  createPlansService,
-  createPreferencesService,
-  type ConfigService,
-  type DatasetService,
-  type OverridesService,
-  type PlansService,
-  type PreferencesService,
-} from '@wlet/services'
 import { createWletClient } from '@wlet/api'
 import { CATEGORY_MAP } from '@wlet/domain'
 import {
@@ -26,23 +13,16 @@ import {
   makeOverridesService,
   makePlansService,
   makePreferencesService,
+  type ConfigService,
+  type DatasetService,
+  type OverridesService,
+  type PlansService,
+  type PreferencesService,
 } from '@wlet/services'
+import { apiUrl } from './api-url'
 import { makeBundleDeclarations } from './bundle-declarations.adapter'
 import { makeBundleSeed } from './bundle-seed.adapter'
-
-/**
- * A ORIGEM dos dados, decidida no build.
- *
- * Com `VITE_API_URL` o app fala com o servidor; sem ela, com o próprio navegador. Não é uma
- * bandeira temporária: os dois modos são legítimos e vão continuar existindo — o local é o que
- * mantém a promessa de que nada sai da máquina, e o remoto é o que permite abrir a mesma conta
- * em dois aparelhos. Quem escolhe é quem instala.
- */
-// O acesso é DEFENSIVO porque `import.meta.env` não existe fora do Vite, e o runner dos
-// testes roda por tsx: sem o `?.`, importar este módulo estoura em Node com "Cannot read
-// properties of undefined" — que foi o que quebrou o teste do portão de boot. Mesma armadilha
-// do `import.meta.glob` em `generated-files.ts`.
-const apiUrl = (import.meta.env as Record<string, string> | undefined)?.VITE_API_URL
+import { dataset as loadedDataset } from '@/lib/dataset'
 
 /**
  * O composition root da camada de serviços: o único lugar que monta os cinco contextos.
@@ -51,12 +31,17 @@ const apiUrl = (import.meta.env as Record<string, string> | undefined)?.VITE_API
  * praticável — a tela pede `services().plans` e nunca sabe qual adapter está por baixo, nem
  * precisa saber montar um.
  *
- * **Instância única, criada sob demanda.** Os adapters não guardam estado (o `localStorage` e o
- * IndexedDB são o estado), então instância única é economia, não semântica. Sob demanda porque
- * `createConfigService` e os irmãos tocam `localStorage` e `indexedDB` ao serem chamados, e
- * chamá-los na avaliação do módulo faria este arquivo ter efeito colateral só por ser
- * importado — exatamente o defeito que `scripts/cdi.ts` já teve, quando um import disparava um
- * download.
+ * **Há UMA origem: o servidor.** Havia duas, escolhidas pela presença de `VITE_API_URL`, e a
+ * ramificação custava mais do que entregava: todo dado tinha duas respostas possíveis conforme
+ * onde fosse lido, o `pnpm ingest` do terminal nunca enxergava o que o navegador tinha guardado,
+ * e a mesma conta aberta em dois aparelhos mostrava números diferentes sem nada avisar. O que os
+ * adapters locais ofereciam em troca — "nada sai da máquina" — a instalação própria continua
+ * oferecendo, porque o servidor é seu.
+ *
+ * **Instância única, criada sob demanda.** Os adapters não guardam estado (o servidor é o
+ * estado), então instância única é economia, não semântica. Sob demanda porque `apiUrl()` LANÇA
+ * quando a variável falta, e fazer isso na avaliação do módulo transformaria um erro de
+ * configuração numa página em branco — o import acontece antes de qualquer `catch` existir.
  */
 export interface Services {
   dataset: DatasetService
@@ -69,39 +54,18 @@ export interface Services {
 let instance: Services | null = null
 
 export function services(): Services {
-  if (!instance) {
-    instance = apiUrl ? remote(apiUrl) : local()
-  }
+  instance ??= build(apiUrl())
   return instance
 }
 
-/** Tudo no navegador: IndexedDB, `localStorage` e o pipeline no Web Worker. */
-function local(): Services {
-  const dataset = createDatasetService(makeBundleSeed())
-  return {
-    dataset,
-    // A semente da config é o que o ingest gravou e veio no dataset: `config` não pode
-    // conhecer quem produziu aquele JSON (§4), então ele recebe a leitura por porta.
-    // A semente vem do BUNDLE, não do conjunto: `config` não pode conhecer quem produziu
-    // aquele JSON (§4), e depois que as declarações saíram do `Dataset` não haveria de onde
-    // tirá-las por ali de qualquer modo.
-    config: createConfigService(makeBundleDeclarations()),
-    plans: createPlansService(),
-    overrides: createOverridesService(),
-    // O piso vem daqui e não do barrel de `preferences`: `@/lib/dataset` é o PORTÃO, que
-    // não lê nada ao ser avaliado, enquanto `@/lib/finance` lê. A diferença é entre o app
-    // abrir e o app abrir em branco.
-    preferences: createPreferencesService(() => loadedDataset().meta.months[0]),
-  }
-}
-
 /**
- * Tudo no servidor. Os MESMOS serviços, com outra infraestrutura por baixo.
+ * Monta os cinco contextos sobre um endereço EXPLÍCITO.
  *
- * É o que a camada hexagonal comprou: os casos de uso, as validações e os 168 testes seguem
- * idênticos — só muda quem responde às portas. Nenhuma tela sabe a diferença.
+ * Separada de `services()` para que a montagem possa ser exercitada sem ambiente — é o que
+ * `scripts/checks/services-boot.test.ts` faz, e a propriedade que ele tranca (montar não lê o
+ * dataset) não tem nada a ver com de onde a URL veio.
  */
-function remote(baseUrl: string): Services {
+export function build(baseUrl: string): Services {
   const deps = { client: createWletClient({ baseUrl, token: () => localStorage.getItem('wlet.token') }) }
   return {
     dataset: makeDatasetService({
@@ -112,11 +76,16 @@ function remote(baseUrl: string): Services {
       runner: makeOrpcIngestRunner(deps),
       sources: makeOrpcSourceStore(deps),
     }),
+    // A semente da config vem do BUNDLE, não do conjunto: `config` não pode conhecer quem
+    // produziu aquele JSON (§4).
     config: makeConfigService({ repository: makeOrpcConfigRepository(deps), seed: makeBundleDeclarations() }),
     plans: makePlansService({ repository: makeOrpcPlanRepository(deps), ids: { next: () => `plan-${Date.now().toString(36)}` } }),
     // `categoryExists` é regra de DOMÍNIO, não de armazenamento: um ajuste para uma categoria
     // que não existe é inválido aqui e no servidor igualmente, e o catálogo é o mesmo pacote.
     overrides: makeOverridesService({ repository: makeOrpcOverrideRepository(deps), categoryExists: (id) => id in CATEGORY_MAP }),
+    // O piso vem de `@/lib/dataset` e não do barrel de `finance`: aquele é o PORTÃO, que não lê
+    // nada ao ser avaliado, enquanto `finance` lê. A diferença é entre o app abrir e o app abrir
+    // em branco.
     preferences: makePreferencesService({ repository: makeOrpcPreferencesRepository(deps), floorMonth: () => loadedDataset().meta.months[0] }),
   }
 }

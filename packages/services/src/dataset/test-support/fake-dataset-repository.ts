@@ -27,7 +27,7 @@ export function makeFakeDatasetRepository(initial: Dataset | null = null): Datas
 
 /** Um repositório que SEMPRE explode — o banco corrompido ou bloqueado. */
 export function makeBrokenDatasetRepository(): DatasetRepository {
-  const boom = () => Promise.reject(new Error('IndexedDB indisponível'))
+  const boom = () => Promise.reject(new Error('servidor indisponível'))
   return { find: boom, save: boom, clear: boom }
 }
 

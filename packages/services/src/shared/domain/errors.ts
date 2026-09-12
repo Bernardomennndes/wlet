@@ -1,12 +1,12 @@
 /**
  * A base de todo erro que a camada de serviços deixa escapar.
  *
- * A regra importada da Selfie diz "erro de domínio, nunca `TRPCError`". Aqui não há transporte,
- * e a mesma regra vira outra: **nunca deixar escapar erro de INFRAESTRUTURA**. O IndexedDB
- * lança `DOMException`; o `localStorage` lança `QuotaExceededError` quando a cota estoura e
- * `SecurityError` quando a janela é anônima com cookies bloqueados. Os três chegariam à tela
- * com texto do navegador, em inglês, dizendo `NotFoundError` para um problema que não é de
- * "não encontrado". O adapter traduz; a tela lê português.
+ * A regra importada da Selfie diz "erro de domínio, nunca `TRPCError`". Aqui o transporte é do
+ * outro lado, e a mesma regra vira outra: **nunca deixar escapar erro de INFRAESTRUTURA**. O
+ * `fetch` lança `TypeError: Failed to fetch` quando a rede cai; o oRPC lança o erro do contrato
+ * com o código HTTP dentro; a sessão expirada volta como 401 sem texto nenhum. Os três chegariam
+ * à tela em inglês, dizendo coisas que não descrevem o que a pessoa precisa fazer. O adapter
+ * traduz; a tela lê português.
  */
 export class DomainError extends Error {
   constructor(message: string) {

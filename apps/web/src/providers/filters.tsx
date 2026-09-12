@@ -75,8 +75,8 @@ function clampPeriod(p: Period): Period {
 
 export function FiltersProvider({ children }: { children: ReactNode }) {
   // A LEITURA vem do que o boot já carregou, síncrona; a ESCRITA vai pelos serviços, que é
-  // onde a validação e a tradução de erro de armazenamento moram. Ler daqui é o que permite o
-  // inicializador de `useState` continuar síncrono depois de o dado migrar para o IndexedDB.
+  // onde a validação e a tradução de erro moram. Ler daqui é o que permite o inicializador de
+  // `useState` continuar síncrono depois de a preferência passar a vir do servidor.
   const saved = preloaded().preferences
 
   const [scope, setScopeState] = useState<Scope>(() => readUrl().scope ?? saved.scope ?? 'all')
@@ -91,9 +91,9 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
    * A tela não espera a gravação, mas a falha não pode sumir.
    *
    * Persistir é efeito colateral do que a pessoa acabou de fazer; segurar o render até o
-   * IndexedDB responder deixaria um clique em "Empresa" travando a interface. Mas engolir o
-   * erro faria o app prometer uma persistência que não aconteceu — em janela anônima com
-   * cookies bloqueados isso é o caso NORMAL, não a exceção.
+   * servidor responder deixaria um clique em "Empresa" travando a interface. Mas engolir o
+   * erro faria o app prometer uma persistência que não aconteceu — com a rede caída ou a sessão
+   * expirada isso é o caso NORMAL, não a exceção.
    */
   const persist = useCallback((promise: Promise<unknown>) => {
     void promise.catch((cause: unknown) => console.error('[wlet] não foi possível guardar a preferência:', cause))

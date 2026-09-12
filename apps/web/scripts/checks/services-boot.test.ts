@@ -27,12 +27,19 @@ describe('portão de boot', () => {
   })
 
   it('montar os serviços não lê o dataset', async () => {
-    // `services()` monta os cinco adapters. Nenhum deles pode tocar o dataset ao ser criado —
-    // só quando um caso de uso for chamado.
-    const { services, resetServices } = await import('../../src/services.ts')
-    resetServices()
-    assert.doesNotThrow(() => services())
-    resetServices()
+    // `build()` monta os cinco adapters. Nenhum deles pode tocar o dataset ao ser criado — só
+    // quando um caso de uso for chamado. A URL entra EXPLÍCITA porque a propriedade trancada
+    // aqui não tem nada a ver com de onde ela veio, e `import.meta.env` não existe no Node.
+    const { build } = await import('../../src/services.ts')
+    assert.doesNotThrow(() => build('http://servidor.invalido/v1'))
+  })
+
+  it('e sem VITE_API_URL a montagem falha DIZENDO o que falta', async () => {
+    // O app não tem mais modo local: a ausência da variável é erro de configuração, não uma
+    // escolha. Cair num padrão adiaria o erro até a primeira requisição, onde ele chega como
+    // 404 sem explicação nenhuma.
+    const { apiUrl } = await import('../../src/api-url.ts')
+    assert.throws(() => apiUrl(), /VITE_API_URL/)
   })
 })
 

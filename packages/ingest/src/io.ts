@@ -11,10 +11,11 @@ import { shortId } from './sha1'
  * argumento que o projeto já aplicou a `settlement.ts`, que é uma só para cobrança e conta a
  * pagar, e a `matching.ts`, usada pelo ingest E pelo seed.
  *
- * Então o núcleo não importa I/O: ele RECEBE. O adaptador Node resolve na hora e escreve
- * JSON; o adaptador navegador espera o `DecompressionStream` e grava no IndexedDB. O núcleo
- * é `async` nos dois — não porque o Node precise, mas porque assinatura que muda por ambiente
- * é a mesma duplicação por outro nome.
+ * Então o núcleo não importa I/O: ele RECEBE. O adaptador Node resolve na hora com `node:zlib`;
+ * o adaptador navegador espera o `DecompressionStream`. O núcleo é `async` nos dois — não porque
+ * o Node precise, mas porque assinatura que muda por ambiente é a mesma duplicação por outro
+ * nome. Hoje quem roda o pipeline é o servidor, e `browserEnv` não tem chamador: ele fica porque
+ * é a METADE que prova que o contrato não assume um ambiente, e é ele que `inflate.ts` testa.
  */
 export interface SourceFile {
   /**

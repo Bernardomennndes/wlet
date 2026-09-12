@@ -8,9 +8,9 @@ import './index.css'
  *
  * Os módulos de `src/lib/` exportam constantes (`TRANSACTIONS`, `PLANNED`, `BUDGET`) lidas por
  * 25 arquivos, e os providers leem preferência e ajustes dentro de um inicializador de
- * `useState`, que é síncrono. Enquanto tudo vinha de `import x from '*.json'` e de
- * `localStorage`, isso era gratuito. Com IndexedDB no meio, a única forma de manter as duas
- * coisas é carregar primeiro e montar depois.
+ * `useState`, que é síncrono. Enquanto tudo vinha de `import x from '*.json'`, isso era
+ * gratuito. Com a rede no meio, a única forma de manter as duas coisas é carregar primeiro e
+ * montar depois.
  *
  * **Nada que LEIA esse estado pode ser importado estaticamente aqui.** Os três imports acima
  * são a exceção autorizada: nenhum deles toca armazenamento ao ser avaliado — `services()` só
@@ -44,9 +44,10 @@ async function carregarEMontar(): Promise<void> {
   setDeclarations(declared)
   setPreloaded({ preferences: prefs, overrides: over, plans: catalogue, datasetOrigin: loaded.origin })
 
-  if (loaded.origin !== 'indexeddb') {
-    // Não é erro — é o primeiro boot, ou um navegador sem IndexedDB. Fica no console porque a
-    // origem do dado é a primeira coisa que se quer saber quando um número parece errado.
+  if (loaded.origin !== 'stored') {
+    // Não é erro — é uma conta que ainda não ingeriu nada, ou um servidor que não respondeu.
+    // Fica no console porque a origem do dado é a primeira coisa que se quer saber quando um
+    // número parece errado.
     console.info(`[wlet] dataset carregado da origem: ${loaded.origin}`)
   }
 

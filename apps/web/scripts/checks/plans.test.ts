@@ -18,9 +18,9 @@ import type { Plan } from '@wlet/domain'
 
 /**
  * `parsePlans` é a fronteira de confiança do único dado do app que não vem de arquivo: ele
- * chega do `localStorage`, que pode ter sido editado à mão, ou de um JSON que o usuário
- * escolheu. Um campo torto não pode derrubar o catálogo, e um item inválido não pode entrar na
- * previsão — é por isso que este arquivo existe.
+ * chega do servidor, onde foi gravado como JSON opaco, ou de um pacote que o usuário escolheu.
+ * Um campo torto não pode derrubar o catálogo, e um item inválido não pode entrar na previsão —
+ * é por isso que este arquivo existe.
  */
 
 const plano = (over: Partial<Plan> = {}): Plan => ({

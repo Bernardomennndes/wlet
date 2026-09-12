@@ -1,18 +1,18 @@
 /**
  * `pnpm package` — gera o pacote que o navegador importa.
  *
- * Existe porque o `pnpm ingest` grava `src/generated/*.json`, e esses arquivos só alcançam um
- * navegador VAZIO: depois da primeira escrita, o IndexedDB é a fonte e o build não chega mais
+ * Existe porque o `pnpm ingest` grava `src/generated/*.json`, e esses arquivos só alcançam uma
+ * instalação VAZIA: assim que o servidor tem conjunto, ele é a fonte e o build não chega mais
  * nele. Este comando fecha esse caminho — roda o mesmo pipeline e escreve um arquivo que a
- * tela "Meus dados" importa.
+ * tela "Meus dados" importa, e a importação escreve no servidor.
  *
  * É comando SEPARADO do ingest pela mesma razão que `fetch-cdi.ts` é separado de `cdi.ts`: o
  * ingest faz uma coisa (regenerar os JSON) e amarrá-lo a outra o obrigaria a escrever 18 MB a
  * cada rodada.
  *
  * O pacote leva o conjunto, as declarações e os arquivos originais. NÃO leva planos, ajustes de
- * categoria nem preferências — esses só existem no navegador, e um pacote gerado aqui não teria
- * o que dizer sobre eles. A importação mostra só as partes que o arquivo tem.
+ * categoria nem preferências — esses nascem de dentro do app, e um pacote gerado no terminal
+ * não teria o que dizer sobre eles. A importação mostra só as partes que o arquivo tem.
  *
  * Uso: `pnpm package [saida.json]`
  */

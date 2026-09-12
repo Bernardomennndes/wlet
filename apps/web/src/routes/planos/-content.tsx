@@ -279,9 +279,7 @@ export function PlanosPageContent() {
       <Card>
         <CardHeader>
           <CardTitle>Levar a lista com você</CardTitle>
-          <CardDescription>
-            Ficam no <code className="font-mono">localStorage</code> deste navegador: somem ao limpar os dados do site e não vão para outro dispositivo.
-          </CardDescription>
+          <CardDescription>Ficam no servidor, junto com o resto da conta. O arquivo serve para levar a lista para outra instalação ou guardar uma cópia.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={exportPlans} disabled={items.length === 0 && groups.length === 0}>

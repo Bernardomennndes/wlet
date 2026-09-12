@@ -7,9 +7,9 @@ import type { Declarations } from '@wlet/ingest/pipeline'
  * conveniência: enquanto eram dois tipos, o app carregava uma cópia de cada e editar a
  * configuração não mudava tela nenhuma. Um tipo só é o que impede as duas de divergirem.
  *
- * São os SETE, e é `rules`/`selfNamePatterns` que obrigam este contexto a viver em IndexedDB e
- * não em `localStorage` (§7): eles carregam dezenas de `RegExp`, e `JSON.stringify(/x/i)`
- * devolve `{}` sem erro nenhum.
+ * São os SETE, e é `rules`/`selfNamePatterns` que obrigam este contexto a ter uma forma de fio
+ * própria: eles carregam dezenas de `RegExp`, e `JSON.stringify(/x/i)` devolve `{}` sem erro
+ * nenhum. `packages/api/src/shared/shape.ts` é quem as embrulha em `{ source, flags }`.
  */
 export type ConfigData = Declarations
 

@@ -110,7 +110,7 @@ export function RubricItemForm({ item, disabled, onChange, onRemove, canRemove }
    *
    * Gravar por tecla levantava `saving`, que a tela repassava como `disabled` — e campo
    * desabilitado perde o foco. Adiar até o blur tira a gravação do caminho da digitação, e de
-   * quebra deixa de mandar uma escrita por caractere ao IndexedDB.
+   * quebra deixa de mandar uma requisição por caractere ao servidor.
    */
   const commit = handleSubmit((submitted) => {
     const patch: BudgetItem = {

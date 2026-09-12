@@ -37,8 +37,8 @@ export const PLANS_KEY = 'plans'
 /**
  * O envelope é VERSIONADO desde o primeiro dia.
  *
- * Dado em `localStorage` não tem migração se nascer sem versão: quando a forma mudar, o que
- * está gravado vira lixo silencioso — e o app leria campos que não existem sem nenhum erro.
+ * Dado guardado como JSON opaco não tem migração se nascer sem versão: quando a forma mudar, o
+ * que está gravado vira lixo silencioso — e o app leria campos que não existem sem nenhum erro.
  *
  * Ela já se pagou. A versão 1 tinha `amount` e `installments`; a 2 guarda as DUAS formas de
  * pagamento, para a diferença entre elas responder "quanto economizo à vista". Um envelope da
@@ -74,10 +74,10 @@ function month(value: unknown): string | undefined {
 }
 
 /**
- * Valida o que veio do navegador ou de um arquivo importado.
+ * Valida o que veio do servidor ou de um arquivo importado.
  *
- * Nada aqui é confiável: `localStorage` pode ter sido editado à mão, e o arquivo importado é
- * escolhido pelo usuário. Um item inválido é DESCARTADO em silêncio em vez de derrubar a
+ * Nada aqui é confiável: o servidor guarda o catálogo como JSON opaco, sem conferir a forma, e o
+ * arquivo importado é escolhido pelo usuário. Um item inválido é DESCARTADO em silêncio em vez de derrubar a
  * lista inteira — perder um plano é recuperável, perder o catálogo por causa de um campo
  * torto não é.
  *

@@ -5,7 +5,7 @@ import type { IdGenerator, PlanRepository } from '../domain/ports/plan-repositor
  * Fakes in-memory para exercitar o serviço sem navegador (§9).
  *
  * **Isto NÃO é código de produção.** É a única pasta do contexto que os adapters não podem
- * importar, e a razão de ela existir é que o `application/` merece teste rápido e o IndexedDB
+ * importar, e a razão de ela existir é que o `application/` merece teste rápido e o servidor
  * não é testável no runner do Node sem dependência nova.
  */
 export function makeFakePlanRepository(initial: PlansData = emptyPlans()): PlanRepository & { snapshot(): PlansData; saves: number } {

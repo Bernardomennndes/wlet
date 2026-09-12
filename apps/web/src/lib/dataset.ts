@@ -6,9 +6,9 @@ import type { Dataset } from '@wlet/domain'
  *
  * Os módulos de `src/lib/` exportam CONSTANTES derivadas daqui (`TRANSACTIONS`, `PLANNED`,
  * `BUDGET`…), lidas por 25 arquivos. Enquanto o dado vinha de `import x from '*.json'`, essa
- * forma era gratuita: o bundler resolvia tudo antes do primeiro render. Vindo do IndexedDB,
- * que é assíncrono, ela deixaria de funcionar — e trocar as constantes por getters mudaria os
- * 25 consumidores.
+ * forma era gratuita: o bundler resolvia tudo antes do primeiro render. Vindo da rede, que é
+ * assíncrona, ela deixaria de funcionar — e trocar as constantes por getters mudaria os 25
+ * consumidores.
  *
  * A saída é carregar ANTES: `main.tsx` preenche este módulo e só então importa o app, de modo
  * dinâmico. Quando `finance.ts` é avaliado, `dataset()` já tem o que devolver, e nada rio

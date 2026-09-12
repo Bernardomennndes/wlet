@@ -38,10 +38,9 @@ export function makeOrpcDatasetRepository({ client }: RemoteDeps): DatasetReposi
 /**
  * A ingestão, no servidor.
  *
- * O contraste com o adapter de Web Worker é o ponto: lá o pipeline roda no navegador e o
- * resultado volta para ser gravado; aqui os ARQUIVOS sobem e voltam o conjunto já publicado. O
- * `IngestRunner` é a mesma porta nos dois casos, e é por isso que o serviço não sabe a
- * diferença.
+ * Os ARQUIVOS sobem e volta o conjunto já publicado. Houve um adapter de Web Worker aqui ao
+ * lado, que rodava o pipeline no navegador e devolvia o resultado para ser gravado; a porta
+ * `IngestRunner` é a mesma nos dois casos, e é por isso que o serviço nunca soube a diferença.
  *
  * O `config` que o serviço passa é IGNORADO de propósito: quem manda é a configuração gravada no
  * servidor, e ela já está lá. Aceitar a do cliente abriria a porta para o pipeline rodar com uma
@@ -63,10 +62,6 @@ export function makeOrpcIngestRunner({ client }: RemoteDeps): IngestRunner {
        * `reingest` é exatamente "rode o pipeline sobre o que está guardado", e existia sem
        * nenhum chamador. É a rota certa para este par — o upload é de `save`, o processamento é
        * daqui, e cada byte sobe uma vez só.
-       *
-       * No adapter LOCAL nada disso se aplica: lá `save` grava no IndexedDB e o runner recebe os
-       * buffers. A diferença é do transporte, não do caso de uso, que é o que a porta existe para
-       * absorver.
        */
       const { dataset, report } = await client.dataset.reingest({})
       return { ...(dataset as unknown as Record<string, unknown>), report } as never
@@ -85,9 +80,9 @@ export function makeOrpcIngestRunner({ client }: RemoteDeps): IngestRunner {
 export function makeOrpcSourceStore({ client }: RemoteDeps): SourceStore {
   return {
     async save(sources: SourceFile[]) {
-      // `PUT /dataset/sources` SUBSTITUI a pasta inteira, como o adapter de IndexedDB faz: um
-      // extrato que a pessoa apagou não pode continuar produzindo lançamentos. Base64 pelo
-      // mesmo motivo do `ingest` acima — JSON não tem tipo binário —, e pelo mesmo helper.
+      // `PUT /dataset/sources` SUBSTITUI a pasta inteira: um extrato que a pessoa apagou não
+      // pode continuar produzindo lançamentos. Base64 pelo mesmo motivo do `ingest` acima —
+      // JSON não tem tipo binário —, e pelo mesmo helper.
       await client.dataset.writeSources({
         sources: sources.map((s) => ({ path: s.path, contentBase64: toBase64(s.bytes) })),
       })

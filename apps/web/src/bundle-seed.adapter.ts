@@ -5,8 +5,8 @@ import type { DatasetSeed } from '@wlet/services'
 /**
  * O conjunto que veio no build — quando veio.
  *
- * Ele é lido só num navegador cujo IndexedDB está vazio, e por isso é OPCIONAL: `pnpm ingest`
- * pode nunca ter rodado, e apagar `src/generated/` não pode derrubar o app. Devolve `null`
+ * Ele é lido só quando o servidor ainda não tem conjunto nenhum, e por isso é OPCIONAL:
+ * `pnpm ingest` pode nunca ter rodado, e apagar `src/generated/` não pode derrubar o app. Devolve `null`
  * nesse caso, e quem chama decide — o serviço abre com um conjunto vazio e a tela manda a
  * pessoa para "Meus dados".
  *

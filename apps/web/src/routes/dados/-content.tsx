@@ -9,7 +9,6 @@ import { preloaded } from '@/providers/preloaded'
 import { exportState, importState, inspectPackage, type ImportSummary, type PackageContents, type PackagePart } from '@wlet/services/backup'
 import { ImportDialog } from './-components/import-dialog'
 import { services } from '@/services'
-import { requestPersistence, storageEstimate } from '@wlet/services/shared/infrastructure/db'
 
 /**
  * De onde vêm os dados, e como trocá-los — sem terminal.
@@ -19,22 +18,19 @@ import { requestPersistence, storageEstimate } from '@wlet/services/shared/infra
  * O relatório não é detalhe — duplicado descartado, fatura recusada, transferência sem
  * contraparte e conta criada sozinha são exatamente o que explica um número estranho, e um
  * ingest de navegador sem ele seria mais silencioso que o do terminal.
+ *
+ * **O que os arquivos atravessam mudou.** Eles eram lidos e processados aqui, e o conjunto ficava
+ * no IndexedDB; agora sobem para o servidor, que roda o mesmo pipeline e publica o resultado. O
+ * relatório continua chegando inteiro — é a única coisa que explica um número estranho, e perdê-lo
+ * na travessia seria trocar um ingest silencioso por outro.
  */
-function bytes(n: number): string {
-  if (n < 1024) return `${n} B`
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`
-}
-
 type State = { kind: 'idle' } | { kind: 'running'; files: number } | { kind: 'done'; report: IngestReport } | { kind: 'failed'; message: string }
 
 export function DadosPageContent() {
   useDocumentTitle('Meus dados')
   const origin = preloaded().datasetOrigin
   const [state, setState] = useState<State>({ kind: 'idle' })
-  const [storage, setStorage] = useState<{ usage: number; quota: number } | null>(null)
   const [stored, setStored] = useState<number | null>(null)
-  const [persistent, setPersistent] = useState<boolean | null>(null)
   const input = useRef<HTMLInputElement>(null)
   const backupInput = useRef<HTMLInputElement>(null)
   const [backup, setBackup] = useState<{ kind: 'idle' } | { kind: 'done'; summary: ImportSummary } | { kind: 'failed'; message: string }>({ kind: 'idle' })
@@ -43,7 +39,6 @@ export function DadosPageContent() {
   const [pending, setPending] = useState<{ contents: PackageContents; payload: Parameters<typeof importState>[0]; key: number } | null>(null)
 
   const refreshStorage = useCallback(() => {
-    void storageEstimate().then(setStorage)
     void services().dataset.storedSources().then(setStored)
   }, [])
 
@@ -94,10 +89,10 @@ export function DadosPageContent() {
   /**
    * Baixa o arquivo sem passar por servidor nenhum.
    *
-   * `URL.createObjectURL` e um clique sintético: é o único caminho que mantém o dado no
-   * navegador — um endpoint de download exigiria enviar para fora justamente o que este app
-   * existe para não enviar. O objeto é revogado logo depois, senão o blob fica preso na
-   * memória da aba até ela fechar.
+   * `URL.createObjectURL` e um clique sintético. O pacote é MONTADO aqui, a partir do que os
+   * cinco serviços devolvem, e por isso não existe rota de exportação: uma rota teria de montar
+   * o mesmo arquivo de novo, do outro lado, e as duas versões divergiriam na primeira parte nova.
+   * O objeto é revogado logo depois, senão o blob fica preso na memória da aba até ela fechar.
    */
   const download = useCallback(async () => {
     const json = await exportState(services())
@@ -113,8 +108,8 @@ export function DadosPageContent() {
    * Lê o arquivo e ABRE o diálogo — não importa nada ainda.
    *
    * A inspeção é separada da escrita porque a pessoa precisa ver o que vai substituir antes de
-   * substituir. "Importar e ver no que dá" não é uma opção quando o armazenamento do navegador
-   * é a única cópia.
+   * substituir: a importação SOBRESCREVE o que está no servidor, e "importar e ver no que dá"
+   * não é uma opção quando a parte substituída não tem para onde voltar.
    */
   const inspect = useCallback(async (file: File | null | undefined) => {
     if (!file) return
@@ -150,7 +145,7 @@ export function DadosPageContent() {
       <header className="flex items-start justify-between">
         <div>
           <h1 className="text-lg font-semibold">Meus dados</h1>
-          <p className="text-muted-foreground text-xs">Os extratos são lidos no seu navegador e nunca saem dele.</p>
+          <p className="text-muted-foreground text-xs">Os extratos vão para o seu servidor, que lê e guarda.</p>
         </div>
       </header>
 
@@ -158,56 +153,39 @@ export function DadosPageContent() {
         <CardHeader>
           <CardTitle className="text-sm">Conjunto em uso</CardTitle>
           <CardDescription>
-            {origin === 'indexeddb'
-              ? 'Os seus dados, guardados neste navegador.'
+            {origin === 'stored'
+              ? 'Os seus dados, guardados no servidor.'
               : origin === 'seed'
                 ? 'A cópia de demonstração que veio no aplicativo — nenhum extrato seu foi lido ainda.'
                 : 'Não há conjunto nenhum: nem os seus dados, nem a demonstração. É daqui que se sai do zero.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-xs">
-          <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <dl className="grid grid-cols-2 gap-2">
             <div>
               <dt className="text-muted-foreground">Origem</dt>
-              <dd className="font-mono">{origin === 'indexeddb' ? 'IndexedDB' : origin === 'seed' ? 'aplicativo' : 'vazio'}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Espaço usado</dt>
-              <dd className="font-mono">{storage ? `${bytes(storage.usage)} de ${bytes(storage.quota)}` : '—'}</dd>
+              <dd className="font-mono">{origin === 'stored' ? 'servidor' : origin === 'seed' ? 'aplicativo' : 'vazio'}</dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Arquivos guardados</dt>
               <dd className="font-mono">{stored === null ? '—' : stored === 0 ? 'nenhum' : String(stored)}</dd>
             </div>
-            <div>
-              <dt className="text-muted-foreground">Proteção contra limpeza</dt>
-              <dd className="font-mono">{persistent === null ? '—' : persistent ? 'ativa' : 'não concedida'}</dd>
-            </div>
           </dl>
+          {/* A medição de espaço e o pedido de persistência saíram com o armazenamento do
+              navegador: os dois falavam da cota do IndexedDB, e o navegador não guarda mais nada
+              que o app leia. Quem cuida de espaço e de cópia agora é quem opera o servidor. */}
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={refreshStorage}>
-              <ArrowClockwise /> Medir espaço
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                void requestPersistence().then(setPersistent)
-              }}
-            >
-              <CheckCircle /> Pedir para não apagar
+              <ArrowClockwise /> Atualizar
             </Button>
           </div>
-          <p className="text-muted-foreground">
-            O navegador pode limpar o armazenamento sob pressão de disco, e com ele vão os seus dados. Peça a proteção e mantenha uma cópia exportada — o preço de o app não ter servidor.
-          </p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-sm">Ler extratos e faturas</CardTitle>
-          <CardDescription>Escolha a pasta com os arquivos. Ela é lida aqui mesmo: nada é enviado para lugar nenhum.</CardDescription>
+          <CardDescription>Escolha a pasta com os arquivos. Eles sobem para o servidor, que roda o pipeline e publica o resultado.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-xs">
           <input
@@ -235,8 +213,8 @@ export function DadosPageContent() {
             )}
           </div>
           <p className="text-muted-foreground">
-            Os arquivos ficam guardados aqui depois da primeira leitura. Mudou um perfil de conta ou uma regra de categoria? Reprocessar aplica a mudança sem escolher a pasta de novo — as duas agem na
-            LEITURA do arquivo, então nada muda sem passar pelo pipeline outra vez.
+            Os arquivos ficam guardados no servidor depois da primeira leitura. Mudou um perfil de conta ou uma regra de categoria? Reprocessar aplica a mudança sem escolher a pasta de novo — as duas
+            agem na LEITURA do arquivo, então nada muda sem passar pelo pipeline outra vez.
           </p>
 
           {state.kind === 'failed' && (
@@ -253,7 +231,7 @@ export function DadosPageContent() {
         <CardHeader>
           <CardTitle className="text-sm">Exportar e importar</CardTitle>
           <CardDescription>
-            Tudo o que existe neste navegador, num arquivo só — lançamentos, declarações, planos, ajustes e os extratos originais. Na importação você escolhe o que trazer.
+            Tudo o que existe na sua conta, num arquivo só — lançamentos, declarações, planos, ajustes e os extratos originais. Na importação você escolhe o que trazer.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-xs">

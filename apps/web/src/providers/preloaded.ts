@@ -8,7 +8,7 @@ import type { Preferences } from '@wlet/services/preferences'
  *
  * Mesmo problema do dataset, mesma solução. `FiltersProvider` e `ThemeProvider` leem o estado
  * gravado dentro do inicializador de `useState`, que é síncrono por definição; os serviços são
- * assíncronos porque um deles fala com IndexedDB. Transformar os providers em assíncronos
+ * assíncronos porque todos falam com o servidor. Transformar os providers em assíncronos
  * significaria um estado de carregamento em toda tela e, no caso do tema, um flash de tela
  * clara antes de saber que a pessoa escolheu escuro.
  *

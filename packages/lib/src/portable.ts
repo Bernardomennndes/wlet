@@ -2,7 +2,7 @@
  * O estado do navegador em JSON — ida e volta, para o botão de exportar e importar.
  *
  * Existe por causa de um problema concreto: quando os dados saem do arquivo e passam a morar
- * no IndexedDB, o navegador vira a ÚNICA cópia, e storage de navegador é despejável — sob
+ * no servidor, ele vira a ÚNICA cópia, e uma única cópia é despejável — sob
  * pressão de disco ou num "limpar dados do site" ele vai embora sem aviso. O arquivo exportado
  * é a resposta a isso, e por isso ele precisa ser um JSON comum, que a pessoa consiga guardar
  * em qualquer lugar e ler com qualquer coisa.
