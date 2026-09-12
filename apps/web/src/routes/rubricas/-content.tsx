@@ -1,16 +1,19 @@
-import { Warning } from '@phosphor-icons/react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Budget, BudgetCategory } from '@wlet/domain'
 import { CATEGORIES, categoryLabel } from '@wlet/domain'
 import { MONTHLY_OCCURRENCES, monthRange, rubricAmount, rubricSpent, weekRange } from '@wlet/domain/rubric'
 import { formatBRL, formatDayMonth, formatMonthLongLabel } from '@wlet/lib/format'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
 import { ToggleGroup, ToggleGroupItem } from '@wlet/ui/components/toggle-group'
+import { toast } from '@wlet/ui/toast'
 import { useCallback, useMemo, useState } from 'react'
+import { api } from '@/api'
 import { KpiCard, KpiCardGrid } from '@/components/kpi'
-import { useDeclarations } from '@/hooks/use-declarations'
 import { useDocumentTitle } from '@/hooks/use-document-title'
+import { declarations } from '@/lib/dataset'
 import { lastDateWithData, lastMonthWithData, sum } from '@/lib/finance'
 import { useFilters } from '@/providers/use-filters'
+import { services } from '@/services'
 import { AddRubricButton } from './-components/add-rubric-button'
 import { RubricList } from './-components/rubric-list'
 import { RUBRICAS_METRICS } from './-metric-definitions'
@@ -42,12 +45,16 @@ const EXPENSE_ITEMS = CATEGORIES.filter((c) => c.kind === 'expense').map((c) => 
 export function RubricasPageContent() {
   useDocumentTitle('Rubricas')
   const { history } = useFilters()
-  const { current, saving, error, save } = useDeclarations()
+  const queryClient = useQueryClient()
+  // A mesma leitura da Configuração, e a mesma chave: as duas telas editam o MESMO agregado, e é
+  // a chave vinda do contrato que faz uma enxergar o que a outra gravou. A explicação de por que
+  // o `queryFn` não é o de fábrica está em `routes/configuracao/-content.tsx`.
+  const { data: declarado } = useQuery({ queryKey: api().config.get.key(), queryFn: () => services().config.load(), initialData: declarations })
 
   const [base, setBase] = useState<Base>('month')
   const currentMonth = lastMonthWithData()
   const today = lastDateWithData()
-  const budget: Budget = current.budget
+  const budget: Budget = declarado.budget
   const declared = useMemo(() => budget.byCategory ?? [], [budget])
 
   /**
@@ -94,10 +101,59 @@ export function RubricasPageContent() {
    */
   const baseLabel = base === 'week' ? 'na semana' : 'no mês'
 
-  const setBudget = useCallback((byCategory: BudgetCategory[]) => save({ budget: { ...budget, byCategory } }), [budget, save])
+  /**
+   * TRÊS escritas, três avisos — e o texto de cada um nomeia a categoria.
+   *
+   * A tentação é uma só, "gravarRubricas", com a lista nova por parâmetro: ela seria menor e
+   * diria "Rubricas guardadas" para adicionar, editar e remover igualmente. Quem acabou de
+   * remover Mercado precisa ler que Mercado saiu — é a única confirmação de que clicou na linha
+   * certa. A mensagem é do ponto de uso, e por isso as escritas são três.
+   *
+   * Nenhuma trata erro: ele é um só, no `MutationCache` do provider.
+   */
+  const gravarRubricas = useCallback((byCategory: BudgetCategory[]) => services().config.replace({ ...declarado, budget: { ...budget, byCategory } }), [declarado, budget])
 
-  const onChange = useCallback((categoryId: string, patch: Partial<BudgetCategory>) => setBudget(declared.map((r) => (r.categoryId === categoryId ? { ...r, ...patch } : r))), [declared, setBudget])
-  const onRemove = useCallback((categoryId: string) => setBudget(declared.filter((r) => r.categoryId !== categoryId)), [declared, setBudget])
+  /**
+   * O resultado entra no cache NA HORA, e a chave é invalidada em seguida — as duas coisas.
+   *
+   * Sem o `setQueryData`, duas edições seguidas partiriam do mesmo retrato e a segunda gravaria
+   * por cima da primeira. Sem a invalidação, a tela passaria a confiar na resposta de uma escrita
+   * como se fosse leitura.
+   */
+  const aplicar = useCallback(
+    (proximo: Awaited<ReturnType<typeof gravarRubricas>>) => {
+      queryClient.setQueryData(api().config.get.key(), proximo)
+      void queryClient.invalidateQueries({ queryKey: api().config.key() })
+    },
+    [queryClient],
+  )
+
+  const { mutate: adicionar, isPending: adicionando } = useMutation({
+    mutationFn: ({ categoryId }: { categoryId: string }) => gravarRubricas([...declared, { categoryId, amount: 0 }]),
+    onSuccess: (proximo, { categoryId }) => {
+      aplicar(proximo)
+      toast.success(`Rubrica de ${categoryLabel(categoryId)} criada`)
+    },
+  })
+
+  const { mutate: editar, isPending: editando } = useMutation({
+    mutationFn: ({ categoryId, patch }: { categoryId: string; patch: Partial<BudgetCategory> }) => gravarRubricas(declared.map((r) => (r.categoryId === categoryId ? { ...r, ...patch } : r))),
+    onSuccess: (proximo, { categoryId }) => {
+      aplicar(proximo)
+      toast.success(`Rubrica de ${categoryLabel(categoryId)} guardada`)
+    },
+  })
+
+  const { mutate: remover, isPending: removendo } = useMutation({
+    mutationFn: ({ categoryId }: { categoryId: string }) => gravarRubricas(declared.filter((r) => r.categoryId !== categoryId)),
+    onSuccess: (proximo, { categoryId }) => {
+      aplicar(proximo)
+      toast.success(`Rubrica de ${categoryLabel(categoryId)} removida`)
+    },
+  })
+
+  const onChange = useCallback((categoryId: string, patch: Partial<BudgetCategory>) => editar({ categoryId, patch }), [editar])
+  const onRemove = useCallback((categoryId: string) => remover({ categoryId }), [remover])
 
   // Uma categoria só pode ter UMA rubrica: duas somariam duas vezes o mesmo teto, e a tela
   // mostraria duas barras medindo o mesmo gasto.
@@ -120,15 +176,10 @@ export function RubricasPageContent() {
           {/* Adicionar é ESCOLHER A CATEGORIA, então a lista precisa existir — a categoria é a
                 identidade da rubrica e não se troca depois. O que mudou foi o CONTROLE: um
                 combobox afirma um valor, e isto é uma ação. Ver `add-rubric-button.tsx`. */}
-          {available.length > 0 && <AddRubricButton options={available} onPick={(categoryId) => setBudget([...declared, { categoryId, amount: 0 }])} />}
+          {available.length > 0 && <AddRubricButton options={available} disabled={adicionando} onPick={(categoryId) => adicionar({ categoryId })} />}
         </div>
       </header>
 
-      {error && (
-        <p className="text-destructive flex items-start gap-2 text-xs">
-          <Warning className="mt-0.5 shrink-0" /> {error}
-        </p>
-      )}
       <KpiCardGrid columns={3}>
         <KpiCard
           label={`Planejado ${baseLabel}`}
@@ -152,7 +203,10 @@ export function RubricasPageContent() {
           <CardDescription>O gasto {baseLabel} contra o planejado. O valor é editado aqui mesmo — e pode ser detalhado item a item.</CardDescription>
         </CardHeader>
         <CardContent>
-          <RubricList rubrics={rubrics} windowLabel={windowLabel} disabled={saving} onChange={onChange} onRemove={onRemove} />
+          {/* A lista inteira espera enquanto uma linha grava: editar e remover reordenam o
+              mesmo agregado, e deixar a segunda linha editável durante a gravação da primeira
+              faria a segunda partir de um retrato vencido. */}
+          <RubricList rubrics={rubrics} windowLabel={windowLabel} disabled={editando || removendo} onChange={onChange} onRemove={onRemove} />
         </CardContent>
       </Card>
     </div>

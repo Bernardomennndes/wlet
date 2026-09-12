@@ -1,9 +1,13 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
-import { useDeclarations } from '@/hooks/use-declarations'
+import { toast } from '@wlet/ui/toast'
+import { api } from '@/api'
 import { useDocumentTitle } from '@/hooks/use-document-title'
+import { declarations } from '@/lib/dataset'
+import { services } from '@/services'
 import { PlannedSheet } from './-components/planned-sheet'
-import { CalendarDot, PencilSimple, Plus, Trash, Warning } from '@phosphor-icons/react'
+import { CalendarDot, PencilSimple, Plus, Trash } from '@phosphor-icons/react'
 import { CategoryBadge } from '@/components/category-badge'
 import { DataList, DataListField, DataListItem, DataListItemFields, DataListItemHeader } from '@/components/data-list/data-list'
 import { EntityBadge } from '@/components/entity-badge'
@@ -75,8 +79,11 @@ export function PrevisaoPageContent() {
    * R$ 1.500 — a mesma tela afirmando dois números para o mesmo lançamento até um refresh.
    * Com o estado, os três pontos que dependem das regras se movem juntos.
    */
-  const { current, saving, error, save } = useDeclarations()
-  const planned = current.planned
+  const queryClient = useQueryClient()
+  // A mesma leitura da Configuração, e a mesma chave — a explicação de por que o `queryFn` não é
+  // o de fábrica está em `routes/configuracao/-content.tsx`.
+  const { data: declarado } = useQuery({ queryKey: api().config.get.key(), queryFn: () => services().config.load(), initialData: declarations })
+  const planned = declarado.planned
   const [editing, setEditing] = useState<PlannedEntry | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   // A janela da prévia sai das próprias regras, não do filtro do cabeçalho: começa no mês
@@ -152,9 +159,51 @@ export function PrevisaoPageContent() {
     [history, scope, planned, plans],
   )
 
-  /** Uma escrita só: a lista inteira volta pelo serviço, que valida o agregado. */
-  const writePlanned = useCallback((next: PlannedEntry[]) => save({ planned: next }), [save])
-  const removeEntry = useCallback((id: string) => writePlanned(planned.filter((e) => e.id !== id)), [planned, writePlanned])
+  /** A lista inteira volta pelo serviço, que valida o agregado (§3: um agregado, uma escrita). */
+  const gravarPrevistos = useCallback((next: PlannedEntry[]) => services().config.replace({ ...declarado, planned: next }), [declarado])
+
+  /**
+   * O resultado entra no cache NA HORA, e a chave é invalidada em seguida — as duas coisas.
+   *
+   * Sem o `setQueryData`, criar e logo editar partiriam do mesmo retrato e a segunda escrita
+   * apagaria a primeira. Sem a invalidação, a tela passaria a confiar na resposta de uma escrita
+   * como se fosse leitura.
+   */
+  const aplicar = useCallback(
+    (proximo: Awaited<ReturnType<typeof gravarPrevistos>>) => {
+      queryClient.setQueryData(api().config.get.key(), proximo)
+      void queryClient.invalidateQueries({ queryKey: api().config.key() })
+    },
+    [queryClient],
+  )
+
+  /**
+   * DUAS escritas, dois avisos, e o texto de cada um nomeia a regra.
+   *
+   * "Lançamentos previstos guardados" serviria às duas e não diria a nenhuma o que aconteceu —
+   * quem acabou de excluir Aluguel precisa ler que Aluguel saiu, porque é a única confirmação
+   * de que clicou na linha certa. Nenhuma trata erro: ele é um só, no provider.
+   */
+  const { mutate: excluir, isPending: excluindo } = useMutation({
+    mutationFn: ({ entry }: { entry: PlannedEntry }) => gravarPrevistos(planned.filter((e) => e.id !== entry.id)),
+    onSuccess: (proximo, { entry }) => {
+      aplicar(proximo)
+      toast.success(`"${entry.label}" excluído dos previstos`)
+    },
+  })
+
+  const { mutate: gravarEntrada, isPending: gravandoEntrada } = useMutation({
+    mutationFn: ({ next }: { next: PlannedEntry[]; label: string; criando: boolean }) => gravarPrevistos(next),
+    onSuccess: (proximo, { label, criando }) => {
+      aplicar(proximo)
+      toast.success(criando ? `"${label}" adicionado aos previstos` : `"${label}" atualizado`)
+    },
+  })
+
+  /** Enquanto QUALQUER das duas grava, a lista inteira espera: as duas reescrevem o agregado. */
+  const saving = excluindo || gravandoEntrada
+
+  const removeEntry = useCallback((entry: PlannedEntry) => excluir({ entry }), [excluir])
   const submitEntry = useCallback(
     (values: Omit<PlannedEntry, 'id'>) => {
       // Editar preserva o id; criar inventa um que não colide com nenhum existente — a
@@ -165,13 +214,17 @@ export function PrevisaoPageContent() {
       // para elas na gaveta, então elas não podem sair de lá — quem edita é que as carrega
       // intactas. Enquanto a gaveta as devolvia no payload, ela afirmava um dado que nenhuma
       // tecla dela produzia.
-      if (editing) return writePlanned(planned.map((e) => (e.id === editing.id ? { ...values, id: editing.id, exceptions: editing.exceptions } : e)))
+      if (editing) {
+        const next = planned.map((e) => (e.id === editing.id ? { ...values, id: editing.id, exceptions: editing.exceptions } : e))
+        gravarEntrada({ next, label: values.label, criando: false })
+        return
+      }
       const usados = new Set(planned.map((e) => e.id))
       let n = planned.length + 1
       while (usados.has(`regra-${n}`)) n += 1
-      writePlanned([...planned, { ...values, id: `regra-${n}` }])
+      gravarEntrada({ next: [...planned, { ...values, id: `regra-${n}` }], label: values.label, criando: true })
     },
-    [editing, planned, writePlanned],
+    [editing, planned, gravarEntrada],
   )
 
   const preview = useMemo<ForecastRow[]>(() => {
@@ -238,7 +291,7 @@ export function PrevisaoPageContent() {
         <CardHeader>
           <CardTitle>Lançamentos previstos</CardTitle>
           <CardDescription>
-            Declarado por você e guardado NESTE navegador — <code className="font-mono">scripts/planned.config.ts</code> só semeia um navegador que ainda não tem nada.
+            Declarado por você e guardado no servidor — <code className="font-mono">apps/web/scripts/planned.config.ts</code> só semeia uma instalação que ainda não tem nada.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -281,7 +334,7 @@ export function PrevisaoPageContent() {
                         >
                           <PencilSimple />
                         </Button>
-                        <Button size="icon-sm" variant="ghost" aria-label={`Excluir ${entry.label}`} disabled={saving} onClick={() => removeEntry(entry.id)}>
+                        <Button size="icon-sm" variant="ghost" aria-label={`Excluir ${entry.label}`} disabled={saving} onClick={() => removeEntry(entry)}>
                           <Trash />
                         </Button>
                       </div>
@@ -307,12 +360,8 @@ export function PrevisaoPageContent() {
         </CardContent>
       </Card>
 
-      {error && (
-        <p className="text-destructive flex items-start gap-2 text-xs">
-          <Warning className="mt-0.5 shrink-0" /> {error}
-        </p>
-      )}
-      {/* Não há aviso de "recarregue a página": esta tela LÊ o estado editável, então o
+      {/* Não há aviso de erro nem de "recarregue a página". O erro é um só, no `MutationCache`
+          do provider — uma cópia por tela seria um texto livre para divergir dos outros. E o
           gráfico e a tabela já se moveram junto com a lista. O aviso só faz sentido onde o
           efeito de fato espera um refresh. */}
 

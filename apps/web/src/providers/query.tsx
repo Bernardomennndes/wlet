@@ -35,6 +35,13 @@ function criarCliente(): QueryClient {
       },
       // Escrita NÃO se repete sozinha: "gravar de novo" pode significar gravar duas vezes, e não
       // há como saber daqui se a primeira chegou.
+      //
+      // O `networkMode` fica no padrão (`'online'`), e vale saber o que isso faz: com o navegador
+      // OFFLINE a escrita é PAUSADA em vez de falhar, e retomada quando a rede volta. Medido: com
+      // a rede desligada, um clique não dispara requisição nenhuma e não produz aviso — o que a
+      // pessoa vê é o controle desabilitado, porque `isPending` fica verdadeiro enquanto pausa.
+      // É o comportamento certo para este app (a escrita chega quando der), mas é preciso saber
+      // que "sem toast" ali não é defeito da tradução de erro.
       mutations: { retry: false },
     },
     mutationCache: new MutationCache({

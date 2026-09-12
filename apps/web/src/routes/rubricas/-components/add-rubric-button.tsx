@@ -29,7 +29,7 @@ export interface CategoryChoice {
  * O painel controla o próprio `open` porque a escolha não muda o valor: sem `value` para
  * mudar, o componente não tem como saber que a ação terminou e fecharia só no clique fora.
  */
-export function AddRubricButton({ options, onPick }: { options: CategoryChoice[]; onPick: (categoryId: string) => void }) {
+export function AddRubricButton({ options, onPick, disabled }: { options: CategoryChoice[]; onPick: (categoryId: string) => void; disabled?: boolean }) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -55,7 +55,9 @@ export function AddRubricButton({ options, onPick }: { options: CategoryChoice[]
       filter={(item: CategoryChoice, query: string) => query.trim() === '' || fold(`${item.label} ${item.description ?? ''}`).includes(fold(query.trim()))}
     >
       {/* Primário, sem `variant`: é a ação da tela, e é a única. O `Button` já nasce assim. */}
-      <ComboboxTrigger aria-label="Adicionar rubrica de uma categoria" render={<Button />}>
+      {/* `disabled` é o `isPending` da escrita que este botão dispara: enquanto a rubrica sobe,
+          um segundo clique criaria a segunda a partir do MESMO retrato e a primeira sumiria. */}
+      <ComboboxTrigger aria-label="Adicionar rubrica de uma categoria" disabled={disabled} render={<Button />}>
         <Plus data-icon="inline-start" /> Adicionar rubrica
       </ComboboxTrigger>
       {/* Largura própria: o painel do registry herda a do gatilho (`w-(--anchor-width)`), e o
