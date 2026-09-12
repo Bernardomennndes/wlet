@@ -2,27 +2,28 @@
 
 Controle financeiro pessoal (PF) e da empresa (PJ) a partir de extratos e faturas exportados dos bancos. Um pipeline lê os arquivos, identifica as contas, categoriza e pareia transferências, e o resultado alimenta a SPA (Vite, React 19, Tailwind v4, React Router, Recharts).
 
-**O app tem dois modos, e os dois são definitivos.** Sem configuração ele guarda tudo no seu
-navegador — IndexedDB e `localStorage` —, e nada sai da máquina. Com `VITE_API_URL` apontando
-para o `apps/api`, ele fala com um servidor e um Postgres, e a mesma conta abre em dois
-aparelhos. **Os mesmos serviços rodam nos dois**: só muda quem responde às portas, e nenhuma
-tela sabe a diferença.
+**O app fala com um servidor que é seu.** `apps/api` guarda tudo num Postgres que você
+hospeda, e `VITE_API_URL` diz onde ele está — a variável é obrigatória, e sem ela o app recusa
+a subir dizendo o que falta. Houve um modo que guardava tudo no navegador; ele saiu porque cada
+dado tinha duas respostas possíveis conforme onde fosse lido, e a mesma conta aberta em dois
+aparelhos mostrava números diferentes sem nada avisar.
 
-O pipeline é **um só e roda nos três lugares**: no terminal (`pnpm ingest`), no navegador (Web
-Worker, pela tela "Meus dados") e no servidor. Duas implementações do mesmo casamento
-divergiriam no primeiro ajuste — e a prova de que é uma só é executável: o servidor produz as
-mesmas 5.694 transações, com os mesmos ids, que o terminal.
+O pipeline é **um só e roda nos dois lugares**: no terminal (`pnpm ingest`) e no servidor. Duas
+implementações do mesmo casamento divergiriam no primeiro ajuste — e a prova de que é uma só é
+executável: o servidor produz as mesmas 5.694 transações, com os mesmos ids, que o terminal.
 
 ```sh
 pnpm install
 pnpm run setup  # cria os *.config.ts locais e gera um dataset fictício
-pnpm dev
+cp .env.example .env && docker compose up -d   # Postgres; preencha AUTH_SECRET com `openssl rand -base64 32`
+pnpm --filter @wlet/db migrate
+pnpm dev        # sobe a API e o app juntos
 ```
 
 `pnpm run setup` deixa o app rodando com dados inventados, para você ver a tela antes de entregar
 qualquer extrato. Para usar os seus, veja **Como adicionar movimentações**.
 
-Outros scripts: `pnpm ingest`, `pnpm package` (gera um arquivo com TUDO — conjunto, declarações e os extratos originais — para importar noutro navegador), `pnpm cdi` (baixa o CDI do Banco Central, para valorar a renda fixa), `pnpm build`, `pnpm preview`, `pnpm lint`, `pnpm check` (testes do calendário bancário e da conciliação, no runner do próprio Node).
+Outros scripts: `pnpm ingest`, `pnpm package` (gera um arquivo com TUDO — conjunto, declarações e os extratos originais — para importar noutra instalação), `pnpm cdi` (baixa o CDI do Banco Central, para valorar a renda fixa), `pnpm build`, `pnpm preview`, `pnpm lint`, `pnpm check` (testes do calendário bancário e da conciliação, no runner do próprio Node).
 
 ## Privacidade
 
@@ -38,10 +39,10 @@ Outros scripts: `pnpm ingest`, `pnpm package` (gera um arquivo com TUDO — conj
 | `apps/web/scripts/receivables.config.ts` | quem te deve dinheiro |
 | `apps/web/scripts/goals.config.ts`, `budget.config.ts` | metas, teto de gastos e rubricas |
 
-> **No modo servidor a promessa muda de forma, e vale dizer com clareza.** Com `VITE_API_URL`
-> configurada, os extratos, as transações e as declarações passam a viver num Postgres que você
-> hospeda — não mais só no seu navegador. O `.gitignore` continua valendo para o repositório; o
-> que muda é onde o dado descansa. Sem essa variável, nada sai da máquina.
+> **A promessa é "o servidor é seu", e não "nada sai da máquina".** Os extratos, as transações e
+> as declarações vivem num Postgres que VOCÊ hospeda, e a conta é protegida por uma sessão em
+> cookie `httpOnly`. O `.gitignore` continua valendo para o repositório; o que ele não cobre é
+> onde o dado descansa — isso é escolha de quem instala.
 
 Cada `*.config.ts` tem um `*.config.example.ts` versionado, com a mesma forma e dados
 fictícios — é dele que o `pnpm run setup` parte. O `apps/web/src/generated/` de um clone novo é escrito
@@ -55,9 +56,9 @@ gerador, não a massa de dados.
 3. Solte o arquivo na pasta correspondente em `apps/web/docs/extrato/<banco>/` ou `apps/web/docs/fatura/<banco>/`.
 4. Rode `pnpm ingest`. O relatório no terminal mostra arquivos lidos, duplicados ignorados, transferências sem contraparte e lançamentos sem categoria específica.
 
-**Ou sem terminal nenhum:** abra **Meus dados** e escolha a pasta `apps/web/docs/`. O mesmo pipeline roda num Web Worker, o mesmo relatório aparece na tela, e o conjunto vai para o IndexedDB do navegador. É preciso escolher a PASTA, e não arquivos soltos: só assim o navegador entrega o caminho de cada arquivo, e sem caminho o pipeline não distingue a fatura do extrato do mesmo banco.
+**Ou sem terminal nenhum:** abra **Meus dados** e escolha a pasta `apps/web/docs/`. Os arquivos sobem para o servidor, o mesmo pipeline roda lá, e o mesmo relatório aparece na tela. É preciso escolher a PASTA, e não arquivos soltos: só assim o navegador entrega o caminho de cada arquivo, e sem caminho o pipeline não distingue a fatura do extrato do mesmo banco.
 
-> Enquanto o dado morava só em arquivo, perdê-lo era irrelevante — bastava rodar o ingest de novo. No navegador ele é a única cópia, e o navegador pode limpá-la sob pressão de disco. A tela **Meus dados** pede a proteção do armazenamento e mostra o espaço em uso; mantenha também uma cópia exportada.
+> Os arquivos ficam guardados no servidor depois da primeira leitura, e é por isso que **Reprocessar** existe: mudou um perfil de conta ou uma regra de categoria, ele aplica a mudança sem escolher a pasta de novo. Enquanto o dado morava só em arquivo, perdê-lo era irrelevante — bastava rodar o ingest de novo; agora o Postgres é a cópia que importa, então faça backup dele, e use **Exportar** para ter também um JSON que se lê em qualquer lugar.
 
 Regras de leitura:
 
@@ -90,7 +91,7 @@ Regras de leitura:
 
 ## Categorias
 
-Regras por palavra-chave, em três camadas — a primeira que casa vence. `PRIORITY_RULES` (movimentação interna e plataforma intermediária, como o `IFD*` do iFood) ganha de tudo; depois as suas regras, em `apps/web/scripts/rules.config.ts`, que não é versionado; por último as genéricas de `BASE_RULES`. A ordem é o que permite `MERCADO DO SEU JOÃO` ganhar do genérico `MERCADO `. Ajustes manuais feitos na tabela de transações ficam no `localStorage` do navegador e podem ser exportados em JSON pelo botão da página. Para tornar um ajuste permanente, transforme-o em regra e rode `pnpm ingest` de novo.
+Regras por palavra-chave, em três camadas — a primeira que casa vence. `PRIORITY_RULES` (movimentação interna e plataforma intermediária, como o `IFD*` do iFood) ganha de tudo; depois as suas regras, em `apps/web/scripts/rules.config.ts`, que não é versionado; por último as genéricas de `BASE_RULES`. A ordem é o que permite `MERCADO DO SEU JOÃO` ganhar do genérico `MERCADO `. Ajustes manuais feitos na tabela de transações ficam no servidor, chaveados pelo id do lançamento, e viajam no pacote de exportação. Para tornar um ajuste permanente, transforme-o em regra e reprocesse — assim ele passa a valer para todo lançamento parecido, e não só para aquele.
 
 ## Estrutura
 
@@ -137,7 +138,7 @@ Todos a partir da raiz:
 
 | | |
 |---|---|
-| `pnpm dev` | sobe o app |
+| `pnpm dev` | sobe o app e a API |
 | `pnpm build` · `pnpm check` · `pnpm lint` · `pnpm format` | os portões |
 | `pnpm type:check` | typecheck de todos os pacotes, isoladamente |
 | `pnpm ingest` · `pnpm cdi` · `pnpm package` · `pnpm setup` | as cascas de Node do app |
@@ -158,6 +159,12 @@ ganha do `.env`.
 Só as variáveis com prefixo `VITE_` chegam ao navegador — é essa regra que mantém a
 `DATABASE_URL` e o `AUTH_SECRET` fora do bundle, mesmo morando no mesmo arquivo que a
 `VITE_API_URL`.
+
+**`VITE_API_URL` é obrigatória.** Ela aponta para a origem mais o canal (`http://host/v1`); o
+Better Auth mora na raiz da mesma origem, e o app tira o `/v1` sozinho — uma variável por
+servidor, para as duas não divergirem no primeiro deploy. Sem ela o app não sobe, e diz por quê:
+não existe mais um modo sem servidor para onde cair, e um endereço adivinhado só adiaria o erro
+até a primeira requisição, onde ele chega como 404 sem explicação.
 
 ## Licença
 
