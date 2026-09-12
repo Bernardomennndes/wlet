@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react'
 import type { Icon as PhosphorIcon } from '@phosphor-icons/react'
 import { Button } from './button'
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList, ComboboxTrigger } from './combobox'
+import { fold } from '@wlet/lib/search'
 import { cn } from '@wlet/lib/utils'
 
 export interface SelectOption {
@@ -52,13 +53,6 @@ interface AppComboboxProps {
   variant?: ComponentProps<typeof Button>['variant']
   size?: ComponentProps<typeof Button>['size']
 }
-
-/** Sem acento e sem caixa: em português, quem digita "alimentacao" está procurando "Alimentação". */
-const fold = (text: string) =>
-  text
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase()
 
 /**
  * Seletor de opção única com busca, sobre o Combobox do registry (Base UI).
