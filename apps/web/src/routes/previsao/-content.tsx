@@ -12,6 +12,7 @@ import { CategoryBadge } from '@/components/category-badge'
 import { DataList, DataListField, DataListItem, DataListItemFields, DataListItemHeader } from '@/components/data-list/data-list'
 import { EntityBadge } from '@/components/entity-badge'
 import { FlowBadge } from '@/components/flow-badge'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@wlet/ui/components/alert-dialog'
 import { Button } from '@wlet/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@wlet/ui/components/empty'
@@ -203,7 +204,15 @@ export function PrevisaoPageContent() {
   /** Enquanto QUALQUER das duas grava, a lista inteira espera: as duas reescrevem o agregado. */
   const saving = excluindo || gravandoEntrada
 
-  const removeEntry = useCallback((entry: PlannedEntry) => excluir({ entry }), [excluir])
+  /**
+   * ABRE a pergunta em vez de excluir.
+   *
+   * Uma regra de previsão pode ter exceções por mês, e elas vão embora com ela — informação que a
+   * linha não mostra. A `mutation-confirmation.md` §1 não admite disparo direto no `onClick` de uma
+   * mutação instantânea, e aqui o motivo tem nome.
+   */
+  const [previstoParaExcluir, setPrevistoParaExcluir] = useState<PlannedEntry | null>(null)
+  const removeEntry = useCallback((entry: PlannedEntry) => setPrevistoParaExcluir(entry), [])
   const submitEntry = useCallback(
     (values: Omit<PlannedEntry, 'id'>) => {
       // Editar preserva o id; criar inventa um que não colide com nenhum existente — a
@@ -364,6 +373,31 @@ export function PrevisaoPageContent() {
           do provider — uma cópia por tela seria um texto livre para divergir dos outros. E o
           gráfico e a tabela já se moveram junto com a lista. O aviso só faz sentido onde o
           efeito de fato espera um refresh. */}
+
+      <AlertDialog open={previstoParaExcluir !== null} onOpenChange={(aberto) => !aberto && setPrevistoParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir este lançamento previsto?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{previstoParaExcluir?.label}</strong> sai da previsão
+              {Object.keys(previstoParaExcluir?.exceptions ?? {}).length > 0 ? `, com as ${Object.keys(previstoParaExcluir?.exceptions ?? {}).length} exceções por mês que ele tem` : ''}. Não há como
+              desfazer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel />
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (previstoParaExcluir) excluir({ entry: previstoParaExcluir })
+                setPrevistoParaExcluir(null)
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <PlannedSheet open={sheetOpen} onOpenChange={setSheetOpen} editing={editing} defaultMonth={shiftMonth(partialMonth, 1)} minMonth={monthsWithData[0] ?? partialMonth} onSubmit={submitEntry} />
 

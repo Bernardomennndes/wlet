@@ -3,6 +3,7 @@ import type { Budget, BudgetCategory } from '@wlet/domain'
 import { CATEGORIES, categoryLabel } from '@wlet/domain'
 import { MONTHLY_OCCURRENCES, monthRange, rubricAmount, rubricSpent, weekRange } from '@wlet/domain/rubric'
 import { formatBRL, formatDayMonth, formatMonthLongLabel } from '@wlet/lib/format'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@wlet/ui/components/alert-dialog'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
 import { ToggleGroup, ToggleGroupItem } from '@wlet/ui/components/toggle-group'
 import { toast } from '@wlet/ui/toast'
@@ -52,6 +53,14 @@ export function RubricasPageContent() {
   const { data: declarado } = useQuery({ queryKey: api().config.get.key(), queryFn: () => services().config.load(), initialData: declarations })
 
   const [base, setBase] = useState<Base>('month')
+  /**
+   * A rubrica esperando confirmação — o id da categoria, não o objeto.
+   *
+   * A categoria É a identidade de uma rubrica (uma por categoria, pela regra logo abaixo), então o
+   * id basta para reabrir o rótulo; guardar o objeto arriscaria mostrar na pergunta um valor que a
+   * lista já atualizou.
+   */
+  const [rubricaParaRemover, setRubricaParaRemover] = useState<string | null>(null)
   const currentMonth = lastMonthWithData()
   const today = lastDateWithData()
   const budget: Budget = declarado.budget
@@ -153,7 +162,9 @@ export function RubricasPageContent() {
   })
 
   const onChange = useCallback((categoryId: string, patch: Partial<BudgetCategory>) => editar({ categoryId, patch }), [editar])
-  const onRemove = useCallback((categoryId: string) => remover({ categoryId }), [remover])
+  // ABRE a pergunta em vez de remover: mutação instantânea e sem formulário pede confirmação
+  // (`mutation-confirmation.md` §1), e uma rubrica removida por engano leva o teto e os itens dela.
+  const onRemove = useCallback((categoryId: string) => setRubricaParaRemover(categoryId), [])
 
   // Uma categoria só pode ter UMA rubrica: duas somariam duas vezes o mesmo teto, e a tela
   // mostraria duas barras medindo o mesmo gasto.
@@ -209,6 +220,31 @@ export function RubricasPageContent() {
           <RubricList rubrics={rubrics} windowLabel={windowLabel} disabled={editando || removendo} onChange={onChange} onRemove={onRemove} />
         </CardContent>
       </Card>
+
+      {/* A pergunta nomeia a categoria e diz o que sai junto: uma rubrica pode ter itens detalhados,
+          e quem só vê a barra não sabe que eles existem. */}
+      <AlertDialog open={rubricaParaRemover !== null} onOpenChange={(aberto) => !aberto && setRubricaParaRemover(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover esta rubrica?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O teto de <strong>{rubricaParaRemover ? categoryLabel(rubricaParaRemover) : ''}</strong> sai do planejamento, com os itens detalhados dele. O gasto já lançado continua onde está.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel />
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (rubricaParaRemover) remover({ categoryId: rubricaParaRemover })
+                setRubricaParaRemover(null)
+              }}
+            >
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

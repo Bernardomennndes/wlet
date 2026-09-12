@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useRef, useState } from 'react'
 import { Download, FolderPlus, Plus, Target, Upload } from '@phosphor-icons/react'
 import { KpiCard, KpiCardGrid, KpiHeadline } from '@/components/kpi'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@wlet/ui/components/alert-dialog'
 import { Button } from '@wlet/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@wlet/ui/components/empty'
@@ -112,6 +113,14 @@ export function PlanosPageContent() {
   // O plano que a lista está apontando. É estado de EVENTO — nasce do cursor entrar numa
   // linha e morre quando ele sai —, então não há efeito nenhum por trás dele.
   const [pointed, setPointed] = useState<Plan | null>(null)
+  /**
+   * O que está esperando confirmação — um por tipo, e não um diálogo por linha.
+   *
+   * A lista tem N planos, e montar um `AlertDialog` por linha colocaria N portais na árvore para
+   * que no máximo um abra. O estado guarda QUEM, e o diálogo é um só.
+   */
+  const [planoParaRemover, setPlanoParaRemover] = useState<Plan | null>(null)
+  const [grupoParaRemover, setGrupoParaRemover] = useState<PlanGroup | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
   const lastMonth = monthsWithData.at(-1) ?? new Date().toISOString().slice(0, 7)
@@ -343,11 +352,15 @@ export function PlanosPageContent() {
           <CardDescription>A caixinha decide o que entra na previsão. Forma, parcelas e mês se editam na própria linha.</CardDescription>
         </CardHeader>
         <CardContent className="px-0">
+          {/* Os dois `onRemove` ABREM a pergunta; quem grava é o `AlertDialogAction` lá embaixo.
+              Excluir é mutação instantânea e sem formulário, e a `mutation-confirmation.md` §1 não
+              admite disparo direto no `onClick` — um clique errado numa lista densa não tem
+              desfazer. */}
           <PlanosDataTable
             groups={groups}
             items={items}
-            onRemove={(id) => removerPlano({ id, label: items.find((p) => p.id === id)?.label ?? 'sem nome' })}
-            onRemoveGroup={(id) => removerGrupo({ id, label: groups.find((g) => g.id === id)?.label ?? 'sem nome' })}
+            onRemove={(id) => setPlanoParaRemover(items.find((p) => p.id === id) ?? null)}
+            onRemoveGroup={(id) => setGrupoParaRemover(groups.find((g) => g.id === id) ?? null)}
             onUpdate={(id, patch) => editarPlano({ id, patch })}
             onHighlight={setPointed}
             monthsWithData={monthsWithData}
@@ -388,6 +401,54 @@ export function PlanosPageContent() {
       </Card>
 
       <GroupDialog open={groupOpen} onOpenChange={setGroupOpen} defaultMonth={nextMonth} monthsWithData={monthsWithData} onSubmit={(group) => criarGrupo(group)} />
+
+      {/* A pergunta nomeia O QUE sai e o que acontece com o resto: num grupo, a regra de que os
+          planos dele continuam na lista não é óbvia, e é ela que decide se a pessoa confirma. */}
+      <AlertDialog open={planoParaRemover !== null} onOpenChange={(aberto) => !aberto && setPlanoParaRemover(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover este plano?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{planoParaRemover?.label}</strong> sai da lista e da previsão. Não há como desfazer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel />
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (planoParaRemover) removerPlano({ id: planoParaRemover.id, label: planoParaRemover.label })
+                setPlanoParaRemover(null)
+              }}
+            >
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={grupoParaRemover !== null} onOpenChange={(aberto) => !aberto && setGrupoParaRemover(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover este grupo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{grupoParaRemover?.label}</strong> sai da lista. Os planos dele NÃO são apagados — ficam soltos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel />
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (grupoParaRemover) removerGrupo({ id: grupoParaRemover.id, label: grupoParaRemover.label })
+                setGrupoParaRemover(null)
+              }}
+            >
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <PlanSheet
         open={open}

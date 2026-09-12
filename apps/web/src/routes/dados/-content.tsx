@@ -1,6 +1,7 @@
 import { ArrowClockwise, ArrowsClockwise, CheckCircle, DownloadSimple, FolderOpen, UploadSimple, Warning } from '@phosphor-icons/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useRef, useState } from 'react'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@wlet/ui/components/alert-dialog'
 import { Button } from '@wlet/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
 import { useDocumentTitle } from '@/hooks/use-document-title'
@@ -36,6 +37,18 @@ export function DadosPageContent() {
   const [state, setState] = useState<State>({ kind: 'idle' })
   const input = useRef<HTMLInputElement>(null)
   const backupInput = useRef<HTMLInputElement>(null)
+  /**
+   * Reprocessar PERGUNTA antes, e não é zelo: ele reescreve o conjunto inteiro.
+   *
+   * Todo `transaction.id` é `sha1` de sete campos, e um deles é o `profile.id` do perfil de conta.
+   * Se um perfil mudou entre a última ingestão e esta, os ids mudam — e todo ajuste manual de
+   * categoria, chaveado por eles, fica órfão em silêncio. É a única consequência desta tela que não
+   * se vê acontecendo, então ela precisa estar escrita antes.
+   *
+   * Escolher a pasta NÃO pergunta: o seletor de arquivos do sistema já é o passo deliberado que a
+   * `mutation-confirmation.md` §3 dispensa de confirmar.
+   */
+  const [confirmarReprocesso, setConfirmarReprocesso] = useState(false)
   const [backup, setBackup] = useState<{ kind: 'idle' } | { kind: 'done'; summary: ImportSummary } | { kind: 'failed'; message: string }>({ kind: 'idle' })
   // O arquivo lido fica em espera enquanto o diálogo pergunta o que trazer. Importar direto e
   // depois avisar seria o oposto do que se quer numa escrita que SOBRESCREVE o servidor.
@@ -262,7 +275,7 @@ export function DadosPageContent() {
                 mesmo espaço para dizer que não serve, e antes da primeira leitura ele nem
                 descreve uma ação possível. */}
             {stored !== undefined && stored > 0 && (
-              <Button size="sm" variant="outline" onClick={() => reprocessar()} disabled={ingerindo}>
+              <Button size="sm" variant="outline" onClick={() => setConfirmarReprocesso(true)} disabled={ingerindo}>
                 <ArrowsClockwise /> {reprocessando ? `Reprocessando os ${stored} arquivos…` : `Reprocessar os ${stored} arquivos`}
               </Button>
             )}
@@ -318,6 +331,22 @@ export function DadosPageContent() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={confirmarReprocesso} onOpenChange={setConfirmarReprocesso}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reprocessar os arquivos guardados?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O conjunto é reescrito do zero a partir dos {stored} arquivos, com a configuração de agora. Se algum perfil de conta mudou desde a última leitura, os identificadores dos lançamentos
+              mudam junto — e os ajustes manuais de categoria presos a eles se perdem.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel />
+            <AlertDialogAction onClick={() => reprocessar()}>Reprocessar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* A `key` recria o estado das caixinhas a cada arquivo: sem ela, a escolha do arquivo
           anterior sobreviveria para um arquivo com partes diferentes. */}
