@@ -97,6 +97,9 @@ importers:
       '@wlet/api':
         specifier: workspace:*
         version: link:../../packages/api
+      '@wlet/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@wlet/domain':
         specifier: workspace:*
         version: link:../../packages/domain

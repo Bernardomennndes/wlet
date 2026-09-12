@@ -1,4 +1,4 @@
-import { Moon, Sun } from '@phosphor-icons/react'
+import { Moon, SignOut, Sun } from '@phosphor-icons/react'
 import { Suspense, useCallback, useMemo } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { Breadcrumbs } from '@/components/breadcrumbs'
@@ -194,6 +194,22 @@ export function AppShell() {
             </ButtonGroup>
             <Button variant="outline" size="icon" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'}>
               {theme === 'dark' ? <Sun /> : <Moon />}
+            </Button>
+            {/* Sair RECARREGA em vez de desmontar a árvore: as telas leem constantes de módulo
+                fixadas no portão de boot (`lib/dataset.ts`), e elas não têm como ser esvaziadas
+                sem recarregar. Enquanto a leitura não for por query, é isto ou deixar o extrato
+                da pessoa anterior na memória depois da saída — e a segunda opção não existe. */}
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Sair da conta"
+              onClick={async () => {
+                const { auth } = await import('@/auth')
+                await auth().signOut()
+                window.location.reload()
+              }}
+            >
+              <SignOut />
             </Button>
           </div>
         </div>
