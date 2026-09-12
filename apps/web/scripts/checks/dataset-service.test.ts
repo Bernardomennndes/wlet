@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { makeDatasetService } from '@wlet/services/dataset/application/dataset.service'
 import { IncompleteDatasetError, NoSourcesError } from '@wlet/services/dataset/domain/errors/index'
+import type { IngestRunner } from '@wlet/services/dataset/domain/ports/ingest-runner'
 import {
   makeBrokenDatasetRepository,
   makeBrokenRunner,
@@ -24,7 +25,10 @@ describe('serviço do conjunto ingerido', () => {
   })
 
   it('prefere o gravado', async () => {
-    const gravado = { ...seedDataset(), goals: [{ id: 'g' }] as never }
+    // O marcador é `transactions`, e antes era `goals` — um campo que saiu de `Dataset` para a
+    // configuração. Com um `as never` no meio, o teste afirmava sobre um fantasma: passava porque o
+    // spread carrega a propriedade extra em runtime, e nada checava que ela existia no tipo.
+    const gravado = { ...seedDataset(), transactions: [{ id: 'tx-gravada' }] as never }
     const service = makeDatasetService({
       sources: makeFakeSourceStore(),
       runner: makeFakeRunner({}),
@@ -33,7 +37,7 @@ describe('serviço do conjunto ingerido', () => {
     })
     const { data, origin } = await service.load()
     assert.equal(origin, 'stored')
-    assert.equal(data.goals.length, 1)
+    assert.equal(data.transactions.length, 1)
   })
 
   it('banco que EXPLODE não impede o app de abrir', async () => {
@@ -74,9 +78,9 @@ describe('serviço do conjunto ingerido', () => {
 
   it('substitui e depois volta para a semente', async () => {
     const repository = makeFakeDatasetRepository()
-    const service = makeDatasetService({ sources: makeFakeSourceStore(), repository, seed: makeFakeSeed(seedDataset()) })
-    await service.replace({ ...seedDataset(), goals: [{ id: 'x' }] as never })
-    assert.equal(repository.snapshot()?.goals.length, 1)
+    const service = makeDatasetService({ sources: makeFakeSourceStore(), runner: makeFakeRunner({}), repository, seed: makeFakeSeed(seedDataset()) })
+    await service.replace({ ...seedDataset(), transactions: [{ id: 'tx-substituida' }] as never })
+    assert.equal(repository.snapshot()?.transactions.length, 1)
     await service.reset()
     assert.equal(repository.cleared, true)
     assert.equal(repository.snapshot(), null)
@@ -138,10 +142,12 @@ describe('serviço do conjunto ingerido: arquivos-fonte', () => {
     // eles ficam destacados. Gravar depois gravaria vazio, sem erro nenhum.
     const sources = makeFakeSourceStore()
     let quandoRodou = -1
-    const runner = {
-      run: async () => {
+    const runner: IngestRunner = {
+      run: async (arquivos, declaracoes, agora) => {
         quandoRodou = sources.snapshot().length
-        return makeFakeRunner({}).run()
+        // Os três argumentos são ENCAMINHADOS, e não descartados: a porta os declara, e um fake que
+        // os ignore deixa de exercitar a assinatura que o serviço de fato chama.
+        return makeFakeRunner({}).run(arquivos, declaracoes, agora)
       },
     }
     const service = makeDatasetService({ sources, runner, repository: makeFakeDatasetRepository(), seed: makeFakeSeed(seedDataset()) })

@@ -13,7 +13,10 @@ import { makePlansService } from '@wlet/services/plans/application/plans.service
 import { makeFakePlanRepository, makeSequentialIds } from '@wlet/services/plans/test-support/fake-plan-repository'
 import { makePreferencesService } from '@wlet/services/preferences/application/preferences.service'
 import { makeFakePreferencesRepository } from '@wlet/services/preferences/test-support/fake-preferences-repository'
-import type { Services } from '@wlet/services/index'
+// `Services` é a forma do composition root do APP (`apps/web/src/services.ts`), não do pacote:
+// `@wlet/services` exporta as PEÇAS, e a montagem é de quem sabe onde roda. O import apontava para
+// o pacote e não resolvia — invisível enquanto `scripts/` não era typechecked.
+import type { Services } from '../../src/services.ts'
 
 /**
  * A ida e volta do pacote.

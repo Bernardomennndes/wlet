@@ -112,7 +112,7 @@ describe('a tabela cobre todas as telas que removem', () => {
     walk(root, '')
     const declared = DESTRUCTIVE.map((d) => d.screen)
     const suspects = screens
-      .filter((t) => !declared.includes(t as (typeof DESTRUCTIVE)[number]['tela']))
+      .filter((t) => !declared.includes(t as (typeof DESTRUCTIVE)[number]['screen']))
       // `useMutation` com um nome de remoção: é o padrão de uma escrita destrutiva nova.
       .filter((t) => /mutate: (delete|remove)[A-Z]/.test(codeOf(new URL(t, root))))
     assert.deepEqual(suspects, [], 'tela com remoção fora da tabela de confirmação — declare-a e dê a ela um AlertDialog')
