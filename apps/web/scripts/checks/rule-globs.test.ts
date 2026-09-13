@@ -142,3 +142,39 @@ describe('as referências vivas das rules existem', { skip: skipReason }, () => 
     })
   }
 })
+
+/**
+ * E nenhuma rule escreve um caminho deste repositório começando por `src/`.
+ *
+ * O sensor acima é estreito de propósito e só confere `apps/`, `packages/` e `config/`. O buraco
+ * que sobrava era o prefixo `src/`: ele PARECE deste projeto, e às vezes é — `src/lib/chart-tokens.ts`
+ * existe, sob `apps/web/` —, mas às vezes é da Selfie, que também tinha um `src/`. Quem lê não tem
+ * como saber qual, e o sensor não conferia nenhum dos dois.
+ *
+ * Medido quando esta checagem foi escrita: 19 caminhos `src/…` nas rules, 16 existindo sob
+ * `apps/web/` e 3 não. Onze referências vivas apontavam para o vazio sem nada avisar, entre elas a
+ * §8 de `services-architecture.md` mandando importar tipo de domínio de `@/data/types` — pasta que
+ * não existe neste repositório desde a migração para monorepo.
+ *
+ * A saída é tirar a ambiguidade em vez de adivinhar: caminho deste projeto começa com `apps/` ou
+ * `packages/` e cai no sensor acima; caminho da Selfie fica como linhagem e DIZ que é. `src/` puro
+ * não é nem um nem outro.
+ */
+describe('as rules não escrevem caminho ambíguo', { skip: skipReason }, () => {
+  for (const name of rulesExist ? readdirSync(rulesDir).filter((n) => n.endsWith('.md')) : []) {
+    it(`${name}: nenhum caminho começa por \`src/\` sem dizer que é da origem`, () => {
+      const linhas = readFileSync(new URL(name, rulesDir), 'utf8').split('\n')
+      const ambiguos: string[] = []
+      for (const [i, linha] of linhas.entries()) {
+        for (const achado of linha.matchAll(/`(src\/[A-Za-z0-9_@/.()[\]-]*\.(?:ts|tsx|css|json|sql))`/g)) {
+          // A marca de linhagem pode estar na linha anterior ou na seguinte: a prosa quebra em 100
+          // colunas, e exigir que ela caia na MESMA linha do caminho acusaria texto correto.
+          const vizinhanca = linhas.slice(Math.max(0, i - 1), i + 2).join(' ')
+          if (/ORIGEM|não existe|não existem/.test(vizinhanca)) continue
+          ambiguos.push(`${name}:${i + 1} ${achado[1]}`)
+        }
+      }
+      assert.deepEqual(ambiguos, [], 'caminho deste projeto começa com `apps/` ou `packages/` — `src/` puro parece daqui e pode ser da Selfie, e nenhum sensor confere')
+    })
+  }
+})
