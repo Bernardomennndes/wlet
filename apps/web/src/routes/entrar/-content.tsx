@@ -1,7 +1,7 @@
 import { Warning } from '@phosphor-icons/react'
 import { useState } from 'react'
 import { HidingSquaresIcon } from '@/components/hiding-squares-icon'
-import { auth } from '@/auth'
+import { auth } from '@/lib/auth'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { Button } from '@wlet/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'

@@ -204,7 +204,7 @@ export function AppShell() {
               size="icon"
               aria-label="Sair da conta"
               onClick={async () => {
-                const { auth } = await import('@/auth')
+                const { auth } = await import('@/lib/auth')
                 await auth().signOut()
                 window.location.reload()
               }}

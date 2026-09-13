@@ -11,8 +11,8 @@ import { preloaded } from '@/providers/preloaded'
 import { exportState, importState, inspectPackage, type ImportSummary, type PackageContents, type PackagePart } from '@wlet/services/backup'
 import { ImportDialog } from './-components/import-dialog'
 import { toast } from '@wlet/ui/toast'
-import { api } from '@/api'
-import { services } from '@/services'
+import { api } from '@/lib/api'
+import { services } from '@/lib/services'
 import { storedCountLabel } from './-stored-count-label'
 
 /**

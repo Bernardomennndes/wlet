@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { decidedPlans, type PlansData } from '@wlet/domain/plans'
-import { api } from '@/api'
+import { api } from '@/lib/api'
 import { preloaded } from '@/providers/preloaded'
-import { services } from '@/services'
+import { services } from '@/lib/services'
 
 /**
  * A LEITURA do catálogo de planos — e só ela.

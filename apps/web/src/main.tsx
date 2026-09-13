@@ -1,6 +1,6 @@
 import { setDataset, setDeclarations } from './lib/dataset'
 import { setPreloaded } from './providers/preloaded'
-import { services } from '@/services'
+import { services } from '@/lib/services'
 import './index.css'
 
 /**
@@ -66,7 +66,7 @@ async function carregarEMontar(): Promise<void> {
  * servidor, e é por isso que isto é uma chamada e não uma leitura local.
  */
 async function start(): Promise<void> {
-  const { auth } = await import('./auth')
+  const { auth } = await import('./lib/auth')
 
   /**
    * Servidor fora do ar conta como SEM sessão, e não como falha de boot.

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { translateRemoteError } from '@wlet/services/shared/domain/errors'
 import { toast } from '@wlet/ui/toast'
-import { services } from '@/services'
+import { services } from '@/lib/services'
 import { preloaded } from './preloaded'
 import { ThemeContext, type ThemeValue } from './use-theme'
 

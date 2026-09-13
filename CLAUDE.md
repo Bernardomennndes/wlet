@@ -79,7 +79,7 @@ O repositório é um workspace pnpm orquestrado por Turborepo, no molde da Selfi
   números diferentes sem nada avisar. A camada hexagonal não foi desperdiçada — foi ela que
   permitiu trocar os cinco armazenamentos sem os casos de uso e os testes mudarem uma linha.
   Quem quer "nada sai da máquina" hospeda o próprio servidor, que é a promessa que o app faz
-  agora. A leitura da variável mora num lugar só, `apps/web/src/api-url.ts`, e ela LANÇA quando
+  agora. A leitura da variável mora num lugar só, `apps/web/src/lib/api-url.ts`, e ela LANÇA quando
   falta: duas leituras do mesmo ambiente divergem no primeiro deploy, e o sintoma seria login que
   funciona e dado que volta 401.
 - **Erro remoto é TRADUZIDO antes de chegar à tela**, em `packages/services/src/shared/domain/errors.ts`, e o ponto
