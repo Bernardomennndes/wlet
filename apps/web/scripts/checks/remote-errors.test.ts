@@ -101,3 +101,58 @@ describe('todo adapter remoto passa por remote()', () => {
     assert.equal(checked, 5, 'os cinco contextos têm adapter remoto')
   })
 })
+
+/**
+ * E a TERCEIRA porta de saída: o `queryFn` que o contrato fabrica.
+ *
+ * `api().x.y.queryOptions()` traz chave E função de busca prontas, e é assim que a §4 de
+ * `data-fetching.md` descreve a leitura. Só que aquela função chama o cliente DIRETO — ela não passa
+ * por `remote()`, porque `remote()` é do adapter e ela nasce na ponte do oRPC. O `describe` acima
+ * conta `client.x.y(` no código-fonte dos adapters e não vê isso: a chamada não existe como texto
+ * neste repositório, ela é fabricada dentro do pacote.
+ *
+ * **Medido contra uma porta morta**, lendo a mesma procedure pelos dois caminhos:
+ *
+ * | caminho | o que chega à tela |
+ * |---|---|
+ * | `services().plans.list()` | `ServerUnreachableError` — "Não foi possível falar com o servidor. Verifique a conexão" |
+ * | `queryOptions().queryFn()` | `TypeError` — "fetch failed" |
+ *
+ * Então a leitura deste app é sempre `queryKey: api().x.y.key()` mais `queryFn` que passa pelo
+ * SERVIÇO. A chave continua vindo do contrato, que é o que a §4 realmente protege (duas telas com o
+ * mesmo input compartilham cache); o que não vem de lá é a função, e não vem de propósito.
+ *
+ * `key()` fica liberado justamente porque é só a chave — ele não faz requisição nenhuma.
+ */
+describe('nenhuma leitura usa o queryFn do contrato', () => {
+  it('o app pede `key()`, nunca `queryOptions()`', async () => {
+    const { readdirSync, readFileSync } = await import('node:fs')
+    const { fileURLToPath } = await import('node:url')
+    const raiz = fileURLToPath(new URL('../../src/', import.meta.url))
+
+    const arquivos: string[] = []
+    const varrer = (dir: string, prefixo = '') => {
+      for (const entrada of readdirSync(dir, { withFileTypes: true })) {
+        if (entrada.isDirectory()) varrer(`${dir}${entrada.name}/`, `${prefixo}${entrada.name}/`)
+        else if (/\.tsx?$/.test(entrada.name)) arquivos.push(`${prefixo}${entrada.name}`)
+      }
+    }
+    varrer(raiz)
+
+    const usos: string[] = []
+    for (const relativo of arquivos) {
+      // Os comentários CITAM `queryOptions()` para explicar por que ele não é usado — procurar na
+      // explicação acusaria a própria documentação da decisão.
+      const fonte = readFileSync(`${raiz}${relativo}`, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\/\/.*$/gm, '')
+      for (const achado of fonte.matchAll(/\bqueryOptions\s*\(/g)) usos.push(`${relativo}:${fonte.slice(0, achado.index).split('\n').length}`)
+    }
+
+    assert.deepEqual(
+      usos,
+      [],
+      'leitura pelo `queryOptions()` do contrato: o `queryFn` dele chama o cliente fora de `remote()`, e a tela recebe "fetch failed" no lugar da mensagem traduzida. Use `queryKey: api().x.y.key()` com `queryFn` que passe pelo serviço',
+    )
+  })
+})

@@ -177,3 +177,60 @@ describe('src/hooks/ não grava', () => {
     assert.deepEqual(ofensores, [], 'hook de escrita reutilizado: a frase do aviso tem de ser do ponto de uso')
   })
 })
+
+/**
+ * E TODA mutação avisa — a §5 de `data-fetching.md`.
+ *
+ * Uma escrita silenciosa é indistinguível de uma escrita que não aconteceu: a pessoa clica, a linha
+ * não muda visivelmente (um campo de rubrica, uma categoria de lançamento) e ela clica de novo. O
+ * erro já tem dono único no `MutationCache` do provider; o SUCESSO é por mutação, porque só o ponto
+ * de uso sabe o nome do registro que acabou de mudar — "Rubrica de Saúde salva" e "Plano removido"
+ * são a diferença entre confirmar e adivinhar.
+ *
+ * A contagem estava só na prosa da rule, e prosa não segura número: ela afirmava 21 escritas quando
+ * havia 20, e um `useMutation` novo sem toast não teria acusado nada. O piso aqui é para o varredor
+ * não emudecer se alguém mudar a forma da chamada.
+ *
+ * **As três escritas SEM aviso de sucesso não são `useMutation`** e por isso não aparecem aqui:
+ * recorte, período e tema gravam por `persist()` no provider de filtros e no de tema, com o erro
+ * passando pela mesma tradução. A distinção está trancada no `describe` do provider, acima.
+ */
+describe('toda mutação avisa', () => {
+  it('nenhum useMutation grava em silêncio', async () => {
+    const { readdirSync } = await import('node:fs')
+    const src = new URL('../../src/', import.meta.url)
+
+    const arquivos: string[] = []
+    const varrer = (dir: URL, prefixo = '') => {
+      for (const entrada of readdirSync(dir, { withFileTypes: true })) {
+        if (entrada.isDirectory()) varrer(new URL(`${entrada.name}/`, dir), `${prefixo}${entrada.name}/`)
+        else if (/\.tsx?$/.test(entrada.name)) arquivos.push(`${prefixo}${entrada.name}`)
+      }
+    }
+    varrer(src)
+
+    let total = 0
+    const mudas: string[] = []
+    for (const relativo of arquivos) {
+      const fonte = readFileSync(new URL(relativo, src), 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\/\/.*$/gm, '')
+      for (const achado of fonte.matchAll(/useMutation\(\{/g)) {
+        total++
+        // O corpo da chamada, fechando a chave no MESMO nível: uma janela de N linhas cortaria a
+        // mutação longa no meio e acusaria o toast que está logo abaixo do corte.
+        let i = achado.index + achado[0].length - 1
+        let profundidade = 0
+        for (; i < fonte.length; i++) {
+          if (fonte[i] === '{') profundidade++
+          else if (fonte[i] === '}' && --profundidade === 0) break
+        }
+        const corpo = fonte.slice(achado.index, i)
+        if (!corpo.includes('toast.')) mudas.push(`${relativo}:${fonte.slice(0, achado.index).split('\n').length}`)
+      }
+    }
+
+    assert.ok(total >= 20, `só ${total} useMutation encontrados — o varredor parou de olhar`)
+    assert.deepEqual(mudas, [], 'useMutation sem toast: escrita silenciosa é indistinguível de escrita que não aconteceu, e quem clica clica de novo')
+  })
+})
