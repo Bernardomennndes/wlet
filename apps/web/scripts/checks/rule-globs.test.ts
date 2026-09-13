@@ -115,3 +115,30 @@ describe('a tabela de lacunas da naming.md confere com o disco', { skip: skipRea
     }
   })
 })
+
+/**
+ * E as REFERÊNCIAS VIVAS das rules apontam para arquivos que existem.
+ *
+ * Uma rule cita arquivos como exemplo do padrão certo ("veja `packages/services/…`"). Quando um
+ * desses caminhos morre, quem abre a rule não acha o exemplo e para de confiar no resto dela — e
+ * nada avisa: markdown não compila. Aconteceu agora mesmo, e por uma razão boba: três arquivos de
+ * teste foram renomeados e quatro citações em três rules ficaram apontando para o nome antigo.
+ *
+ * **A checagem é estreita de propósito.** Só caminhos que começam com `apps/`, `packages/` ou
+ * `config/` são conferidos — esses são inequivocamente deste repositório. As rules também citam
+ * caminhos relativos em prosa (`shared/shape.ts`), documentos da skill `/ui` (`components/dialog.md`)
+ * e, deliberadamente, arquivos do projeto de onde vieram, como linhagem; exigir que TODOS existam
+ * transformaria o sensor em ruído, e ruído é o que faz um sensor ser desligado.
+ */
+const FORA_DO_REPO = /^apps\/backoffice\//
+
+describe('as referências vivas das rules existem', { skip: skipReason }, () => {
+  for (const name of rulesExist ? readdirSync(rulesDir).filter((n) => n.endsWith('.md')) : []) {
+    it(`${name}: todo caminho de apps/ packages/ config/ resolve`, () => {
+      const source = readFileSync(new URL(name, rulesDir), 'utf8')
+      const refs = new Set([...source.matchAll(/`((?:apps|packages|config)\/[A-Za-z0-9_@/.-]*\.(?:ts|tsx|css|json|md|sql))`/g)].map((m) => m[1]))
+      const dead = [...refs].filter((ref) => !FORA_DO_REPO.test(ref) && !existsSync(new URL(ref, new URL('file://' + repoRoot))))
+      assert.deepEqual(dead, [], 'referência viva quebrada: quem abre a rule não acha o exemplo e para de confiar nela')
+    })
+  }
+})
