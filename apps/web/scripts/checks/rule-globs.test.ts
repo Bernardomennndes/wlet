@@ -163,18 +163,18 @@ describe('as referências vivas das rules existem', { skip: skipReason }, () => 
 describe('as rules não escrevem caminho ambíguo', { skip: skipReason }, () => {
   for (const name of rulesExist ? readdirSync(rulesDir).filter((n) => n.endsWith('.md')) : []) {
     it(`${name}: nenhum caminho começa por \`src/\` sem dizer que é da origem`, () => {
-      const linhas = readFileSync(new URL(name, rulesDir), 'utf8').split('\n')
-      const ambiguos: string[] = []
-      for (const [i, linha] of linhas.entries()) {
-        for (const achado of linha.matchAll(/`(src\/[A-Za-z0-9_@/.()[\]-]*\.(?:ts|tsx|css|json|sql))`/g)) {
+      const lines = readFileSync(new URL(name, rulesDir), 'utf8').split('\n')
+      const ambiguous: string[] = []
+      for (const [i, line] of lines.entries()) {
+        for (const found of line.matchAll(/`(src\/[A-Za-z0-9_@/.()[\]-]*\.(?:ts|tsx|css|json|sql))`/g)) {
           // A marca de linhagem pode estar na linha anterior ou na seguinte: a prosa quebra em 100
           // colunas, e exigir que ela caia na MESMA linha do caminho acusaria texto correto.
-          const vizinhanca = linhas.slice(Math.max(0, i - 1), i + 2).join(' ')
-          if (/ORIGEM|não existe|não existem/.test(vizinhanca)) continue
-          ambiguos.push(`${name}:${i + 1} ${achado[1]}`)
+          const around = lines.slice(Math.max(0, i - 1), i + 2).join(' ')
+          if (/ORIGEM|não existe|não existem/.test(around)) continue
+          ambiguous.push(`${name}:${i + 1} ${found[1]}`)
         }
       }
-      assert.deepEqual(ambiguos, [], 'caminho deste projeto começa com `apps/` ou `packages/` — `src/` puro parece daqui e pode ser da Selfie, e nenhum sensor confere')
+      assert.deepEqual(ambiguous, [], 'caminho deste projeto começa com `apps/` ou `packages/` — `src/` puro parece daqui e pode ser da Selfie, e nenhum sensor confere')
     })
   }
 })

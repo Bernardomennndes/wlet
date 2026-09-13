@@ -242,8 +242,8 @@ export function DadosPageContent() {
               <dt className="text-muted-foreground">Arquivos guardados</dt>
               <dd className="font-mono">
                 {(() => {
-                  const campo = storedCountLabel(stored, storedCountError)
-                  return campo.kind === 'value' ? campo.text : <span className={campo.kind === 'error' ? 'text-destructive not-italic' : 'text-muted-foreground italic'}>{campo.text}</span>
+                  const field = storedCountLabel(stored, storedCountError)
+                  return field.kind === 'value' ? field.text : <span className={field.kind === 'error' ? 'text-destructive not-italic' : 'text-muted-foreground italic'}>{field.text}</span>
                 })()}
               </dd>
             </div>

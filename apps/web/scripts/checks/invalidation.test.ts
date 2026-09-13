@@ -200,37 +200,37 @@ describe('toda mutação avisa', () => {
     const { readdirSync } = await import('node:fs')
     const src = new URL('../../src/', import.meta.url)
 
-    const arquivos: string[] = []
-    const varrer = (dir: URL, prefixo = '') => {
-      for (const entrada of readdirSync(dir, { withFileTypes: true })) {
-        if (entrada.isDirectory()) varrer(new URL(`${entrada.name}/`, dir), `${prefixo}${entrada.name}/`)
-        else if (/\.tsx?$/.test(entrada.name)) arquivos.push(`${prefixo}${entrada.name}`)
+    const files: string[] = []
+    const walk = (dir: URL, prefix = '') => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (entry.isDirectory()) walk(new URL(`${entry.name}/`, dir), `${prefix}${entry.name}/`)
+        else if (/\.tsx?$/.test(entry.name)) files.push(`${prefix}${entry.name}`)
       }
     }
-    varrer(src)
+    walk(src)
 
     let total = 0
-    const mudas: string[] = []
-    for (const relativo of arquivos) {
-      const fonte = readFileSync(new URL(relativo, src), 'utf8')
+    const silent: string[] = []
+    for (const relative of files) {
+      const source = readFileSync(new URL(relative, src), 'utf8')
         .replace(/\/\*[\s\S]*?\*\//g, '')
         .replace(/\/\/.*$/gm, '')
-      for (const achado of fonte.matchAll(/useMutation\(\{/g)) {
+      for (const found of source.matchAll(/useMutation\(\{/g)) {
         total++
         // O corpo da chamada, fechando a chave no MESMO nível: uma janela de N linhas cortaria a
         // mutação longa no meio e acusaria o toast que está logo abaixo do corte.
-        let i = achado.index + achado[0].length - 1
-        let profundidade = 0
-        for (; i < fonte.length; i++) {
-          if (fonte[i] === '{') profundidade++
-          else if (fonte[i] === '}' && --profundidade === 0) break
+        let i = found.index + found[0].length - 1
+        let depth = 0
+        for (; i < source.length; i++) {
+          if (source[i] === '{') depth++
+          else if (source[i] === '}' && --depth === 0) break
         }
-        const corpo = fonte.slice(achado.index, i)
-        if (!corpo.includes('toast.')) mudas.push(`${relativo}:${fonte.slice(0, achado.index).split('\n').length}`)
+        const body = source.slice(found.index, i)
+        if (!body.includes('toast.')) silent.push(`${relative}:${source.slice(0, found.index).split('\n').length}`)
       }
     }
 
     assert.ok(total >= 20, `só ${total} useMutation encontrados — o varredor parou de olhar`)
-    assert.deepEqual(mudas, [], 'useMutation sem toast: escrita silenciosa é indistinguível de escrita que não aconteceu, e quem clica clica de novo')
+    assert.deepEqual(silent, [], 'useMutation sem toast: escrita silenciosa é indistinguível de escrita que não aconteceu, e quem clica clica de novo')
   })
 })

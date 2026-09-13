@@ -78,28 +78,28 @@ function declaredWithoutCaller(): Set<string> {
 describe('a superfície sem chamador da api-contracts.md §2.3', { skip: skipReason }, () => {
   it('o total de rotas do contrato é o que a §2.3 afirma', () => {
     const source = readFileSync(new URL('api-contracts.md', rulesDir), 'utf8')
-    const afirmado = /Das (\d+) rotas do contrato, \*\*(\w+) não têm chamador\*\*/.exec(source)
-    assert.ok(afirmado, 'a frase medida da §2.3 mudou de forma — o sensor não sabe mais o que conferir')
-    assert.equal(contractRoutes().length, Number(afirmado[1]), `a §2.3 afirma ${afirmado[1]} rotas`)
+    const claimed = /Das (\d+) rotas do contrato, \*\*(\w+) não têm chamador\*\*/.exec(source)
+    assert.ok(claimed, 'a frase medida da §2.3 mudou de forma — o sensor não sabe mais o que conferir')
+    assert.equal(contractRoutes().length, Number(claimed[1]), `a §2.3 afirma ${claimed[1]} rotas`)
   })
 
   it('e são exatamente essas que ninguém chama', () => {
-    const fontes = callSites()
-    const semChamador = contractRoutes()
+    const sources = callSites()
+    const withoutCaller = contractRoutes()
       // `client.grupo.rota(` é o adapter; `api().grupo.rota` é a leitura da tela. Procurar pelo
       // NOME sozinho acusaria qualquer método de serviço com o mesmo nome — foi o que uma medição
       // anterior fez, dizendo que `plans.addGroup` tinha chamador quando o que casou foi o método
       // homônimo do serviço.
-      .filter(({ id }) => !fontes.includes(`client.${id}(`) && !fontes.includes(`api().${id}`))
-      .map(({ id, method, path }) => ({ id, chave: `${method} ${path}` }))
+      .filter(({ id }) => !sources.includes(`client.${id}(`) && !sources.includes(`api().${id}`))
+      .map(({ id, method, path }) => ({ id, key: `${method} ${path}` }))
 
-    const declaradas = declaredWithoutCaller()
-    const naoDeclaradas = semChamador.filter((r) => !declaradas.has(r.chave)).map((r) => `${r.id} (${r.chave})`)
-    const jaLigadas = [...declaradas].filter((chave) => !semChamador.some((r) => r.chave === chave))
+    const declared = declaredWithoutCaller()
+    const undeclared = withoutCaller.filter((r) => !declared.has(r.key)).map((r) => `${r.id} (${r.key})`)
+    const alreadyWired = [...declared].filter((key) => !withoutCaller.some((r) => r.key === key))
 
-    assert.deepEqual(naoDeclaradas, [], 'rota declarada sem chamador e FORA da tabela da §2.3: ou ligue um chamador, ou registre a rota na tabela com o motivo')
+    assert.deepEqual(undeclared, [], 'rota declarada sem chamador e FORA da tabela da §2.3: ou ligue um chamador, ou registre a rota na tabela com o motivo')
     assert.deepEqual(
-      jaLigadas,
+      alreadyWired,
       [],
       'a tabela da §2.3 lista como "sem chamador" uma rota que JÁ tem um: tire a linha — e, se era uma das cinco de plano, a decisão da porta agregada foi tomada e o `disabled` da tela precisa ser revisto junto',
     )

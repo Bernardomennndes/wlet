@@ -38,11 +38,11 @@ async function carregarEMontar(): Promise<void> {
 
   // Os cinco em paralelo: são armazenamentos independentes, e encadeá-los somaria cinco
   // esperas no caminho crítico do primeiro render.
-  const [loaded, declared, prefs, over, catalogue] = await Promise.all([dataset.load(), config.load(), preferences.load(), overrides.list(), plans.list()])
+  const [loaded, declared, prefs, over, catalog] = await Promise.all([dataset.load(), config.load(), preferences.load(), overrides.list(), plans.list()])
 
   setDataset(loaded.data)
   setDeclarations(declared)
-  setPreloaded({ preferences: prefs, overrides: over, plans: catalogue, datasetOrigin: loaded.origin })
+  setPreloaded({ preferences: prefs, overrides: over, plans: catalog, datasetOrigin: loaded.origin })
 
   if (loaded.origin !== 'stored') {
     // Não é erro — é uma conta que ainda não ingeriu nada, ou um servidor que não respondeu.

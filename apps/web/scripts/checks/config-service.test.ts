@@ -109,7 +109,7 @@ describe('serviço de configuração: cobranças a receber', () => {
   // `receivables` passar direto, embora as duas listas tenham a MESMA forma de recorrência.
   // Nenhuma das falhas estourava: o kernel de conciliação é defensivo (`Math.max(1, count ?? 1)`),
   // então o efeito era o número na tela ficar errado em silêncio — que é pior que um erro.
-  const cobranca = {
+  const receivable = {
     id: 'r1',
     debtor: 'Mãe',
     label: 'Rateio do plano',
@@ -123,7 +123,7 @@ describe('serviço de configuração: cobranças a receber', () => {
 
   it('grava uma cobrança válida', async () => {
     const { repository, service } = setup()
-    await service.saveReceivables([cobranca])
+    await service.saveReceivables([receivable])
     assert.equal(repository.snapshot()?.receivables.length, 1)
     assert.equal(repository.snapshot()?.planned.length, 1, 'o resto da config veio junto')
   })
@@ -131,33 +131,33 @@ describe('serviço de configuração: cobranças a receber', () => {
   it('recusa cobrança sem id', async () => {
     // Sem id, a conciliação não tem onde pendurar o pagamento que quita a cobrança.
     const { service } = setup()
-    await assert.rejects(() => service.saveReceivables([{ ...cobranca, id: '  ' }]), InvalidConfigError)
+    await assert.rejects(() => service.saveReceivables([{ ...receivable, id: '  ' }]), InvalidConfigError)
   })
 
   it('recusa mês inicial malformado', async () => {
     // A comparação de mês é de STRING: '2026-1' nunca casa com '2026-01', e a cobrança
     // simplesmente não aparece em mês nenhum.
     const { service } = setup()
-    await assert.rejects(() => service.saveReceivables([{ ...cobranca, startMonth: '2026-1' }]), InvalidConfigError)
-    await assert.rejects(() => service.saveReceivables([{ ...cobranca, startMonth: '2026-13' }]), InvalidConfigError)
+    await assert.rejects(() => service.saveReceivables([{ ...receivable, startMonth: '2026-1' }]), InvalidConfigError)
+    await assert.rejects(() => service.saveReceivables([{ ...receivable, startMonth: '2026-13' }]), InvalidConfigError)
   })
 
   it('recusa parcelada sem número de parcelas', async () => {
     // Seis parcelas declaradas sem `count` viravam UMA ocorrência, porque o kernel usa
     // `Math.max(1, count ?? 1)`. A pessoa vê 1/6 do que cobrou e nada indica o motivo.
     const { service } = setup()
-    await assert.rejects(() => service.saveReceivables([{ ...cobranca, recurrence: 'installments' }]), InvalidConfigError)
+    await assert.rejects(() => service.saveReceivables([{ ...receivable, recurrence: 'installments' }]), InvalidConfigError)
   })
 
   it('recusa ids repetidos', async () => {
     // Duas cobranças com o mesmo id reivindicam os MESMOS pagamentos, e a soma recebida dobra.
     const { service } = setup()
-    await assert.rejects(() => service.saveReceivables([cobranca, { ...cobranca, debtor: 'Pai' }]), InvalidConfigError)
+    await assert.rejects(() => service.saveReceivables([receivable, { ...receivable, debtor: 'Pai' }]), InvalidConfigError)
   })
 
   it('a importação de um pacote inteiro passa pela mesma validação das cobranças', async () => {
     // `replace` é o caminho do arquivo importado, e um export editado à mão chega por aqui.
     const { service } = setup()
-    await assert.rejects(() => service.replace({ ...seedConfig(), receivables: [{ ...cobranca, startMonth: 'xx' }] }), InvalidConfigError)
+    await assert.rejects(() => service.replace({ ...seedConfig(), receivables: [{ ...receivable, startMonth: 'xx' }] }), InvalidConfigError)
   })
 })

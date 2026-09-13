@@ -61,15 +61,15 @@ describe('portão de boot', () => {
 describe('a semente é opcional', () => {
   it('nenhum adapter importa @/generated por caminho fixo', async () => {
     const { readFileSync } = await import('node:fs')
-    const arquivos = ['bundle-seed.adapter.ts', 'bundle-declarations.adapter.ts']
-    for (const arquivo of arquivos) {
+    const files = ['bundle-seed.adapter.ts', 'bundle-declarations.adapter.ts']
+    for (const file of files) {
       // Os comentários CITAM a forma proibida para explicá-la; procurar nela acusaria a
       // explicação em vez do código.
-      const fonte = readFileSync(new URL(`../../src/lib/${arquivo}`, import.meta.url), 'utf8')
+      const source = readFileSync(new URL(`../../src/lib/${file}`, import.meta.url), 'utf8')
         .replace(/\/\*[\s\S]*?\*\//g, '')
         .replace(/\/\/.*$/gm, '')
-      const fixo = fonte.match(/import\(\s*['"]@\/generated\/[^'"]+['"]\s*\)/g)
-      assert.equal(fixo, null, `${arquivo} voltou a exigir os arquivos gerados em tempo de build: ${fixo?.join(', ')}`)
+      const fixed = source.match(/import\(\s*['"]@\/generated\/[^'"]+['"]\s*\)/g)
+      assert.equal(fixed, null, `${file} voltou a exigir os arquivos gerados em tempo de build: ${fixed?.join(', ')}`)
     }
   })
 
@@ -105,11 +105,11 @@ describe('ids de plano', () => {
     // Sem esta checagem, trocar a fiação de volta por um literal deixaria o teste acima verde:
     // ele mede o adapter, e a produção poderia não estar usando o adapter.
     const { readFileSync } = await import('node:fs')
-    const fonte = readFileSync(new URL('../../src/lib/services.ts', import.meta.url), 'utf8')
+    const source = readFileSync(new URL('../../src/lib/services.ts', import.meta.url), 'utf8')
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\/\/.*$/gm, '')
-    assert.match(fonte, /ids:\s*makePlanIdGenerator\(\)/, 'a montagem deixou de usar makePlanIdGenerator')
-    assert.doesNotMatch(fonte, /ids:\s*\{/, 'a montagem voltou a inventar o id num literal')
+    assert.match(source, /ids:\s*makePlanIdGenerator\(\)/, 'a montagem deixou de usar makePlanIdGenerator')
+    assert.doesNotMatch(source, /ids:\s*\{/, 'a montagem voltou a inventar o id num literal')
   })
 })
 
@@ -132,12 +132,12 @@ describe('ids de plano', () => {
  */
 describe('boot com o servidor fora do ar', () => {
   // Porta 1 nunca tem ninguém ouvindo, então a recusa de conexão é imediata e não depende de rede.
-  const morto = 'http://127.0.0.1:1/v1'
+  const dead = 'http://127.0.0.1:1/v1'
 
   it('dataset.load() sobrevive, e as outras quatro leituras não', async () => {
     const { createWletClient } = await import('@wlet/api')
     const { build } = await import('../../src/lib/services.ts')
-    const { dataset, config, preferences, overrides, plans } = build(createWletClient({ baseUrl: morto }))
+    const { dataset, config, preferences, overrides, plans } = build(createWletClient({ baseUrl: dead }))
 
     const carregado = await dataset.load()
     assert.notEqual(carregado.origin, 'stored', 'sem servidor não há como o conjunto vir do gravado')
@@ -159,7 +159,7 @@ describe('boot com o servidor fora do ar', () => {
   it('e o Promise.all do boot, por consequência, cai na tela de erro', async () => {
     const { createWletClient } = await import('@wlet/api')
     const { build } = await import('../../src/lib/services.ts')
-    const { dataset, config, preferences, overrides, plans } = build(createWletClient({ baseUrl: morto }))
+    const { dataset, config, preferences, overrides, plans } = build(createWletClient({ baseUrl: dead }))
     await assert.rejects(() => Promise.all([dataset.load(), config.load(), preferences.load(), overrides.list(), plans.list()]))
   })
 })
@@ -182,17 +182,17 @@ describe('o cliente do app não depende de armazenamento local', () => {
   it('api.ts não lê localStorage nem sessionStorage', async () => {
     const { readFileSync } = await import('node:fs')
     // Os comentários EXPLICAM a leitura que saiu; procurar nela acusaria a explicação.
-    const fonte = readFileSync(new URL('../../src/lib/api.ts', import.meta.url), 'utf8')
+    const source = readFileSync(new URL('../../src/lib/api.ts', import.meta.url), 'utf8')
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\/\/.*$/gm, '')
-    assert.doesNotMatch(fonte, /localStorage|sessionStorage|indexedDB/, 'o cliente do app voltou a depender de armazenamento de navegador — e ele lança em navegador com dados bloqueados')
+    assert.doesNotMatch(source, /localStorage|sessionStorage|indexedDB/, 'o cliente do app voltou a depender de armazenamento de navegador — e ele lança em navegador com dados bloqueados')
   })
 
   it('e o app não passa `token`: quem passa é script e teste', async () => {
     const { readFileSync } = await import('node:fs')
-    const fonte = readFileSync(new URL('../../src/lib/api.ts', import.meta.url), 'utf8')
+    const source = readFileSync(new URL('../../src/lib/api.ts', import.meta.url), 'utf8')
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\/\/.*$/gm, '')
-    assert.doesNotMatch(fonte, /token\s*:/, 'a sessão do app é o cookie httpOnly; um `token` aqui é um segundo caminho de credencial livre para divergir')
+    assert.doesNotMatch(source, /token\s*:/, 'a sessão do app é o cookie httpOnly; um `token` aqui é um segundo caminho de credencial livre para divergir')
   })
 })

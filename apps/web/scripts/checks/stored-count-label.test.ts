@@ -21,18 +21,18 @@ describe('o campo "Arquivos guardados"', () => {
     // Este é o invariante. `retry` desiste depois de duas tentativas e `stored` fica `undefined`
     // para sempre: sem esta precedência a tela diz "Contando…" indefinidamente, prometendo um
     // número que não vem. Inverter a ordem dos ramos devolve exatamente aquele defeito.
-    const campo = storedCountLabel(undefined, new ServerUnreachableError())
-    assert.equal(campo.kind, 'error')
-    assert.match(campo.text, /servidor/i)
+    const field = storedCountLabel(undefined, new ServerUnreachableError())
+    assert.equal(field.kind, 'error')
+    assert.match(field.text, /servidor/i)
   })
 
   it('e a mensagem DISTINGUE as falhas, porque elas pedem coisas diferentes', () => {
     // Um texto fixo ("falha ao contar") apagaria a diferença entre "entre de novo" e "tente
     // outra vez" — é a mesma tradução que o handler global das escritas usa.
-    const semServidor = storedCountLabel(undefined, new ServerUnreachableError())
-    const sessaoExpirada = storedCountLabel(undefined, new SessionExpiredError())
-    assert.notEqual(semServidor.text, sessaoExpirada.text)
-    assert.match(sessaoExpirada.text, /sess(ã|a)o/i)
+    const unreachable = storedCountLabel(undefined, new ServerUnreachableError())
+    const expired = storedCountLabel(undefined, new SessionExpiredError())
+    assert.notEqual(unreachable.text, expired.text)
+    assert.match(expired.text, /sess(ã|a)o/i)
   })
 
   it('erro com número JÁ carregado ainda avisa: o número na tela pode estar velho', () => {

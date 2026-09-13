@@ -79,21 +79,21 @@ describe('o heading de cada tela', () => {
  */
 describe('a raiz de apps/web/src', () => {
   it('não tem módulo solto', () => {
-    const permitidos = new Set([
+    const allowed = new Set([
       'main.tsx', // o ponto de entrada
       'boot.tsx', // o que ele monta com sessão — separado por causa do `import()` do portão
       'boot-entrar.tsx', // e o que ele monta sem sessão
       'App.tsx', // a árvore de rotas, no papel do `router.tsx` da §0
       'index.css', // a folha de estilo
     ])
-    const pastas = new Set(['components', 'generated', 'hooks', 'lib', 'providers', 'routes'])
+    const folders = new Set(['components', 'generated', 'hooks', 'lib', 'providers', 'routes'])
 
-    const soltos = readdirSync(fileURLToPath(new URL('../../src/', import.meta.url)), { withFileTypes: true })
-      .filter((entry) => (entry.isDirectory() ? !pastas.has(entry.name) : !permitidos.has(entry.name)))
+    const loose = readdirSync(fileURLToPath(new URL('../../src/', import.meta.url)), { withFileTypes: true })
+      .filter((entry) => (entry.isDirectory() ? !folders.has(entry.name) : !allowed.has(entry.name)))
       .map((entry) => entry.name)
 
     assert.deepEqual(
-      soltos,
+      loose,
       [],
       'módulo na raiz de src/ não tem papel declarado (§0 de route-organization.md): cliente de infraestrutura e função pura vão para `lib/`, contexto para `providers/`, componente para `components/`',
     )

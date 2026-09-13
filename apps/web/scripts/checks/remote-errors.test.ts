@@ -128,29 +128,29 @@ describe('nenhuma leitura usa o queryFn do contrato', () => {
   it('o app pede `key()`, nunca `queryOptions()`', async () => {
     const { readdirSync, readFileSync } = await import('node:fs')
     const { fileURLToPath } = await import('node:url')
-    const raiz = fileURLToPath(new URL('../../src/', import.meta.url))
+    const root = fileURLToPath(new URL('../../src/', import.meta.url))
 
-    const arquivos: string[] = []
-    const varrer = (dir: string, prefixo = '') => {
-      for (const entrada of readdirSync(dir, { withFileTypes: true })) {
-        if (entrada.isDirectory()) varrer(`${dir}${entrada.name}/`, `${prefixo}${entrada.name}/`)
-        else if (/\.tsx?$/.test(entrada.name)) arquivos.push(`${prefixo}${entrada.name}`)
+    const files: string[] = []
+    const walk = (dir: string, prefix = '') => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (entry.isDirectory()) walk(`${dir}${entry.name}/`, `${prefix}${entry.name}/`)
+        else if (/\.tsx?$/.test(entry.name)) files.push(`${prefix}${entry.name}`)
       }
     }
-    varrer(raiz)
+    walk(root)
 
-    const usos: string[] = []
-    for (const relativo of arquivos) {
+    const uses: string[] = []
+    for (const relative of files) {
       // Os comentários CITAM `queryOptions()` para explicar por que ele não é usado — procurar na
       // explicação acusaria a própria documentação da decisão.
-      const fonte = readFileSync(`${raiz}${relativo}`, 'utf8')
+      const source = readFileSync(`${root}${relative}`, 'utf8')
         .replace(/\/\*[\s\S]*?\*\//g, '')
         .replace(/\/\/.*$/gm, '')
-      for (const achado of fonte.matchAll(/\bqueryOptions\s*\(/g)) usos.push(`${relativo}:${fonte.slice(0, achado.index).split('\n').length}`)
+      for (const found of source.matchAll(/\bqueryOptions\s*\(/g)) uses.push(`${relative}:${source.slice(0, found.index).split('\n').length}`)
     }
 
     assert.deepEqual(
-      usos,
+      uses,
       [],
       'leitura pelo `queryOptions()` do contrato: o `queryFn` dele chama o cliente fora de `remote()`, e a tela recebe "fetch failed" no lugar da mensagem traduzida. Use `queryKey: api().x.y.key()` com `queryFn` que passe pelo serviço',
     )

@@ -39,23 +39,23 @@ function tsxFiles(dir: string, prefix = ''): string[] {
 
 describe('a borda do Empty', () => {
   it('todo Empty que é bloco na tela tem `border`', () => {
-    const semBorda: string[] = []
-    let conferidos = 0
+    const borderless: string[] = []
+    let checked = 0
 
     for (const relative of tsxFiles(webSrc)) {
       const source = readFileSync(`${webSrc}${relative}`, 'utf8')
       for (const found of source.matchAll(/<Empty(\s[^>]*)?>/g)) {
         const props = found[1] ?? ''
-        const antes = source.slice(0, found.index)
-        const emCelula = antes.lastIndexOf('<TableCell') > antes.lastIndexOf('</TableCell>')
-        if (emCelula || PAGINAS_INTEIRAS.has(relative)) continue
-        conferidos++
-        if (!/\bborder\b/.test(props)) semBorda.push(`${relative}:${antes.split('\n').length}`)
+        const before = source.slice(0, found.index)
+        const inCell = before.lastIndexOf('<TableCell') > before.lastIndexOf('</TableCell>')
+        if (inCell || PAGINAS_INTEIRAS.has(relative)) continue
+        checked++
+        if (!/\bborder\b/.test(props)) borderless.push(`${relative}:${before.split('\n').length}`)
       }
     }
 
-    assert.ok(conferidos >= 8, `só ${conferidos} Empty conferidos — o varredor parou de olhar`)
-    assert.deepEqual(semBorda, [], 'Empty sem `border` no className: o componente só compõe `border-dashed`, e o preflight do Tailwind zera a largura — o bloco fica SEM moldura nenhuma')
+    assert.ok(checked >= 8, `só ${checked} Empty conferidos — o varredor parou de olhar`)
+    assert.deepEqual(borderless, [], 'Empty sem `border` no className: o componente só compõe `border-dashed`, e o preflight do Tailwind zera a largura — o bloco fica SEM moldura nenhuma')
   })
 
   it('e a exceção de página inteira aponta para arquivo que existe e não tem borda', () => {

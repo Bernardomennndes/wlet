@@ -168,9 +168,9 @@ describe('updatePlan — o caminho de toda edição em linha', () => {
   it('plano que não existe é PlanNotFoundError, e nada é gravado', async () => {
     const { repository, service } = setup()
     await service.addPlan(monitor)
-    const antes = structuredClone(repository.snapshot())
+    const before = structuredClone(repository.snapshot())
     await assert.rejects(() => service.updatePlan('nao-existe', { cash: 1 }), PlanNotFoundError)
-    assert.deepEqual(repository.snapshot(), antes, 'uma escrita recusada não altera o catálogo')
+    assert.deepEqual(repository.snapshot(), before, 'uma escrita recusada não altera o catálogo')
   })
 })
 

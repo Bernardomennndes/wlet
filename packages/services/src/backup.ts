@@ -65,11 +65,11 @@ export interface BackupDeps {
 
 export async function exportState(deps: BackupDeps): Promise<string> {
   const { dataset, config, plans, overrides, preferences } = deps
-  const [loaded, declarations, catalogue, adjustments, prefs, sources] = await Promise.all([dataset.load(), config.load(), plans.list(), overrides.list(), preferences.load(), dataset.readSources()])
+  const [loaded, declarations, catalog, adjustments, prefs, sources] = await Promise.all([dataset.load(), config.load(), plans.list(), overrides.list(), preferences.load(), dataset.readSources()])
   const payload: BackupPayload = {
     dataset: loaded.data,
     declarations,
-    plans: catalogue,
+    plans: catalog,
     overrides: adjustments,
     preferences: prefs,
     sources: sources.map((s) => ({ path: s.path, base64: toBase64(s.bytes) })),
