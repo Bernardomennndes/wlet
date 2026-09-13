@@ -13,6 +13,7 @@ import { ImportDialog } from './-components/import-dialog'
 import { toast } from '@wlet/ui/toast'
 import { api } from '@/api'
 import { services } from '@/services'
+import { storedCountLabel } from './-stored-count-label'
 
 /**
  * De onde vêm os dados, e como trocá-los — sem terminal.
@@ -62,7 +63,12 @@ export function DadosPageContent() {
    * sincronizava nada com sistema externo — era leitura disfarçada. A chave vem do contrato, então
    * as três escritas abaixo a invalidam e a contagem se move sozinha.
    */
-  const { data: stored, refetch: refetchStoredCount, isFetching: fetchingStoredCount } = useQuery({ queryKey: api().dataset.sources.key(), queryFn: () => services().dataset.storedSources() })
+  const {
+    data: stored,
+    refetch: refetchStoredCount,
+    isFetching: fetchingStoredCount,
+    error: storedCountError,
+  } = useQuery({ queryKey: api().dataset.sources.key(), queryFn: () => services().dataset.storedSources() })
 
   /**
    * Todo domínio que uma ingestão mexe — e são quase todos.
@@ -234,11 +240,12 @@ export function DadosPageContent() {
             </div>
             <div>
               <dt className="text-muted-foreground">Arquivos guardados</dt>
-              {/* `undefined` aqui é CARREGANDO, não ausência — a leitura ainda não voltou. O
-                  travessão dizia as duas coisas com o mesmo símbolo, e nenhuma delas para quem
-                  usa leitor de tela. "Contando…" nomeia o estado, e some assim que o número
-                  chega. */}
-              <dd className="font-mono">{stored === undefined ? <span className="text-muted-foreground italic">Contando…</span> : stored === 0 ? 'nenhum' : String(stored)}</dd>
+              <dd className="font-mono">
+                {(() => {
+                  const campo = storedCountLabel(stored, storedCountError)
+                  return campo.kind === 'value' ? campo.text : <span className={campo.kind === 'error' ? 'text-destructive not-italic' : 'text-muted-foreground italic'}>{campo.text}</span>
+                })()}
+              </dd>
             </div>
           </dl>
           {/* A medição de espaço e o pedido de persistência saíram com o armazenamento do
