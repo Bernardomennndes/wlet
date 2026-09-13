@@ -112,3 +112,54 @@ describe('ids de plano', () => {
     assert.doesNotMatch(fonte, /ids:\s*\{/, 'a montagem voltou a inventar o id num literal')
   })
 })
+
+/**
+ * Com o servidor fora do ar, o boot FALHA — e isso é o estado atual, não uma conclusão.
+ *
+ * `dataset.load()` engole o erro do repositório e responde pela semente, e o comentário dele já
+ * prometeu, por isso, que o app abriria com o servidor inacessível. Não abre: as outras quatro
+ * leituras do `Promise.all` de `main.tsx` rejeitam, e a tela de erro do `fail()` é o que aparece.
+ *
+ * O caminho que isto alcança de verdade é o servidor que AUTENTICA e falha numa leitura — 500,
+ * tempo esgotado, 401 em corrida. Com o servidor inteiro fora, `getSession()` rejeita antes e a
+ * tela de entrada aparece, o que é deliberado e está escrito em `main.tsx`.
+ *
+ * O teste tranca a MEDIÇÃO, não a escolha. Há dois desenhos coerentes — boot tudo-ou-nada, ou
+ * boot resiliente com aviso visível de que o dado não veio do servidor — e o segundo não é
+ * escrevível sem decidir o que `plans` e `overrides` mostram sem semente: cair para vazio diria
+ * "você não tem planos" quando a verdade é "o servidor não respondeu". Enquanto a decisão não for
+ * tomada, este teste é o que impede a assimetria de voltar a ser lida como resiliência.
+ */
+describe('boot com o servidor fora do ar', () => {
+  // Porta 1 nunca tem ninguém ouvindo, então a recusa de conexão é imediata e não depende de rede.
+  const morto = 'http://127.0.0.1:1/v1'
+
+  it('dataset.load() sobrevive, e as outras quatro leituras não', async () => {
+    const { createWletClient } = await import('@wlet/api')
+    const { build } = await import('../../src/services.ts')
+    const { dataset, config, preferences, overrides, plans } = build(createWletClient({ baseUrl: morto }))
+
+    const carregado = await dataset.load()
+    assert.notEqual(carregado.origin, 'stored', 'sem servidor não há como o conjunto vir do gravado')
+
+    for (const [nome, ler] of [
+      ['config.load', () => config.load()],
+      ['preferences.load', () => preferences.load()],
+      ['overrides.list', () => overrides.list()],
+      ['plans.list', () => plans.list()],
+    ] as const) {
+      await assert.rejects(
+        ler,
+        (erro: Error) => erro.name === 'ServerUnreachableError',
+        `${nome} deixou de rejeitar — se isso foi de propósito, o desenho do boot mudou e o comentário de dataset.load() precisa mudar com ele`,
+      )
+    }
+  })
+
+  it('e o Promise.all do boot, por consequência, cai na tela de erro', async () => {
+    const { createWletClient } = await import('@wlet/api')
+    const { build } = await import('../../src/services.ts')
+    const { dataset, config, preferences, overrides, plans } = build(createWletClient({ baseUrl: morto }))
+    await assert.rejects(() => Promise.all([dataset.load(), config.load(), preferences.load(), overrides.list(), plans.list()]))
+  })
+})

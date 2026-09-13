@@ -85,10 +85,21 @@ function assertComplete(data: Dataset): void {
 export function makeDatasetService({ repository, seed, runner, sources: sourceStore }: DatasetServiceDeps): DatasetService {
   return {
     async load() {
-      // Servidor inacessível, conjunto corrompido ou resposta lenta não podem impedir o app de
-      // abrir — a semente
-      // responde, e ela é um app inteiro funcionando. Quem chamou recebe a origem e decide o
-      // que dizer na tela.
+      // O que este `catch` protege é o conjunto GRAVADO E INCOMPLETO: `assertComplete` estoura,
+      // e em vez de derrubar a tela a semente responde — ela é um app inteiro funcionando. Quem
+      // chamou recebe a origem e decide o que dizer.
+      //
+      // **Ele NÃO faz o app abrir quando o servidor falha**, embora já tenha prometido isso aqui.
+      // Medido contra uma porta morta: este método devolve semente, mas as outras quatro leituras
+      // do boot (`config`, `preferences`, `overrides`, `plans`) rejeitam com
+      // `ServerUnreachableError` e o `Promise.all` de `main.tsx` cai na tela de erro. Servidor
+      // INTEIRO fora é outro caminho — `getSession()` rejeita antes e a tela de entrada aparece,
+      // de propósito. O caso que a semente não salva é o servidor que autentica e falha numa
+      // leitura: 500, tempo esgotado, 401 em corrida.
+      //
+      // Tolerar isso é decisão do BOOT, não deste método, e está em aberto: `plans` e `overrides`
+      // não têm semente, então cair para vazio mostraria "você não tem planos" quando a verdade é
+      // "o servidor não respondeu" — trocar uma tela de erro honesta por um número errado.
       try {
         const saved = await repository.find()
         if (saved) {
