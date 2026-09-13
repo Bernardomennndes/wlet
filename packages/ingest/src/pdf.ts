@@ -120,8 +120,14 @@ async function decodeStream(env: IngestEnv, object: PdfObject): Promise<string> 
   return inflated ? latin1(inflated) : ''
 }
 
-/** Um CMap `/ToUnicode`: o que traduz ID de glifo em caractere. */
-function parseCMap(source: string): Map<number, string> {
+/**
+ * Um CMap `/ToUnicode`: o que traduz ID de glifo em caractere.
+ *
+ * Exportada para teste: é pura, e é onde o texto da fatura vira legível ou vira lixo. Um mapa
+ * errado não estoura — a descrição sai embaralhada, não casa regra nenhuma e o gasto cai em
+ * `outros`, com o valor certo e a categoria errada.
+ */
+export function parseCMap(source: string): Map<number, string> {
   const map = new Map<number, string>()
   const toText = (hex: string) => {
     let out = ''
@@ -140,8 +146,13 @@ function parseCMap(source: string): Map<number, string> {
   return map
 }
 
-/** Os bytes de uma string literal de PDF, resolvendo os escapes. */
-function literalBytes(raw: string): number[] {
+/**
+ * Os bytes de uma string literal de PDF, resolvendo os escapes.
+ *
+ * Exportada pela mesma razão do `parseCMap`: pura, e o escape octal mal lido troca um caractere
+ * no meio do nome do estabelecimento — o suficiente para a regra de categoria não casar.
+ */
+export function literalBytes(raw: string): number[] {
   const out: number[] = []
   const ESCAPES: Record<string, number> = { n: 10, r: 13, t: 9, b: 8, f: 12 }
   for (let i = 0; i < raw.length; i++) {
