@@ -5,11 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet
 import { Input } from '@wlet/ui/components/input'
 import { MoneyInput } from '@wlet/ui/components/money-input'
 import { MonthPicker } from '@wlet/ui/components/month-picker'
-import { newId, CATEGORIES } from '@wlet/domain'
+import { expenseCategoryOptions, newId } from '@wlet/domain'
 import { plannedRecurrences, type Receivable, type Recurrence } from '@wlet/domain'
 import { DueOnField } from '@/components/due-on-field'
 
-const EXPENSE_ITEMS = CATEGORIES.filter((c) => c.kind === 'expense').map((c) => ({ value: c.id, label: c.label, description: c.description }))
 const RECURRENCE_ITEMS = plannedRecurrences.map((r) => ({ value: r.value, label: r.label }))
 
 /**
@@ -55,7 +54,13 @@ export function ReceivablesSection({ receivables, onChange, disabled }: { receiv
               </label>
               <label className="space-y-1">
                 <span className="text-muted-foreground block">Abate</span>
-                <AppCombobox items={EXPENSE_ITEMS} value={receivable.offsetsCategoryId} onValueChange={(v) => patch(index, { offsetsCategoryId: v })} aria-label="Categoria abatida" className="w-52" />
+                <AppCombobox
+                  items={expenseCategoryOptions}
+                  value={receivable.offsetsCategoryId}
+                  onValueChange={(v) => patch(index, { offsetsCategoryId: v })}
+                  aria-label="Categoria abatida"
+                  className="w-52"
+                />
               </label>
               <Button size="icon-sm" variant="ghost" disabled={disabled} aria-label={`Remover a cobrança de ${receivable.debtor}`} onClick={() => onChange(receivables.filter((_, i) => i !== index))}>
                 <Trash />

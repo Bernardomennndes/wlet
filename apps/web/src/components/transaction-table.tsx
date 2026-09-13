@@ -7,14 +7,12 @@ import { ButtonGroup } from '@wlet/ui/components/button-group'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@wlet/ui/components/empty'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@wlet/ui/components/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@wlet/ui/components/tooltip'
-import { CATEGORIES, categoryLabel } from '@wlet/domain'
+import { categoryOptions, categoryLabel } from '@wlet/domain'
 import { useTransactionPaging, type TransactionPaging } from '@/hooks/use-transaction-paging'
 import { ACCOUNT_MAP, META, type ViewTransaction } from '@/lib/finance'
 import { formatDate, formatSigned } from '@wlet/lib/format'
 import { useFilters } from '@/providers/use-filters'
 import { cn } from '@wlet/lib/utils'
-
-const CATEGORY_ITEMS = CATEGORIES.map((c) => ({ value: c.id, label: c.label, description: c.description }))
 
 /**
  * O rodapé é montado SEMPRE, esteja onde estiver: some-lo quando tudo cabe faz a altura
@@ -163,7 +161,7 @@ export function TransactionTable({ rows, compact = false, paging: external, onCl
                       aria-label={`Categoria de ${tx.merchant}`}
                       value={current}
                       onValueChange={(next) => setOverride(tx.id, next === tx.categoryId ? null : next)}
-                      items={CATEGORY_ITEMS}
+                      items={categoryOptions}
                       modified={overridden}
                       className="w-52"
                     />

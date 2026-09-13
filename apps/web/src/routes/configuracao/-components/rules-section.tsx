@@ -5,10 +5,8 @@ import { Button } from '@wlet/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
 import { FieldError } from '@wlet/ui/components/field'
 import { Input } from '@wlet/ui/components/input'
-import { newId, CATEGORIES } from '@wlet/domain'
+import { categoryOptions, newId } from '@wlet/domain'
 import type { Rule } from '@wlet/ingest/rules'
-
-const CATEGORY_ITEMS = CATEGORIES.map((c) => ({ value: c.id, label: c.label, description: c.description }))
 
 /**
  * As SUAS regras de categorização — o comércio do bairro, os clientes, a cidade.
@@ -85,7 +83,7 @@ function RuleRow({ rule, disabled, onPatch, onRemove }: { rule: Rule; disabled: 
       </label>
       <label className="space-y-1">
         <span className="text-muted-foreground block">Categoria</span>
-        <AppCombobox items={CATEGORY_ITEMS} value={rule.category} onValueChange={(v) => onPatch({ category: v })} aria-label="Categoria da regra" className="w-52" />
+        <AppCombobox items={categoryOptions} value={rule.category} onValueChange={(v) => onPatch({ category: v })} aria-label="Categoria da regra" className="w-52" />
       </label>
       <label className="space-y-1">
         <span className="text-muted-foreground block">Renomeia para</span>

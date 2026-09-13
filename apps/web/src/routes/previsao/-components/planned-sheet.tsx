@@ -9,12 +9,10 @@ import { MoneyInput } from '@wlet/ui/components/money-input'
 import { MonthPicker } from '@wlet/ui/components/month-picker'
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@wlet/ui/components/sheet'
 import { ToggleGroup, ToggleGroupItem } from '@wlet/ui/components/toggle-group'
-import { CATEGORIES } from '@wlet/domain'
+import { categoryOptions } from '@wlet/domain'
 import { entityKinds, plannedRecurrences, type PlannedEntry } from '@wlet/domain'
 import { DueOnField } from '@/components/due-on-field'
 import { ENTRY_FLOWS, plannedFormSchema as schema, type PlannedFormValues as FormValues } from './planned-sheet-schema'
-
-const CATEGORY_ITEMS = CATEGORIES.map((c) => ({ value: c.id, label: c.label, description: c.description }))
 
 /**
  * A gaveta que COMPÕE um lançamento previsto.
@@ -154,7 +152,7 @@ function PlannedForm({
         <Controller
           control={form.control}
           name="categoryId"
-          render={({ field }) => <AppCombobox items={CATEGORY_ITEMS} value={field.value} onValueChange={field.onChange} aria-label="Categoria do lançamento" className="w-full" />}
+          render={({ field }) => <AppCombobox items={categoryOptions} value={field.value} onValueChange={field.onChange} aria-label="Categoria do lançamento" className="w-full" />}
         />
         <FieldError errors={[form.formState.errors.categoryId]} />
       </Field>

@@ -9,7 +9,7 @@ import { Card, CardContent } from '@wlet/ui/components/card'
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@wlet/ui/components/field'
 import { Input } from '@wlet/ui/components/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@wlet/ui/components/tooltip'
-import { CATEGORIES } from '@wlet/domain'
+import { categoryOptions } from '@wlet/domain'
 import { entityKinds } from '@wlet/domain'
 import { type Flow, ACCOUNTS, accountInScope, flowKinds, sum } from '@/lib/finance'
 import { formatBRL, formatMonthShort, plural } from '@wlet/lib/format'
@@ -24,7 +24,8 @@ const ALL = 'all'
 const FILTER_KEYS = ['conta', 'categoria', 'fluxo', 'mes']
 /** O atraso da busca é por TEMPO, e é o mesmo em qualquer campo de busca do app. */
 const SEARCH_DEBOUNCE_MS = 500
-const CATEGORY_ITEMS = [{ value: ALL, label: 'Todas as categorias' }, ...CATEGORIES.map((c) => ({ value: c.id, label: c.label, description: c.description }))]
+// O sentinela é ACRESCENTADO à lista do domínio, nunca redigitado junto com ela (§5).
+const CATEGORY_ITEMS = [{ value: ALL, label: 'Todas as categorias' }, ...categoryOptions]
 const FLOW_ITEMS = [{ value: ALL, label: 'Todos os lançamentos' }, ...flowKinds.map((o) => ({ value: o.value, label: `Só ${o.labelPlural!.toLowerCase()}`, icon: o.icon }))]
 
 export function TransacoesPageContent() {

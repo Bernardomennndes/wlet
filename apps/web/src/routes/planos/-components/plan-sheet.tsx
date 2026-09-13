@@ -11,7 +11,7 @@ import { MoneyInput } from '@wlet/ui/components/money-input'
 import { MonthPicker } from '@wlet/ui/components/month-picker'
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@wlet/ui/components/sheet'
 import { ToggleGroup, ToggleGroupItem } from '@wlet/ui/components/toggle-group'
-import { CATEGORIES } from '@wlet/domain'
+import { expenseCategoryOptions } from '@wlet/domain'
 import { paymentModes, planStatuses, type PaymentMode, type Plan } from '@wlet/domain'
 import { formatBRL } from '@wlet/lib/format'
 import type { PlanGroup } from '@wlet/domain'
@@ -19,7 +19,6 @@ import { financedOf, planFormSchema as schema, type PlanFormValues as FormValues
 
 // A descrição do catálogo entra como texto secundário — e, com ela, na busca: procurar
 // "padaria" passa a encontrar "Mercado". O ícone da situação sai da lista de enum do domínio.
-const CATEGORY_ITEMS = CATEGORIES.filter((c) => c.kind === 'expense').map((c) => ({ value: c.id, label: c.label, description: c.description }))
 const STATUS_ITEMS = planStatuses.map((s) => ({ value: s.value, label: s.label, icon: s.icon }))
 
 /** O tipo de `control` depois do `.transform()`: entrada, contexto e saída, nessa ordem. */
@@ -32,7 +31,7 @@ function toValues(plan: Plan | null): FormValues {
     financedTotal: plan?.financed?.total ?? 0,
     installments: plan?.financed?.installments ?? 2,
     payment: plan?.payment ?? null,
-    categoryId: plan?.categoryId ?? CATEGORY_ITEMS[0]?.value ?? 'compras',
+    categoryId: plan?.categoryId ?? expenseCategoryOptions[0]?.value ?? 'compras',
     month: plan?.month ?? null,
     groupId: plan?.groupId ?? null,
     status: plan?.status ?? 'considering',
@@ -167,7 +166,7 @@ function PlanForm({
         render={({ field, fieldState }) => (
           <Field>
             <FieldLabel htmlFor="plano-categoria">Categoria</FieldLabel>
-            <AppCombobox id="plano-categoria" aria-label="Categoria" value={field.value} onValueChange={field.onChange} items={CATEGORY_ITEMS} />
+            <AppCombobox id="plano-categoria" aria-label="Categoria" value={field.value} onValueChange={field.onChange} items={expenseCategoryOptions} />
             <FieldError errors={[fieldState.error]} />
           </Field>
         )}

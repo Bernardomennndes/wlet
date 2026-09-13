@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Budget, BudgetCategory } from '@wlet/domain'
-import { CATEGORIES, categoryLabel } from '@wlet/domain'
+import { expenseCategoryOptions, categoryLabel } from '@wlet/domain'
 import { MONTHLY_OCCURRENCES, monthRange, rubricAmount, rubricSpent, weekRange } from '@wlet/domain/rubric'
 import { formatBRL, formatDayMonth, formatMonthLongLabel } from '@wlet/lib/format'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@wlet/ui/components/alert-dialog'
@@ -28,8 +28,6 @@ import { RUBRICAS_METRICS } from './-metric-definitions'
  * conferido por semana: quem come 2 kg de frango por semana quer saber se comeu.
  */
 type Base = 'week' | 'month'
-
-const EXPENSE_ITEMS = CATEGORIES.filter((c) => c.kind === 'expense').map((c) => ({ value: c.id, label: c.label, description: c.description }))
 
 /**
  * As rubricas: o gasto esperado por categoria, medido e editado no mesmo lugar.
@@ -168,7 +166,7 @@ export function RubricasPageContent() {
 
   // Uma categoria só pode ter UMA rubrica: duas somariam duas vezes o mesmo teto, e a tela
   // mostraria duas barras medindo o mesmo gasto.
-  const available = EXPENSE_ITEMS.filter((c) => !declared.some((r) => r.categoryId === c.value))
+  const available = expenseCategoryOptions.filter((c) => !declared.some((r) => r.categoryId === c.value))
 
   return (
     <div className="space-y-4">

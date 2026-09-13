@@ -86,3 +86,32 @@ export const CATEGORY_MAP: Record<string, Category> = Object.fromEntries(CATEGOR
 export function categoryLabel(id: string): string {
   return CATEGORY_MAP[id]?.label ?? id
 }
+
+/**
+ * A forma que um seletor de categoria consome. É a `SelectOption` do `AppCombobox`, declarada aqui
+ * de novo porque o domínio não conhece a camada de componentes — e não deve.
+ */
+export interface CategoryOption {
+  value: string
+  label: string
+  description: string
+}
+
+const toOption = (category: Category): CategoryOption => ({ value: category.id, label: category.label, description: category.description })
+
+/**
+ * As categorias como opções de seletor — a terceira face da lista, ao lado do rótulo e do badge.
+ *
+ * A §5 de `enum-display.md` manda a derivação morar NO ARQUIVO DO DOMÍNIO, e a razão é a mesma dos
+ * mapas paralelos da §1: ela estava escrita sete vezes, em sete telas, e nada obrigava as sete a
+ * andarem juntas. Ainda não tinham divergido — todas carregavam `description` —, mas a divergência
+ * seria SILENCIOSA e não cosmética: o `AppCombobox` casa a busca contra rótulo MAIS descrição, então
+ * a cópia que esquecesse o campo deixaria de encontrar "Mercado" por "padaria", e a tela pareceria
+ * apenas ter menos resultados.
+ *
+ * O sentinela de "todas" NÃO entra aqui — é da tela que filtra, e a §5 o proíbe na lista de domínio.
+ */
+export const categoryOptions: CategoryOption[] = CATEGORIES.map(toOption)
+
+/** Só as de DESPESA: o que uma rubrica cobre, o que uma cobrança abate, o que um plano custa. */
+export const expenseCategoryOptions: CategoryOption[] = CATEGORIES.filter((category) => category.kind === 'expense').map(toOption)
