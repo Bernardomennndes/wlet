@@ -80,8 +80,11 @@ export function SettlementHistory({
               <td className="py-1">{formatMonthShort(occurrence.month)}</td>
               <td className="py-1 text-right text-muted-foreground">{formatBRL(occurrence.expected)}</td>
               <td className="py-1 text-right font-medium">{formatBRL(occurrence.actual)}</td>
-              {/* Zero não ganha cor: cumprir exatamente o combinado é o normal, não um feito. */}
-              <td className={critical ? 'py-1 text-right text-[var(--status-critical)]' : 'py-1 text-right text-muted-foreground'}>{difference === 0 ? '—' : formatBRL(difference)}</td>
+              {/* Zero não ganha cor: cumprir exatamente o combinado é o normal, não um feito. E
+                  zero é VALOR, então ele aparece como R$ 0,00 — era um travessão, e travessão não
+                  é lido por leitor de tela nem distingue "não houve diferença" de "não medido",
+                  que nesta coluna são leituras opostas. O esmaecido já diz que não há o que olhar. */}
+              <td className={critical ? 'py-1 text-right text-[var(--status-critical)]' : 'py-1 text-right text-muted-foreground'}>{formatBRL(difference)}</td>
               {counterpart ? <td className="max-w-[10rem] truncate py-1 text-right text-muted-foreground">{others.join(', ')}</td> : null}
               <td className="py-1 text-right">
                 <EnumBadge option={badge.get(occurrence.status)} value={occurrence.status} />

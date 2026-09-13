@@ -26,7 +26,17 @@ export function BenchmarkCard({ data }: { data: PatrimonyPoint[] }) {
     <div className="flex h-full flex-col gap-4 rounded-xl bg-[var(--hero)] p-5 text-[var(--hero-foreground)]">
       <div>
         <p className="text-xs font-medium text-[var(--hero-muted)]">Contra o CDI</p>
-        <p className="mt-2 font-mono text-3xl font-semibold tracking-tight tabular-nums">{gap === null ? '—' : `${ahead ? '+' : '−'}${formatPercent(Math.abs(gap), 2)}`}</p>
+        {/* Sem CDI em cache não há número, e a ausência se escreve — não se desenha com um
+            travessão. "—" não é lido por leitor de tela e não distingue "não medido" de "zero",
+            que aqui seriam leituras opostas: empatar com o CDI é resultado, não falta de dado.
+            A tipografia é local e menor, como a `empty-cells.md` §1b pede para bloco com escala
+            própria: forçar o `text-sm` do `<NotInformed>` encolheria o placeholder abaixo da
+            legenda que vem logo abaixo dele. */}
+        {gap === null ? (
+          <p className="mt-2 text-lg text-[var(--hero-muted)] italic">Não medido</p>
+        ) : (
+          <p className="mt-2 font-mono text-3xl font-semibold tracking-tight tabular-nums">{`${ahead ? '+' : '−'}${formatPercent(Math.abs(gap), 2)}`}</p>
+        )}
         <p className="mt-2 text-xs leading-relaxed text-[var(--hero-muted)]">
           {gap === null ? (
             'Sem CDI em cache para comparar.'

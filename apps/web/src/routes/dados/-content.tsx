@@ -234,7 +234,11 @@ export function DadosPageContent() {
             </div>
             <div>
               <dt className="text-muted-foreground">Arquivos guardados</dt>
-              <dd className="font-mono">{stored === undefined ? '—' : stored === 0 ? 'nenhum' : String(stored)}</dd>
+              {/* `undefined` aqui é CARREGANDO, não ausência — a leitura ainda não voltou. O
+                  travessão dizia as duas coisas com o mesmo símbolo, e nenhuma delas para quem
+                  usa leitor de tela. "Contando…" nomeia o estado, e some assim que o número
+                  chega. */}
+              <dd className="font-mono">{stored === undefined ? <span className="text-muted-foreground italic">Contando…</span> : stored === 0 ? 'nenhum' : String(stored)}</dd>
             </div>
           </dl>
           {/* A medição de espaço e o pedido de persistência saíram com o armazenamento do
