@@ -6,7 +6,7 @@ import { buildInvestments, type CdiDay } from './investments'
 import { matchPlanned, matchReceivables, ruleProblems } from './matching'
 import { canonicalName, parseNubankInvoicePdf, parseOfx, parseXpInvoiceCsv, type ParsedFile, type RawTransaction } from './parsers'
 import { readPdfLines } from './pdf'
-import { cleanDescription, deriveMerchant, normalizeForRules, type Rule } from './rules'
+import { categorize, cleanDescription, deriveMerchant, normalizeForRules, type Rule } from './rules'
 
 /**
  * O pipeline de ingestão — UMA implementação, dois ambientes.
@@ -197,15 +197,6 @@ function addMonths(isoDate: string, months: number): string {
   const lastDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate()
   date.setUTCDate(Math.min(d, lastDay))
   return date.toISOString().slice(0, 10)
-}
-
-function categorize(rules: Rule[], normalized: string, amount: number): { categoryId: string; rule: string | null; merchant: string | null } {
-  for (const rule of rules) {
-    if (rule.sign === 'in' && amount < 0) continue
-    if (rule.sign === 'out' && amount > 0) continue
-    if (rule.test.test(normalized)) return { categoryId: rule.category, rule: rule.id, merchant: rule.merchant ?? null }
-  }
-  return { categoryId: amount > 0 ? 'reembolso' : 'outros', rule: null, merchant: null }
 }
 
 const TRANSFER_CATEGORIES = new Set(['transferencia', 'pagamento-fatura', 'investimentos'])

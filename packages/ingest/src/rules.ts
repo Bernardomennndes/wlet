@@ -154,6 +154,31 @@ export function buildRules(customRules: Rule[] = []): Rule[] {
   return [...PRIORITY_RULES, ...customRules, ...BASE_RULES]
 }
 
+/**
+ * A categoria de um lançamento: a PRIMEIRA regra que casar vence.
+ *
+ * Morava no `pipeline.ts`, privada, e por isso o motor de categorização do app inteiro não tinha
+ * como ser exercitado. É pura — recebe as regras, o texto normalizado e o valor — e pertence aqui,
+ * ao lado das listas que ela percorre: o módulo que declara as regras é o que sabe aplicá-las.
+ *
+ * **O `sign` é filtro, não desempate.** Uma regra marcada `out` não casa uma entrada, e a busca
+ * CONTINUA — ela não interrompe. Sem isso, "JUROS" pegaria tanto o juro cobrado quanto o
+ * rendimento creditado, e os dois cairiam em `juros-multas`.
+ *
+ * **O padrão de quem não casou nada depende do SINAL, e é decisão de modelo.** Saída sem regra é
+ * `outros`; entrada sem regra é `reembolso` — que neste app ABATE uma despesa em vez de contar como
+ * receita. Tratar entrada desconhecida como receita inflaria o que entrou toda vez que alguém
+ * devolvesse um rateio.
+ */
+export function categorize(rules: Rule[], normalized: string, amount: number): { categoryId: string; rule: string | null; merchant: string | null } {
+  for (const rule of rules) {
+    if (rule.sign === 'in' && amount < 0) continue
+    if (rule.sign === 'out' && amount > 0) continue
+    if (rule.test.test(normalized)) return { categoryId: rule.category, rule: rule.id, merchant: rule.merchant ?? null }
+  }
+  return { categoryId: amount > 0 ? 'reembolso' : 'outros', rule: null, merchant: null }
+}
+
 /** Prefixos de adquirentes/plataformas que poluem a descrição. */
 const PREFIXES = /^(IFD\*|DM\*|MP\*|DL ?\*|EC ?\*|B\*|ZIG\*|APP\s+\*|SHOPEE \*|MERCADOLIVRE\*|CREDPAG\*|JIM\.COM\*?|MERCADOPAGO\*|AIRBNB PAGAM\*|FACEBK \*)\s*/i
 
