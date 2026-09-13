@@ -149,7 +149,7 @@ O repositório é um workspace pnpm orquestrado por Turborepo, no molde da Selfi
 - **O pool do `postgres.js` NÃO fecha sozinho** e segura o processo do Node — a primeira versão da
   suíte simplesmente pendurou. `createDb` devolve um `close` para quem tem fim (teste, script,
   tarefa) poder encerrá-lo sem alcançar o cliente por baixo.
-- `pnpm check` roda as duas suítes pelo turbo (498 testes: 463 no app, 35 no servidor). A do servidor precisa de
+- `pnpm check` roda as duas suítes pelo turbo (506 testes: 463 no app, 43 no servidor). A do servidor precisa de
   `DATABASE_URL`; a do app não depende de nada.
 
 - `docker compose up -d` sobe o Postgres de desenvolvimento na porta **5433**, para não brigar
