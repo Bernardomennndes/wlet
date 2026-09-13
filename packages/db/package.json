@@ -10,10 +10,9 @@
   },
   "scripts": {
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/migrate.ts",
+    "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "type:check": "tsc --noEmit",
-    "db:migrate:kit": "drizzle-kit migrate"
+    "type:check": "tsc --noEmit"
   },
   "dependencies": {
     "drizzle-orm": "^0.44.7",
@@ -24,7 +23,6 @@
     "@wlet/env": "workspace:*",
     "@wlet/tsconfig": "workspace:*",
     "drizzle-kit": "^0.31.6",
-    "tsx": "^4.23.13",
     "typescript": "~6.0.2"
   }
 }

@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 /**
  * O `.env` do WLET é UM, e mora na raiz do workspace.
@@ -19,8 +20,42 @@ import { dirname, join } from 'node:path'
  */
 const MARCADOR = 'pnpm-workspace.yaml'
 
-/** A raiz do workspace, ou `null` se este código foi parar fora dele. */
-export function workspaceRoot(from: string = import.meta.dirname): string | null {
+/**
+ * De onde a busca começa — e por que não é só `import.meta.dirname`.
+ *
+ * Era, e isso quebrava todo comando que carrega a sua configuração como **CommonJS**. O
+ * `drizzle-kit` faz exatamente isso: ele compila o `drizzle.config.ts` com um transformador próprio
+ * e o executa por `Module._compile`, onde `import.meta` não existe — a propriedade vira `undefined`,
+ * o parâmetro com valor padrão recebe `undefined`, e o `join(undefined, …)` estoura com
+ * `The "path" argument must be of type string`. A mensagem não menciona `import.meta`, nem este
+ * pacote, nem o arquivo de configuração: por semanas a leitura foi "o CLI do drizzle-kit está
+ * quebrado", e `generate` e `migrate` ficaram inutilizáveis.
+ *
+ * As quatro fontes, em ordem de precisão. `import.meta.url` cobre o ESM em que `dirname` não exista;
+ * `__dirname` cobre o CJS de verdade; o `cwd` é o último recurso — pior que os outros porque depende
+ * de onde o comando foi disparado, mas melhor que estourar, já que a busca SOBE e o `cwd` de
+ * qualquer pacote do monorepo chega na raiz.
+ */
+function origem(): string {
+  if (typeof import.meta.dirname === 'string') return import.meta.dirname
+  // `import.meta.url` existe em ESM mesmo onde `dirname` não foi implementado; sob o transformador
+  // CJS do drizzle-kit ele também vira `undefined`, daí a checagem de tipo e não de verdade.
+  const url: unknown = import.meta.url
+  if (typeof url === 'string' && url.startsWith('file:')) return dirname(fileURLToPath(url))
+  const cjs: unknown = (globalThis as { __dirname?: unknown }).__dirname
+  if (typeof cjs === 'string') return cjs
+  return process.cwd()
+}
+
+/**
+ * A raiz do workspace, ou `null` se este código foi parar fora dele.
+ *
+ * O `from` é conferido em vez de confiado: ele chega de `origem()` ou de quem chamou, e um valor que
+ * não seja string derruba o `join` com uma mensagem que não diz de onde veio — foi assim que o
+ * defeito acima ficou escondido.
+ */
+export function workspaceRoot(from: string = origem()): string | null {
+  if (typeof from !== 'string' || from === '') return null
   let dir = from
   for (;;) {
     if (existsSync(join(dir, MARCADOR))) return dir

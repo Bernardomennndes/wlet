@@ -91,11 +91,6 @@ export async function readDeclarations(db: Db, userId: string) {
       label: r.label,
       debtor: r.debtor,
       amount: money(r.amount),
-      // `entity` é ANULÁVEL nesta tabela e SOME quando não há: o domínio não tem o campo, e
-      // devolver `null` faria a validação de saída recusar a resposta inteira. Ver a nota em
-      // `packages/api/src/domains/config/shape.ts` — a coluna é resto da cópia do schema de
-      // lançamento previsto.
-      ...(r.entity ? { entity: r.entity as 'PF' | 'PJ' } : {}),
       recurrence: r.recurrence as 'monthly' | 'once' | 'installments',
       startMonth: r.startMonth,
       dueOn: r.dueOn as PlannedDueDate,
@@ -103,7 +98,6 @@ export async function readDeclarations(db: Db, userId: string) {
       offsetsCategoryId: r.offsetsCategoryId,
       ...(r.endMonth ? { endMonth: r.endMonth } : {}),
       ...(r.count ? { count: Number(r.count) } : {}),
-      ...(r.accountId ? { accountId: r.accountId } : {}),
     })),
     // Conferido pelo CONTEÚDO e não por `??`. A linha de `settings` nasce com `budget: {}`
     // quando a pessoa mexe numa preferência antes de salvar configuração alguma, e `{}` não é

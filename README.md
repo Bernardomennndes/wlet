@@ -143,19 +143,19 @@ Todos a partir da raiz:
 | `pnpm type:check` | typecheck de todos os pacotes, isoladamente |
 | `pnpm ingest` · `pnpm cdi` · `pnpm package` · `pnpm setup` | as cascas de Node do app |
 | `docker compose up -d` | o Postgres de desenvolvimento (porta **5433**) |
-| `pnpm --filter @wlet/db db:migrate` | aplica as migrations (migrator do `drizzle-orm`, não o CLI — ver abaixo) |
+| `pnpm --filter @wlet/db db:generate` · `db:migrate` | cria e aplica migrations |
 | `pnpm --filter @wlet/api-server dev` | sobe o servidor |
 
 `pnpm check` roda as duas suítes: a do app não depende de nada, a do servidor precisa de
 `DATABASE_URL`.
 
-> **O CLI do `drizzle-kit` não roda neste ambiente.** `generate` e `migrate` morrem com
-> `The "path" argument must be of type string. Received undefined` antes de tocar o banco, com o
-> schema íntegro — o CLI carrega o schema por um loader deprecado (`@esbuild-kit/*`, que o próprio
-> `pnpm install` avisa). APLICAR migrations funciona por `db:migrate`, que usa o migrator
-> programático do `drizzle-orm` e faz o mesmo trabalho. **CRIAR** uma migration nova ainda pede o
-> CLI: ou o conserto dele, ou o `.sql` escrito à mão junto do snapshot e do journal em
-> `packages/db/drizzle/` — foi assim que a `0001` nasceu.
+> **O `drizzle-kit` executa o `drizzle.config.ts` como CommonJS**, e isso já custou caro: o
+> `loadRootEnv()` do `@wlet/env` derivava a raiz do workspace de `import.meta.dirname`, que não
+> existe em CJS, e os dois comandos morriam com `The "path" argument must be of type string` antes de
+> tocar o banco — uma mensagem que não menciona `import.meta`, nem o pacote, nem o arquivo de
+> configuração. Corrigido com quatro fontes em ordem de precisão (`import.meta.dirname`,
+> `import.meta.url`, `__dirname`, `cwd`) e trancado por `apps/api/tests/workspace-root.test.ts`, que
+> roda o CLI de verdade.
 
 ### O `.env`
 

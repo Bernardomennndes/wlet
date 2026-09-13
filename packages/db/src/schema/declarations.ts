@@ -46,17 +46,18 @@ export const receivables = pgTable(
     debtor: text('debtor').notNull(),
     amount: numeric('amount', { precision: 14, scale: 2 }).notNull(),
     /**
-     * ANULÁVEL, e é o único campo desta tabela que é.
+     * NÃO há `entity` nem `account_id` aqui, e a ausência é a decisão.
      *
-     * Ela veio da cópia do schema de `plannedEntries` e não corresponde a nada que o domínio
-     * carregue: o lado de uma cobrança é DERIVADO da conta que a quita (`receivablesInScope` lê
-     * `match.accountId`), e sem conta declarada ela vale nos dois. Enquanto era `notNull`, o
-     * `PUT /config` era impossível para quem tem cobrança — o cliente não tem o campo para mandar.
+     * As duas colunas existiram, copiadas do schema de `plannedEntries`, e não correspondiam a nada
+     * que o domínio carregue: o lado de uma cobrança (PF ou PJ) é DERIVADO da conta que a quita —
+     * `receivablesInScope` lê `match.accountId` —, e sem conta declarada ela vale nos dois. Um campo
+     * gravado seria uma segunda verdade sobre a mesma pergunta, livre para discordar da conta.
      *
-     * Fica anulável em vez de sair porque derrubar coluna apaga dado sem volta; removê-la é
-     * decisão de quem opera a instalação. O mesmo vale para `account_id`, que já era anulável.
+     * Enquanto `entity` era `notNull`, o `PUT /config` era IMPOSSÍVEL para quem tivesse cobrança
+     * declarada: o cliente não tem esse campo para mandar, e a validação de entrada recusava o corpo
+     * inteiro com 400. A migration `0001` a tornou anulável para destravar; a `0002` derrubou as
+     * duas, com a tabela vazia (conferido: 0 linhas).
      */
-    entity: text('entity'),
     recurrence: text('recurrence').notNull(),
     startMonth: text('start_month').notNull(),
     endMonth: text('end_month'),
@@ -65,7 +66,6 @@ export const receivables = pgTable(
     match: jsonb('match').notNull(),
     /** A categoria de despesa que o recebimento ABATE — reembolso não é receita. */
     offsetsCategoryId: text('offsets_category_id').notNull(),
-    accountId: text('account_id'),
   },
   (t) => [primaryKey({ columns: [t.userId, t.id] })],
 )

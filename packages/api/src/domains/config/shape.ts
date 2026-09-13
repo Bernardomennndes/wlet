@@ -61,29 +61,26 @@ export const plannedEntry = z.object({
 })
 
 /**
- * Uma cobrança — e `entity` aqui é OPCIONAL, ao contrário de um lançamento previsto.
+ * Uma cobrança — e ela NÃO tem `entity`, ao contrário de um lançamento previsto.
  *
- * Era obrigatória, e isso tornava `PUT /config` IMPOSSÍVEL para quem tem cobrança declarada: o
- * domínio (`Receivable`, em `packages/domain/src/types.ts`) não tem esse campo, então o cliente
- * nunca o mandava, e a validação de entrada recusava o corpo inteiro com 400. O defeito ficou
- * invisível porque o adapter do cliente tinha um `as never` — e só não era visto porque uma conta
- * nova não tem cobrança nenhuma para disparar.
- *
- * **A ausência é deliberada no domínio.** O lado de uma cobrança (PF ou PJ) é DERIVADO da conta
+ * A ausência é deliberada, e é do domínio: o lado de uma cobrança (PF ou PJ) é DERIVADO da conta
  * que a quita — `receivablesInScope` lê `match.accountId` —, e sem conta declarada ela vale nos
- * dois. Um campo gravado aqui seria uma segunda verdade sobre a mesma pergunta, livre para
- * discordar da conta.
+ * dois. Um campo gravado aqui seria uma segunda verdade sobre a mesma pergunta, livre para discordar
+ * da conta.
  *
- * As colunas `entity` e `account_id` de `receivables` ficaram da cópia do schema de lançamento
- * previsto e não correspondem a nada que o domínio carregue. Elas continuam no banco, agora
- * anuláveis; removê-las é decisão de quem opera a instalação.
+ * `entity` já esteve aqui, OBRIGATÓRIO, e isso tornava `PUT /config` impossível para quem tivesse
+ * cobrança declarada: o cliente nunca mandava o campo (o domínio não o tem), e a validação de
+ * entrada recusava o corpo inteiro com 400. O defeito ficou invisível porque o adapter do cliente
+ * tinha um `as never`, e só não era visto porque uma conta nova não tem cobrança para disparar.
+ *
+ * `accountId` saiu pelo mesmo motivo, e junto foram as duas colunas de `receivables` que os
+ * guardavam (migration `0002`). Elas vinham da cópia do schema de lançamento previsto.
  */
 export const receivable = z.object({
   id: z.string(),
   label: z.string(),
   debtor: z.string(),
   amount: z.number(),
-  entity: entity.optional(),
   dueOn,
   recurrence: z.enum(['monthly', 'once', 'installments']),
   startMonth: month,
@@ -91,7 +88,6 @@ export const receivable = z.object({
   count: z.number().int().optional(),
   match: matchRule,
   offsetsCategoryId: z.string(),
-  accountId: z.string().optional(),
 })
 
 export const budgetItem = z.object({
