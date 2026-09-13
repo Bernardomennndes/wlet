@@ -2,7 +2,9 @@ import { Area, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis }
 import { HATCH, hatchBackground, SERIES_SWATCH } from '@/components/charts/chart-theme'
 import { formatAxis, formatBRL, formatMonthShort, formatPercent } from '@wlet/lib/format'
 import { cn } from '@wlet/lib/utils'
+import { MetricInfoPopover } from '@/components/kpi'
 import { benchmarkGap, PATRIMONY_RANGES, windowChange, type PatrimonyPoint, type PatrimonyRange } from '@/lib/investments'
+import { PATRIMONIO_METRICS } from '../-metric-definitions'
 
 const HATCH_ID = 'hero-hatch'
 
@@ -66,7 +68,16 @@ export function PatrimonyHero({ data, range, onRangeChange, className }: { data:
     <div className={cn('flex flex-col gap-4 rounded-xl bg-[var(--hero)] p-5 text-[var(--hero-foreground)]', className)}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
-          <p className="text-xs font-medium text-[var(--hero-muted)]">Patrimônio</p>
+          {/* O MÊS entra no rótulo, e não é enfeite: este número é o fim da JANELA, e a
+              `KpiCard` "Patrimônio" logo acima é o snapshot de agora. Com o período do cabeçalho
+              terminando em março, medido nos dados de exemplo, um dizia R$ 65.565,52 e o outro
+              R$ 83.061,84 — R$ 17.496,32 de diferença sob a mesma palavra, na mesma tela. Os dois
+              estão certos; o que faltava era dizer QUAL pergunta cada um responde. Os dois chips
+              ao lado já se identificavam como do período; só a cifra não. */}
+          <div className="flex items-center gap-1.5">
+            <p className="text-xs font-medium text-[var(--hero-muted)]">{last ? `Patrimônio em ${formatMonthShort(last.month)}` : 'Patrimônio'}</p>
+            <MetricInfoPopover definition={PATRIMONIO_METRICS.windowEnd} className="text-[var(--hero-muted)] hover:text-[var(--hero-foreground)]" />
+          </div>
           <span className="block font-mono text-3xl font-semibold tracking-tight tabular-nums">{formatBRL(last?.total ?? 0)}</span>
           <div className="flex flex-wrap items-center gap-1.5">
             <ChangeChip

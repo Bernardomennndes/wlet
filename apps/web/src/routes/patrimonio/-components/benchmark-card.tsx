@@ -1,7 +1,9 @@
 import { Area, ComposedChart, Line, ResponsiveContainer, XAxis } from 'recharts'
 import { HATCH, hatchBackground, SERIES_SWATCH } from '@/components/charts/chart-theme'
 import { formatMonthShort, formatPercent } from '@wlet/lib/format'
+import { MetricInfoPopover } from '@/components/kpi'
 import { benchmarkGap, type PatrimonyPoint } from '@/lib/investments'
+import { PATRIMONIO_METRICS } from '../-metric-definitions'
 
 const HATCH_ID = 'benchmark-hatch'
 
@@ -25,7 +27,13 @@ export function BenchmarkCard({ data }: { data: PatrimonyPoint[] }) {
   return (
     <div className="flex h-full flex-col gap-4 rounded-xl bg-[var(--hero)] p-5 text-[var(--hero-foreground)]">
       <div>
-        <p className="text-xs font-medium text-[var(--hero-muted)]">Contra o CDI</p>
+        {/* O ⓘ leva os tokens da superfície: o gatilho nasce `text-muted-foreground/60` e
+            `hover:text-foreground`, que nesta superfície saturada some. O `cn` do componente
+            resolve o conflito a favor da classe que chega por último. */}
+        <div className="flex items-center gap-1.5">
+          <p className="text-xs font-medium text-[var(--hero-muted)]">Contra o CDI</p>
+          <MetricInfoPopover definition={PATRIMONIO_METRICS.benchmark} className="text-[var(--hero-muted)] hover:text-[var(--hero-foreground)]" />
+        </div>
         {/* Sem CDI em cache não há número, e a ausência se escreve — não se desenha com um
             travessão. "—" não é lido por leitor de tela e não distingue "não medido" de "zero",
             que aqui seriam leituras opostas: empatar com o CDI é resultado, não falta de dado.

@@ -4,7 +4,34 @@ import type { MetricDefinition } from '@/components/kpi'
  * As definições dos KPIs de Patrimônio, lidas do cálculo real de `scripts/investments.ts` e
  * de `scripts/brokerage.ts`.
  */
-export const PATRIMONIO_METRICS: Record<'current' | 'contributed' | 'gain', MetricDefinition> = {
+export const PATRIMONIO_METRICS: Record<'current' | 'contributed' | 'gain' | 'windowEnd' | 'benchmark', MetricDefinition> = {
+  /**
+   * O número do cartão-herói. Ele NÃO é o `current`, e a distinção é o motivo de existir:
+   * `current` é o snapshot de agora, este é o fim da janela que o período do cabeçalho recorta.
+   */
+  windowEnd: {
+    title: 'Patrimônio no fim da janela',
+    whatItIs: 'Quanto a carteira valia no último mês do período selecionado — o ponto onde a curva termina.',
+    howItIsCalculated:
+      'É o último ponto da série reconstruída, depois do recorte de período. A série inteira é reconstruída desde o primeiro mês com dado e só então cortada: o corte é de EXIBIÇÃO, senão o rendimento acumulado passaria a depender do filtro.',
+    whatItIsFor:
+      'Ler o fim da curva que está na tela. **Ele diverge do "Patrimônio" da fileira acima sempre que o período termina antes do último mês com dado** — aquele é o snapshot de agora, vindo da posição exportada da B3, e este é o valor do mês em que a janela termina. Com o período terminando em março, nos dados de exemplo, um dizia R$ 65.565,52 e o outro R$ 83.061,84. Por isso o mês entra no rótulo.',
+    formula: 'total do último ponto dentro do período',
+  },
+  /** O desvio contra o CDI, do `benchmark-card`. */
+  benchmark: {
+    title: 'Contra o CDI',
+    whatItIs: 'Quanto a carteira está acima ou abaixo do que os MESMOS aportes teriam rendido no CDI cheio.',
+    howItIsCalculated:
+      'Razão entre os dois valores, não diferença entre rentabilidades: `patrimônio ÷ patrimônio-no-CDI − 1`. O benchmark é real e não decorativo — é a série do Banco Central aplicada aos mesmos aportes, nas mesmas datas.',
+    whatItIsFor:
+      'Responde "a minha escolha de ativo valeu mais que deixar no CDI?". Dar ao benchmark o MESMO fluxo de caixa é o que torna a comparação honesta: contra um índice cru, quem aportou muito num mês bom parece gênio, e a diferença que sobra aqui é só escolha de ativo. Sem CDI em cache o número não existe e a tela diz "Não medido" — que é diferente de zero, porque empatar com o CDI é resultado, não falta de dado.',
+    formula: 'patrimônio ÷ patrimônio-no-CDI − 1',
+    example: {
+      scenario: 'Carteira em R$ 83.061,84 contra R$ 79.100,00 que os mesmos aportes fariam no CDI:',
+      calculation: ['83.061,84 ÷ 79.100,00', '= 1,0501', '= +5,01% acima do CDI'],
+    },
+  },
   current: {
     title: 'Patrimônio',
     whatItIs: 'Quanto você tem na corretora: os papéis mais o dinheiro parado em caixa.',
