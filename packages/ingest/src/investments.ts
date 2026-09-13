@@ -86,7 +86,7 @@ function num(value: string | undefined): number | null {
 }
 
 /** Fator acumulado do CDI entre duas datas, a `pct` do CDI. Ambas exclusiva/inclusiva. */
-function factor(cdi: CdiDay[], from: string, to: string, pct: number): number {
+export function factor(cdi: CdiDay[], from: string, to: string, pct: number): number {
   let f = 1
   for (const day of cdi) {
     if (day.date > from && day.date <= to) f *= 1 + day.rate * pct
@@ -108,7 +108,7 @@ function factor(cdi: CdiDay[], from: string, to: string, pct: number): number {
  * O valor de cada mês é o do ÚLTIMO dia útil dele: a gravação por mês sobrescreve, então
  * sobra a última.
  */
-function benchmarkByMonth(cdi: CdiDay[], contributions: Map<string, number>, until: string): Map<string, number> {
+export function benchmarkByMonth(cdi: CdiDay[], contributions: Map<string, number>, until: string): Map<string, number> {
   const dates = [...contributions].sort((a, b) => a[0].localeCompare(b[0]))
   const out = new Map<string, number>()
   if (!dates.length) return out
