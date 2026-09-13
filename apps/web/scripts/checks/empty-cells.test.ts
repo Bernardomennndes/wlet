@@ -64,8 +64,29 @@ describe('ausência de valor', () => {
     // A §1b proíbe reescrever o `<span italic muted>` à mão numa tela nova. A exceção é o bloco com
     // escala própria (cartão de KPI, cartão herói), onde o placeholder HERDA a tipografia do bloco —
     // e essas cópias vivem nos três arquivos abaixo, cada uma com a justificativa no lugar.
+    //
+    // **O padrão casa `className={…}` além de `className="…"`, e a diferença já escondia duas.** A
+    // primeira versão só via a string literal, e as duas cópias declaradas aqui não estão nessa
+    // forma: uma vive dentro de `cn(…)` e a outra dentro de um ternário — que é o idioma normal
+    // deste código. Elas passavam invisíveis, e uma cópia NOVA escrita com `cn(…)` passaria
+    // também. A lista de exceções parecia sedimento e não era; quem estava cego era o varredor.
     const excecoes = ['components/kpi/kpi-value.tsx', 'routes/patrimonio/-components/benchmark-card.tsx', 'routes/dados/-content.tsx']
-    const copias = files.filter(([name, code]) => !excecoes.includes(name) && /className="[^"]*\bitalic\b[^"]*"/.test(code) && /text-muted-foreground|--hero-muted/.test(code)).map(([name]) => name)
+    const italico = /className=\{[^}]*\bitalic\b[^}]*\}|className="[^"]*\bitalic\b[^"]*"/
+    // O próprio `<NotInformed>` é o DONO da tipografia — ele não é uma cópia dela. Ficava de fora
+    // por acidente enquanto o padrão só via string literal; agora sai por decisão.
+    const dono = 'components/not-informed.tsx'
+    const copias = files.filter(([name, code]) => name !== dono && !excecoes.includes(name) && italico.test(code) && /text-muted-foreground|--hero-muted/.test(code)).map(([name]) => name)
     assert.deepEqual(copias, [], 'placeholder de ausência escrito à mão: use <NotInformed>, ou declare a exceção aqui se o bloco tem escala própria (§1b)')
+  })
+
+  it('e cada exceção declarada AINDA é uma cópia — a lista não vira sedimento', () => {
+    // Uma exceção que não descreve mais nada passa a dar licença a um arquivo que não precisa dela.
+    const excecoes = ['components/kpi/kpi-value.tsx', 'routes/patrimonio/-components/benchmark-card.tsx', 'routes/dados/-content.tsx']
+    const italico = /className=\{[^}]*\bitalic\b[^}]*\}|className="[^"]*\bitalic\b[^"]*"/
+    const obsoletas = excecoes.filter((name) => {
+      const found = files.find(([outro]) => outro === name)
+      return !found || !italico.test(found[1])
+    })
+    assert.deepEqual(obsoletas, [], 'exceção que não corresponde mais a uma cópia: tire-a da lista')
   })
 })
