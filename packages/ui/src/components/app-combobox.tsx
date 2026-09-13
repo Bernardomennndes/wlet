@@ -129,7 +129,12 @@ export function AppCombobox({ value, onValueChange, items, className, id, search
               {item.icon ? <item.icon className="size-3 shrink-0 text-muted-foreground" /> : null}
               {/* Grade, não flex: a descrição fica na própria coluna, então as bordas direitas
                   se alinham de linha para linha, independentemente do comprimento dos nomes. */}
-              <span className="grid min-w-0 flex-1 grid-cols-[1fr_auto] items-center gap-2">
+              {/* O `aria-label` existe porque rótulo e descrição são nós IRMÃOS, e o cálculo de
+                  nome acessível concatena os dois sem separador: o leitor de tela anunciava
+                  "Mercado Supermercados e padarias" como um nome só, emendado. O ponto entre eles
+                  é o que o faz pausar — e a descrição fica, em vez de sumir do nome, porque é
+                  justamente ela que desempata "Mercado" de "Alimentação". */}
+              <span className="grid min-w-0 flex-1 grid-cols-[1fr_auto] items-center gap-2" aria-label={item.description ? `${item.label}. ${item.description}` : undefined}>
                 <span className="truncate">{item.label}</span>
                 {item.description ? <span className="truncate text-[0.6875rem] text-muted-foreground">{item.description}</span> : null}
               </span>

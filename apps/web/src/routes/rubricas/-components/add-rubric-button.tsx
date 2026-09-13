@@ -57,8 +57,11 @@ export function AddRubricButton({ options, onPick, disabled }: { options: Catego
       {/* Primário, sem `variant`: é a ação da tela, e é a única. O `Button` já nasce assim. */}
       {/* `disabled` é o `isPending` da escrita que este botão dispara: enquanto a rubrica sobe,
           um segundo clique criaria a segunda a partir do MESMO retrato e a primeira sumiria. */}
-      <ComboboxTrigger aria-label="Adicionar rubrica de uma categoria" disabled={disabled} render={<Button />}>
-        <Plus data-icon="inline-start" /> Adicionar rubrica
+      {/* O gatilho de um menu de criação NOMEIA A FAMÍLIA, não a ação (`tables-and-listings.md`
+          §12.2) — e as outras cinco criações do app já diziam "Novo plano", "Novo grupo", "Novo
+          lançamento previsto", "Nova cobrança". "Adicionar rubrica" era o único fora do padrão. */}
+      <ComboboxTrigger aria-label="Nova rubrica, escolhendo a categoria" disabled={disabled} render={<Button />}>
+        <Plus data-icon="inline-start" /> Nova rubrica
       </ComboboxTrigger>
       {/* Largura própria: o painel do registry herda a do gatilho (`w-(--anchor-width)`), e o
           gatilho aqui é um botão compacto — herdada, a lista sairia com a largura do texto do
@@ -73,7 +76,8 @@ export function AddRubricButton({ options, onPick, disabled }: { options: Catego
                "T…" e "S…" no lugar de "Transporte" e "Saúde"; uma linha chegou a aparecer só
                com a descrição, sem nome nenhum. O nome é por onde se escolhe: ele não trunca. */
             <ComboboxItem key={item.value} value={item} className="items-start py-1.5">
-              <span className="flex min-w-0 flex-1 flex-col">
+              {/* Mesmo motivo do `AppCombobox`: irmãos sem separador viram um nome emendado. */}
+              <span className="flex min-w-0 flex-1 flex-col" aria-label={item.description ? `${item.label}. ${item.description}` : undefined}>
                 <span className="font-medium">{item.label}</span>
                 {item.description ? <span className="truncate text-[0.6875rem] text-muted-foreground">{item.description}</span> : null}
               </span>
