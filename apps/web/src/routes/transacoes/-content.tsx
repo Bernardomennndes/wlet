@@ -61,17 +61,6 @@ export function TransacoesPageContent() {
     setParams(next, { replace: true })
   }
 
-  // O parâmetro acompanha o valor ATRASADO, e não cada tecla: a URL tem de descrever o que a
-  // lista está mostrando. A guarda evita reescrever a query quando nada mudou — sem ela, cada
-  // troca de outro filtro dispararia uma navegação a mais.
-  useEffect(() => {
-    if ((params.get('q') ?? '') === q) return
-    const next = new URLSearchParams(params)
-    if (q) next.set('q', q)
-    else next.delete('q')
-    setParams(next, { replace: true })
-  }, [q, params, setParams])
-
   const accountItems = useMemo(
     () => [
       { value: ALL, label: 'Todas as contas' },
@@ -126,6 +115,17 @@ export function TransacoesPageContent() {
     a.click()
     URL.revokeObjectURL(url)
   }
+
+  // O parâmetro acompanha o valor ATRASADO, e não cada tecla: a URL tem de descrever o que a
+  // lista está mostrando. A guarda evita reescrever a query quando nada mudou — sem ela, cada
+  // troca de outro filtro dispararia uma navegação a mais.
+  useEffect(() => {
+    if ((params.get('q') ?? '') === q) return
+    const next = new URLSearchParams(params)
+    if (q) next.set('q', q)
+    else next.delete('q')
+    setParams(next, { replace: true })
+  }, [q, params, setParams])
 
   return (
     <div className="flex flex-col gap-4">
