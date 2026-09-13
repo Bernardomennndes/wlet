@@ -5,15 +5,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 > `.claude/` não é versionado — as rules citadas abaixo (`dataviz.md`, `route-organization.md`)
 > existem só na máquina de quem trabalha no projeto. Num clone novo, o que vale é este arquivo.
 
-Controle financeiro PF + PJ. Extratos e faturas em `docs/` viram JSON em `src/data/` via script; a SPA (Vite, React 19, Tailwind v4, React Router, Recharts) só lê esses JSON. Sem banco de dados, sem backend. Modelo de dados e regras de negócio: @README.md
+Controle financeiro PF + PJ. Extratos e faturas viram lançamentos por um pipeline de ingestão, e o
+conjunto inteiro vive num **Postgres atrás de `/v1`** (`apps/api`, Hono + oRPC + Drizzle + Better
+Auth). A SPA (Vite, React 19, Tailwind v4, React Router, Recharts) lê e grava por aquele contrato.
+Modelo de dados e regras de negócio: @README.md
+
+> **Esta linha já descreveu o oposto** — "extratos viram JSON em `src/data/`, sem banco de dados, sem
+> backend" — e ficou assim depois de o servidor existir, porque a migração atualizou as seções de
+> baixo e não o resumo de cima. Era a primeira coisa que qualquer sessão lia. Se o desenho mudar de
+> novo, esta linha é a primeira a corrigir, não a última.
 
 ## Monorepo
 
 O repositório é um workspace pnpm orquestrado por Turborepo, no molde da Selfie (`apps/*`,
-`packages/*`, `config/*`). Hoje há um app; a estrutura existe porque o `api` vem a seguir.
+`packages/*`, `config/*`): **dois apps e nove pacotes.**
 
 - **`apps/web`** — a SPA Vite, com `src/`, `scripts/`, `docs/` e `public/`. Tudo o que era raiz
   mora aqui; a raiz ficou com orquestração, Biome e as regras.
+- **`apps/api`** — o servidor: Hono servindo o contrato de `@wlet/api` com `@orpc/server`, sobre
+  Postgres por Drizzle, com sessão do Better Auth.
+- **Os nove pacotes** — `api` (o contrato, consumido pelos dois lados), `services` (os casos de uso
+  em camadas), `domain` (tipos, enums e catálogos), `lib` (funções puras compartilhadas), `ingest`
+  (o pipeline de leitura de extrato), `db` (schema e migrações), `auth` (a sessão), `env` (a leitura
+  de variável) e `ui` (o registry de componentes).
 - **`config/tsconfig`** (`@wlet/tsconfig`) — `config/tsconfig/base.json` e `config/tsconfig/react.json`, que todo pacote estende.
   **`erasableSyntaxOnly` mora na base**, e é ele que proíbe parameter property, enum e namespace
   no repositório inteiro — a razão de não haver uma classe fora dos erros.

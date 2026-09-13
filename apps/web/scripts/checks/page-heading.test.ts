@@ -63,3 +63,39 @@ describe('o heading de cada tela', () => {
     })
   }
 })
+
+/**
+ * A raiz de `src/` tem o ponto de entrada, a árvore de rotas e a folha de estilo. Mais nada.
+ *
+ * É a §0 de `route-organization.md`, e o motivo que ela dá é o que se paga tarde: módulo na raiz não
+ * tem papel declarado, e é assim que ela vira o depósito de tudo que não achou casa. Foi o que
+ * aconteceu — oito módulos soltos, entre eles o `api.ts` que a própria §0 nomeia como proibido, com
+ * destino `lib/api.ts`. Nada avisava: cada um deles, sozinho, parecia pertencer ali.
+ *
+ * O ponto de entrada é TRÊS arquivos, e isso é exigência do portão de boot e não desleixo:
+ * `main.tsx` carrega o conjunto e só então importa o app por `import()` dinâmico, então o que ele
+ * monta mora em `boot.tsx` e `boot-entrar.tsx`. Importá-los estaticamente é o que produz a tela
+ * BRANCA que `src/lib/dataset.ts` descreve.
+ */
+describe('a raiz de apps/web/src', () => {
+  it('não tem módulo solto', () => {
+    const permitidos = new Set([
+      'main.tsx', // o ponto de entrada
+      'boot.tsx', // o que ele monta com sessão — separado por causa do `import()` do portão
+      'boot-entrar.tsx', // e o que ele monta sem sessão
+      'App.tsx', // a árvore de rotas, no papel do `router.tsx` da §0
+      'index.css', // a folha de estilo
+    ])
+    const pastas = new Set(['components', 'generated', 'hooks', 'lib', 'providers', 'routes'])
+
+    const soltos = readdirSync(fileURLToPath(new URL('../../src/', import.meta.url)), { withFileTypes: true })
+      .filter((entry) => (entry.isDirectory() ? !pastas.has(entry.name) : !permitidos.has(entry.name)))
+      .map((entry) => entry.name)
+
+    assert.deepEqual(
+      soltos,
+      [],
+      'módulo na raiz de src/ não tem papel declarado (§0 de route-organization.md): cliente de infraestrutura e função pura vão para `lib/`, contexto para `providers/`, componente para `components/`',
+    )
+  })
+})
