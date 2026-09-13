@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet
 import { Input } from '@wlet/ui/components/input'
 import { MoneyInput } from '@wlet/ui/components/money-input'
 import { MonthPicker } from '@wlet/ui/components/month-picker'
-import { CATEGORIES } from '@wlet/domain'
+import { newId, CATEGORIES } from '@wlet/domain'
 import { plannedRecurrences, type Receivable, type Recurrence } from '@wlet/domain'
 import { DueOnField } from '@/components/due-on-field'
 
@@ -111,7 +111,7 @@ export function ReceivablesSection({ receivables, onChange, disabled }: { receiv
             onChange([
               ...receivables,
               {
-                id: `cobranca-${receivables.length + 1}`,
+                id: newId('cobranca'),
                 debtor: 'Alguém',
                 label: 'Nova cobrança',
                 amount: 100,

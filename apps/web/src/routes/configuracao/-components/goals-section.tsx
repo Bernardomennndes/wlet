@@ -1,3 +1,4 @@
+import { newId } from '@wlet/domain'
 import { Plus, Trash } from '@phosphor-icons/react'
 import { Button } from '@wlet/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
@@ -76,7 +77,7 @@ export function GoalsSection({ goals, onChange, disabled }: { goals: Goal[]; onC
               ...goals,
               // Nasce com alvo e mês preenchidos porque a validação os exige maiores que zero:
               // um item que nasce inválido bloquearia a gravação de tudo o mais na tela.
-              { id: `meta-${goals.length + 1}-${SLOTS[goals.length % 8]}`, label: 'Nova meta', target: 1000, saved: 0, targetMonth: '2027-12', slot: SLOTS[goals.length % 8] },
+              { id: newId('meta'), label: 'Nova meta', target: 1000, saved: 0, targetMonth: '2027-12', slot: SLOTS[goals.length % 8] },
             ])
           }
         >

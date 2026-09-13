@@ -5,7 +5,7 @@ import { Button } from '@wlet/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
 import { FieldError } from '@wlet/ui/components/field'
 import { Input } from '@wlet/ui/components/input'
-import { CATEGORIES } from '@wlet/domain'
+import { newId, CATEGORIES } from '@wlet/domain'
 import type { Rule } from '@wlet/ingest/rules'
 
 const CATEGORY_ITEMS = CATEGORIES.map((c) => ({ value: c.id, label: c.label, description: c.description }))
@@ -112,7 +112,7 @@ export function RulesSection({ rules, onChange, disabled }: { rules: Rule[]; onC
           <RuleRow key={rule.id} rule={rule} disabled={disabled} onPatch={(change) => patch(index, change)} onRemove={() => onChange(rules.filter((_, i) => i !== index))} />
         ))}
         {rules.length === 0 && <p className="text-muted-foreground">Nenhuma regra sua. Valem as genéricas, que já estão no código.</p>}
-        <Button size="sm" variant="outline" disabled={disabled} onClick={() => onChange([...rules, { id: `regra-${rules.length + 1}`, test: /NOME DO ESTABELECIMENTO/i, category: 'outros' }])}>
+        <Button size="sm" variant="outline" disabled={disabled} onClick={() => onChange([...rules, { id: newId('regra'), test: /NOME DO ESTABELECIMENTO/i, category: 'outros' }])}>
           <Plus /> Adicionar regra
         </Button>
       </CardContent>

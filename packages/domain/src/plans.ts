@@ -150,11 +150,6 @@ export function parsePlans(raw: unknown): PlansData {
   return { version: PLANS_VERSION, groups, items }
 }
 
-/** Id estável sem dependência: a hora mais um sufixo aleatório basta para uma lista local. */
-export function planId(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
-}
-
 /**
  * O total que a forma ESCOLHIDA custa. É este o número que a previsão usa.
  *

@@ -20,7 +20,7 @@ export interface PlanRepository {
 /**
  * De onde vêm os ids novos.
  *
- * É porta, e não import direto de `planId`, por causa da §9: `planId` usa `Date.now()` e
+ * É porta, e não import direto de `newId`, por causa da §9: `newId` usa `Date.now()` e
  * `Math.random()`, e um teste que não controla o id não consegue afirmar nada sobre o que foi
  * gravado. O relógio e o acaso entram pela porta; o adapter de produção os traz de volta.
  */

@@ -3,7 +3,7 @@ import { AppCombobox } from '@wlet/ui/components/app-combobox'
 import { Button } from '@wlet/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
 import { Input } from '@wlet/ui/components/input'
-import { accountsTypes, entityKinds, type AccountType, type Entity } from '@wlet/domain'
+import { newId, accountsTypes, entityKinds, type AccountType, type Entity } from '@wlet/domain'
 import type { AccountProfile } from '@wlet/ingest/pipeline'
 
 const TYPE_ITEMS = accountsTypes.map((t) => ({ value: t.value, label: t.label }))
@@ -90,7 +90,7 @@ export function AccountsSection({ accounts, onChange, disabled }: { accounts: Ac
           size="sm"
           variant="outline"
           disabled={disabled}
-          onClick={() => onChange([...accounts, { id: `conta-${accounts.length + 1}`, name: 'Nova conta', bank: '', bankCode: '', type: 'checking', entity: 'PF', holder: '', match: {} }])}
+          onClick={() => onChange([...accounts, { id: newId('conta'), name: 'Nova conta', bank: '', bankCode: '', type: 'checking', entity: 'PF', holder: '', match: {} }])}
         >
           <Plus /> Adicionar perfil
         </Button>
