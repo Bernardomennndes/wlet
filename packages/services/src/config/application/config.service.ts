@@ -35,17 +35,45 @@ export interface ConfigService {
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/
 
-function assertPlanned(entries: PlannedEntry[]): void {
-  for (const entry of entries) {
-    if (!entry.id?.trim()) throw new InvalidConfigError('Todo lançamento previsto precisa de um id.')
-    if (!MONTH.test(entry.startMonth ?? '')) throw new InvalidConfigError(`O lançamento "${entry.label}" precisa de um mês inicial no formato AAAA-MM.`)
-    if (entry.recurrence === 'installments' && !(entry.count && entry.count > 0)) {
-      // Parcelada sem contagem não tem fim, e a janela dela iria ao infinito na projeção.
-      throw new InvalidConfigError(`A regra parcelada "${entry.label}" precisa do número de parcelas.`)
+/**
+ * O mínimo que uma regra de recorrência tem — e `PlannedEntry` e `Receivable` satisfazem os dois.
+ *
+ * A forma é a mesma que `settlement.ts` chama de `SettlementRule`, e é isso que permite UMA
+ * validação servir as duas: a conciliação já é uma só para cobrança e conta a pagar, então validá-las
+ * por caminhos diferentes seria duas respostas para a mesma pergunta. O tipo é local porque
+ * `SettlementRule` mora no app (`apps/web/src/lib/`), e um serviço não importa do app.
+ */
+interface SchedulableRule {
+  id: string
+  label: string
+  startMonth: string
+  recurrence: PlannedEntry['recurrence']
+  count?: number
+}
+
+/**
+ * Valida uma lista de regras de recorrência. O SUBSTANTIVO entra por parâmetro porque a mensagem é
+ * lida por quem editou — "a cobrança" e "o lançamento previsto" são coisas diferentes na tela.
+ *
+ * **Ela passou a valer para as cobranças, e antes não valia.** `commit` validava `planned` e `budget`
+ * e deixava `receivables` passar direto, embora a forma seja a mesma. O que escapava era SILENCIOSO,
+ * e é o pior tipo: `startMonth` malformado faz a cobrança nunca aparecer (a comparação de mês é de
+ * string); `installments` sem `count` a reduz a UMA ocorrência em vez das seis que a pessoa
+ * declarou, porque o kernel usa `Math.max(1, count ?? 1)`; e id repetido faz duas cobranças
+ * reivindicarem os mesmos pagamentos. Nada estoura — o número só fica errado.
+ */
+function assertSchedulable(rules: SchedulableRule[], noun: 'lançamento previsto' | 'cobrança'): void {
+  for (const rule of rules) {
+    if (!rule.id?.trim()) throw new InvalidConfigError(`Todo ${noun} precisa de um id.`)
+    if (!MONTH.test(rule.startMonth ?? '')) throw new InvalidConfigError(`O ${noun} "${rule.label}" precisa de um mês inicial no formato AAAA-MM.`)
+    if (rule.recurrence === 'installments' && !(rule.count && rule.count > 0)) {
+      // Parcelada sem contagem não sabe onde termina: o kernel a reduz a uma ocorrência, e o
+      // número na tela passa a ser outro sem ninguém avisar.
+      throw new InvalidConfigError(`A regra parcelada "${rule.label}" precisa do número de parcelas.`)
     }
   }
-  const ids = entries.map((e) => e.id)
-  if (new Set(ids).size !== ids.length) throw new InvalidConfigError('Há lançamentos previstos com o mesmo id.')
+  const ids = rules.map((r) => r.id)
+  if (new Set(ids).size !== ids.length) throw new InvalidConfigError(`Há ${noun === 'cobrança' ? 'cobranças' : 'lançamentos previstos'} com o mesmo id.`)
 }
 
 function assertBudget(budget: Budget): void {
@@ -109,7 +137,8 @@ export function makeConfigService({ repository, seed }: ConfigServiceDeps): Conf
 
   /** Único caminho de escrita: valida o agregado INTEIRO e grava de uma vez (§3, §10). */
   async function commit(next: ConfigData): Promise<ConfigData> {
-    assertPlanned(next.planned)
+    assertSchedulable(next.planned, 'lançamento previsto')
+    assertSchedulable(next.receivables, 'cobrança')
     assertBudget(next.budget)
     const normalized = normalizeBudget(next)
     await repository.save(normalized)

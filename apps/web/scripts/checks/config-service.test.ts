@@ -103,3 +103,61 @@ describe('serviço de configuração: composição de rubrica', () => {
     await assert.rejects(() => service.saveBudget(comItens([{ label: 'Whey', quantity: -1, unitAmount: 10 }])), InvalidConfigError)
   })
 })
+
+describe('serviço de configuração: cobranças a receber', () => {
+  // Estes quatro testes existem porque `commit` validava `planned` e `budget` e deixava
+  // `receivables` passar direto, embora as duas listas tenham a MESMA forma de recorrência.
+  // Nenhuma das falhas estourava: o kernel de conciliação é defensivo (`Math.max(1, count ?? 1)`),
+  // então o efeito era o número na tela ficar errado em silêncio — que é pior que um erro.
+  const cobranca = {
+    id: 'r1',
+    debtor: 'Mãe',
+    label: 'Rateio do plano',
+    amount: 120,
+    dueOn: { kind: 'day' as const, day: 10 },
+    recurrence: 'monthly' as const,
+    startMonth: '2026-01',
+    match: { merchants: ['MAE'] },
+    offsetsCategoryId: 'saude',
+  }
+
+  it('grava uma cobrança válida', async () => {
+    const { repository, service } = setup()
+    await service.saveReceivables([cobranca])
+    assert.equal(repository.snapshot()?.receivables.length, 1)
+    assert.equal(repository.snapshot()?.planned.length, 1, 'o resto da config veio junto')
+  })
+
+  it('recusa cobrança sem id', async () => {
+    // Sem id, a conciliação não tem onde pendurar o pagamento que quita a cobrança.
+    const { service } = setup()
+    await assert.rejects(() => service.saveReceivables([{ ...cobranca, id: '  ' }]), InvalidConfigError)
+  })
+
+  it('recusa mês inicial malformado', async () => {
+    // A comparação de mês é de STRING: '2026-1' nunca casa com '2026-01', e a cobrança
+    // simplesmente não aparece em mês nenhum.
+    const { service } = setup()
+    await assert.rejects(() => service.saveReceivables([{ ...cobranca, startMonth: '2026-1' }]), InvalidConfigError)
+    await assert.rejects(() => service.saveReceivables([{ ...cobranca, startMonth: '2026-13' }]), InvalidConfigError)
+  })
+
+  it('recusa parcelada sem número de parcelas', async () => {
+    // Seis parcelas declaradas sem `count` viravam UMA ocorrência, porque o kernel usa
+    // `Math.max(1, count ?? 1)`. A pessoa vê 1/6 do que cobrou e nada indica o motivo.
+    const { service } = setup()
+    await assert.rejects(() => service.saveReceivables([{ ...cobranca, recurrence: 'installments' }]), InvalidConfigError)
+  })
+
+  it('recusa ids repetidos', async () => {
+    // Duas cobranças com o mesmo id reivindicam os MESMOS pagamentos, e a soma recebida dobra.
+    const { service } = setup()
+    await assert.rejects(() => service.saveReceivables([cobranca, { ...cobranca, debtor: 'Pai' }]), InvalidConfigError)
+  })
+
+  it('a importação de um pacote inteiro passa pela mesma validação das cobranças', async () => {
+    // `replace` é o caminho do arquivo importado, e um export editado à mão chega por aqui.
+    const { service } = setup()
+    await assert.rejects(() => service.replace({ ...seedConfig(), receivables: [{ ...cobranca, startMonth: 'xx' }] }), InvalidConfigError)
+  })
+})
