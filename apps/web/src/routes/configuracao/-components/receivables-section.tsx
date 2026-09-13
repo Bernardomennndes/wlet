@@ -1,4 +1,4 @@
-import { Plus, Trash } from '@phosphor-icons/react'
+import { Plus } from '@phosphor-icons/react'
 import { AppCombobox } from '@wlet/ui/components/app-combobox'
 import { Button } from '@wlet/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
@@ -7,6 +7,7 @@ import { MoneyInput } from '@wlet/ui/components/money-input'
 import { MonthPicker } from '@wlet/ui/components/month-picker'
 import { expenseCategoryOptions, newId } from '@wlet/domain'
 import { plannedRecurrences, type Receivable, type Recurrence } from '@wlet/domain'
+import { RemoveButton } from '@/components/remove-button'
 import { DueOnField } from '@/components/due-on-field'
 
 const RECURRENCE_ITEMS = plannedRecurrences.map((r) => ({ value: r.value, label: r.label }))
@@ -62,9 +63,13 @@ export function ReceivablesSection({ receivables, onChange, disabled }: { receiv
                   className="w-52"
                 />
               </label>
-              <Button size="icon-sm" variant="ghost" disabled={disabled} aria-label={`Remover a cobrança de ${receivable.debtor}`} onClick={() => onChange(receivables.filter((_, i) => i !== index))}>
-                <Trash />
-              </Button>
+              <RemoveButton
+                label={`Remover a cobrança de ${receivable.debtor}`}
+                title="Remover esta cobrança?"
+                description={`A cobrança de ${receivable.debtor} sai da conciliação, com a regra que a casa com o extrato. Os pagamentos já recebidos continuam nos lançamentos.`}
+                disabled={disabled}
+                onConfirm={() => onChange(receivables.filter((_, i) => i !== index))}
+              />
             </div>
             <div className="flex flex-wrap items-end gap-2">
               <label className="space-y-1">

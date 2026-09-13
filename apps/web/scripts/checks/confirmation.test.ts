@@ -118,3 +118,39 @@ describe('a tabela cobre todas as telas que removem', () => {
     assert.deepEqual(suspects, [], 'tela com remoção fora da tabela de confirmação — declare-a e dê a ela um AlertDialog')
   })
 })
+
+/**
+ * E a remoção que NÃO tem mutação própria também pergunta.
+ *
+ * O `describe` acima procura tela com `useMutation` de nome destrutivo, e por isso não via as quatro
+ * seções da Configuração: elas não gravam — chamam `onChange` para cima, e o pai grava a
+ * configuração inteira. A ausência de mutação local não torna a ação menos destrutiva, só a esconde.
+ *
+ * As quatro removiam com UM clique: `onClick={() => onChange(lista.filter(…))}`, sem desfazer. O que
+ * some é o que alguém digitou — a cobrança com o casamento por contraparte, a conta com o perfil de
+ * extrato, a regra com a expressão.
+ *
+ * A assinatura procurada é a exata: um `onClick` que filtra uma lista. Ela não acusa o `onChange`
+ * que ACRESCENTA (`[...lista, novo]`) nem o que corrige um campo — só o que tira uma linha.
+ */
+describe('remover linha declarada pergunta antes', () => {
+  it('nenhum onClick remove direto de uma lista', () => {
+    const sections = new URL('../../src/routes/configuracao/-components/', import.meta.url)
+    const offenders: string[] = []
+    for (const entry of readdirSync(sections)) {
+      if (!entry.endsWith('.tsx')) continue
+      const code = codeOf(new URL(entry, sections))
+      for (const found of code.matchAll(/onClick=\{\(\)\s*=>\s*on\w+\([\w.]+\.filter\(/g)) {
+        offenders.push(`${entry}:${code.slice(0, found.index).split('\n').length}`)
+      }
+    }
+    assert.deepEqual(offenders, [], 'remoção de um clique numa lista declarada: use `<RemoveButton>`, que pergunta antes (§1 de mutation-confirmation.md)')
+  })
+
+  it('e as quatro seções que removem usam o botão que pergunta', () => {
+    // O piso existe para o teste acima não passar por vacuidade se as seções mudarem de nome.
+    const sections = new URL('../../src/routes/configuracao/-components/', import.meta.url)
+    const withRemoval = readdirSync(sections).filter((entry) => entry.endsWith('.tsx') && /<RemoveButton\b/.test(codeOf(new URL(entry, sections))))
+    assert.ok(withRemoval.length >= 4, `só ${withRemoval.length} seções com remoção confirmada`)
+  })
+})

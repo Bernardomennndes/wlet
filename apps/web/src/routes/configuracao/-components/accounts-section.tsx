@@ -1,4 +1,5 @@
-import { Plus, Trash } from '@phosphor-icons/react'
+import { RemoveButton } from '@/components/remove-button'
+import { Plus } from '@phosphor-icons/react'
 import { AppCombobox } from '@wlet/ui/components/app-combobox'
 import { Button } from '@wlet/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
@@ -50,9 +51,13 @@ export function AccountsSection({ accounts, onChange, disabled }: { accounts: Ac
                 <span className="text-muted-foreground block">Titular</span>
                 <Input value={account.holder} disabled={disabled} className="w-40" onChange={(e) => patch(index, { holder: e.target.value })} />
               </label>
-              <Button size="icon-sm" variant="ghost" disabled={disabled} aria-label={`Remover o perfil ${account.name}`} onClick={() => onChange(accounts.filter((_, i) => i !== index))}>
-                <Trash />
-              </Button>
+              <RemoveButton
+                label={`Remover o perfil ${account.name}`}
+                title="Remover este perfil de conta?"
+                description={`${account.name} deixa de ser reconhecida na leitura dos extratos. Os lançamentos já lidos continuam onde estão, mas a próxima leitura não saberá de que conta o arquivo é.`}
+                disabled={disabled}
+                onConfirm={() => onChange(accounts.filter((_, i) => i !== index))}
+              />
             </div>
             <div className="flex flex-wrap items-end gap-2">
               <label className="space-y-1">

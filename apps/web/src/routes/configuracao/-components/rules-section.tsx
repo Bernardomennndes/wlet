@@ -1,5 +1,6 @@
+import { RemoveButton } from '@/components/remove-button'
 import { useId, useState } from 'react'
-import { Plus, Trash } from '@phosphor-icons/react'
+import { Plus } from '@phosphor-icons/react'
 import { AppCombobox } from '@wlet/ui/components/app-combobox'
 import { Button } from '@wlet/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
@@ -89,9 +90,13 @@ function RuleRow({ rule, disabled, onPatch, onRemove }: { rule: Rule; disabled: 
         <span className="text-muted-foreground block">Renomeia para</span>
         <Input value={rule.merchant ?? ''} disabled={disabled} className="w-40" onChange={(e) => onPatch({ merchant: e.target.value || undefined })} />
       </label>
-      <Button size="icon-sm" variant="ghost" disabled={disabled} aria-label={`Remover a regra ${rule.id}`} onClick={onRemove}>
-        <Trash />
-      </Button>
+      <RemoveButton
+        label={`Remover a regra ${rule.id}`}
+        title="Remover esta regra de categoria?"
+        description="A expressão sai da leitura, e os lançamentos que ela categorizava voltam ao que o pipeline decidir sozinho — na próxima leitura, não agora."
+        disabled={disabled}
+        onConfirm={onRemove}
+      />
     </div>
   )
 }

@@ -1,5 +1,6 @@
+import { RemoveButton } from '@/components/remove-button'
 import { newId } from '@wlet/domain'
-import { Plus, Trash } from '@phosphor-icons/react'
+import { Plus } from '@phosphor-icons/react'
 import { Button } from '@wlet/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
 import { Input } from '@wlet/ui/components/input'
@@ -62,9 +63,13 @@ export function GoalsSection({ goals, onChange, disabled }: { goals: Goal[]; onC
                 onChange={(e) => patch(index, { slot: Math.min(8, Math.max(1, Number(e.target.value) || 1)) as GoalSlot })}
               />
             </label>
-            <Button size="icon-sm" variant="ghost" disabled={disabled} aria-label={`Remover a meta ${goal.label}`} onClick={() => onChange(goals.filter((_, i) => i !== index))}>
-              <Trash />
-            </Button>
+            <RemoveButton
+              label={`Remover a meta ${goal.label}`}
+              title="Remover esta meta?"
+              description={`${goal.label} sai do planejamento, com o alvo e o quanto já foi guardado. O dinheiro em si não se move: a meta é declaração, não conta.`}
+              disabled={disabled}
+              onConfirm={() => onChange(goals.filter((_, i) => i !== index))}
+            />
           </div>
         ))}
         {goals.length === 0 && <p className="text-muted-foreground">Nenhuma meta.</p>}
