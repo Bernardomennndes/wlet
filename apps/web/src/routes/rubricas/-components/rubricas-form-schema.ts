@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { budgetCadences, type BudgetCadence } from '@wlet/domain'
+import { budgetCadences, type BudgetCadence, type BudgetItem } from '@wlet/domain'
 
 /**
  * Os valores aceitos saem da lista do DOMÍNIO, nunca de um `z.enum` redigitado aqui — é a §3 da
@@ -21,16 +21,39 @@ const CADENCE_VALUES = budgetCadences.map((cadence) => cadence.value) as [Budget
  * o teste existe sobretudo para a decisão acima: alguém "consertando" o nome para obrigatório
  * quebra a suíte em vez de quebrar a tela em silêncio.
  */
-export const rubricItemSchema = z.object({
-  label: z.string(),
-  quantity: z.number().min(0, 'A quantidade não pode ser negativa.'),
-  /** Texto livre — ver `BudgetItem.unit`; uma lista fechada obrigaria a mentir sobre a compra. */
-  unit: z.string(),
-  cadence: z.enum(CADENCE_VALUES),
-  unitAmount: z.number().min(0, 'O preço unitário não pode ser negativo.'),
-})
+export const rubricItemSchema = z
+  .object({
+    label: z.string(),
+    quantity: z.number().min(0, 'A quantidade não pode ser negativa.'),
+    /** Texto livre — ver `BudgetItem.unit`; uma lista fechada obrigaria a mentir sobre a compra. */
+    unit: z.string(),
+    cadence: z.enum(CADENCE_VALUES),
+    unitAmount: z.number().min(0, 'O preço unitário não pode ser negativo.'),
+  })
+  /**
+   * A SAÍDA já é o `BudgetItem` — o formulário não tem adaptador na frente.
+   *
+   * A conversão de `unit` vivia no `handleSubmit` do `.tsx`, e o custo não era a indireção: o tipo
+   * inferido do schema NÃO era o payload, então esta regra — vazio SOME em vez de virar `''` —
+   * ficava fora do alcance do teste de `parse`, e prová-la exigiria montar a tela. O teste
+   * afirmava que `unit: ''` passa na validação, que é outra coisa. É a mesma correção que
+   * `plan-sheet-schema.ts` já tinha feito (`form-output-contract.md` §2.1).
+   *
+   * Por que `undefined` e não `''`: o campo é opcional no domínio, e uma string vazia gravada é um
+   * dado que ninguém informou se passando por informado.
+   */
+  .transform(
+    (values): BudgetItem => ({
+      label: values.label,
+      quantity: values.quantity,
+      unitAmount: values.unitAmount,
+      unit: values.unit.trim() || undefined,
+      cadence: values.cadence,
+    }),
+  )
 
-export type RubricItemFormValues = z.infer<typeof rubricItemSchema>
+/** O que os CAMPOS guardam — a entrada do schema, antes da conversão. */
+export type RubricItemFormValues = z.input<typeof rubricItemSchema>
 
 /** O teto de uma rubrica simples, sem composição: um número, que não pode ser negativo. */
 export const rubricAmountSchema = z.object({ amount: z.number().min(0, 'O planejado não pode ser negativo.') })

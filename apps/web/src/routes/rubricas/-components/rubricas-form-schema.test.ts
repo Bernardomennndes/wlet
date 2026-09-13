@@ -51,3 +51,29 @@ describe('o teto de uma rubrica simples', () => {
     if (!r.success) assert.match(r.error.issues[0].message, /planejado não pode ser negativo/)
   })
 })
+
+describe('a saída do item de rubrica JÁ é o BudgetItem', () => {
+  // Estes três casos moravam no `handleSubmit` do `.tsx` e por isso não tinham teste nenhum: o
+  // arquivo de schema provava que `unit: ''` PASSA na validação, que é outra pergunta. Com a
+  // conversão no schema, a saída é verificável sem montar React (`form-output-contract.md` §2.1).
+  const base = { label: 'Whey', quantity: 2, unit: 'kg', cadence: 'week' as const, unitAmount: 22 }
+
+  it('unidade em branco SOME, em vez de virar string vazia', () => {
+    // `""` gravado é um dado que ninguém informou se passando por informado — e o campo é
+    // opcional no domínio justamente para poder não existir.
+    assert.equal(rubricItemSchema.parse({ ...base, unit: '' }).unit, undefined)
+  })
+
+  it('e unidade só de espaços conta como em branco', () => {
+    assert.equal(rubricItemSchema.parse({ ...base, unit: '   ' }).unit, undefined)
+  })
+
+  it('a unidade informada chega inteira', () => {
+    assert.equal(rubricItemSchema.parse({ ...base, unit: 'caixa de 12' }).unit, 'caixa de 12')
+  })
+
+  it('a saída tem exatamente os campos do BudgetItem', () => {
+    // Um campo a mais aqui é um campo que sobe ao servidor sem estar no domínio.
+    assert.deepEqual(Object.keys(rubricItemSchema.parse(base)).sort(), ['cadence', 'label', 'quantity', 'unit', 'unitAmount'])
+  })
+})

@@ -77,7 +77,7 @@ export function RubricItemForm({ item, disabled, onChange, onRemove, canRemove }
    * `useEffect` de `reset`, proibido pela §2 da `component-construction`.
    */
   const values = useMemo<ItemFormValues>(() => ({ label: item.label, quantity: item.quantity, unit: item.unit ?? '', cadence: item.cadence ?? 'month', unitAmount: item.unitAmount }), [item])
-  const { control, register, handleSubmit, setValue, formState } = useForm<ItemFormValues>({ resolver: zodResolver(itemSchema), values })
+  const { control, register, handleSubmit, setValue, formState } = useForm<ItemFormValues, unknown, BudgetItem>({ resolver: zodResolver(itemSchema), values })
 
   /**
    * O que se digita sobe no BLUR, não a cada tecla.
@@ -86,16 +86,10 @@ export function RubricItemForm({ item, disabled, onChange, onRemove, canRemove }
    * desabilitado perde o foco. Adiar até o blur tira a gravação do caminho da digitação, e de
    * quebra deixa de mandar uma requisição por caractere ao servidor.
    */
-  const commit = handleSubmit((submitted) => {
-    const patch: BudgetItem = {
-      label: submitted.label,
-      quantity: submitted.quantity,
-      unitAmount: submitted.unitAmount,
-      // Unidade vazia SOME em vez de virar string vazia: o campo é opcional no domínio, e um
-      // `""` gravado é um dado que ninguém informou.
-      unit: submitted.unit.trim() || undefined,
-      cadence: submitted.cadence,
-    }
+  const commit = handleSubmit((patch) => {
+    // O `patch` já É o `BudgetItem`: a conversão de `unit` vazio mora no schema, onde o teste de
+    // `parse` a alcança (`form-output-contract.md` §2.1).
+    //
     // Blur sem edição não grava. Sem esta guarda, atravessar a linha com Tab mandaria uma
     // escrita por campo — e cada uma levanta `saving` na tela inteira, sem número novo nenhum.
     if (isSameItem(patch, item)) return
