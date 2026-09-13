@@ -2,12 +2,12 @@ import { Warning } from '@phosphor-icons/react'
 import { useRef } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Controller, useForm, useWatch } from 'react-hook-form'
-import { z } from 'zod'
 import { Button } from '@wlet/ui/components/button'
 import { Checkbox } from '@wlet/ui/components/checkbox'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@wlet/ui/components/dialog'
 import { Field, FieldContent, FieldDescription, FieldError, FieldLabel, FieldLegend, FieldSet, FieldTitle } from '@wlet/ui/components/field'
 import { PACKAGE_PARTS, type PackageContents, type PackagePart } from '@wlet/services/backup'
+import { importFormSchema as schema, type ImportFormValues as FormValues } from './import-dialog-schema'
 
 /**
  * O que cada parte contém, em português, para a escolha ser informada.
@@ -42,23 +42,6 @@ function describe(part: PackagePart, contents: PackageContents): { label: string
       return contents.sources === null ? null : { label: 'Arquivos originais', detail: `${contents.sources} extratos e faturas — é o que permite reprocessar depois` }
   }
 }
-
-/**
- * A escolha é um FORMULÁRIO, e não um punhado de caixinhas guardadas num `useState`.
- *
- * Ela fica PENDENTE esperando o botão do rodapé e só então alimenta uma escrita que substitui
- * o armazenamento inteiro — é exatamente o caso que a `forms.md` §1 cobre. O que era um
- * `disabled={selected.size === 0}` (um botão morto, sem dizer por quê) vira a mensagem do
- * schema, dita no lugar onde se escolhe.
- *
- * A lista de valores sai de `PACKAGE_PARTS`, do próprio serviço de cópia: uma parte nova no
- * pacote tem de ser erro de compilação aqui, não uma caixinha que ninguém lembrou de somar.
- */
-const schema = z.object({
-  parts: z.array(z.enum(PACKAGE_PARTS)).min(1, 'Escolha ao menos uma parte para importar.'),
-})
-
-type FormValues = z.infer<typeof schema>
 
 export function ImportDialog({
   contents,

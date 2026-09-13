@@ -1,9 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
-import { z } from 'zod'
 import { Button } from '@wlet/ui/components/button'
 import { Field, FieldError, FieldLabel } from '@wlet/ui/components/field'
 import { Input } from '@wlet/ui/components/input'
+import { entrarFormSchema as schema, type EntrarFormValues } from './entrar-form-schema'
 
 /**
  * O formulário de entrada e de cadastro — um só, com um modo.
@@ -12,18 +12,9 @@ import { Input } from '@wlet/ui/components/input'
  * campos são os mesmos, e duas telas obrigariam a pessoa a descobrir em qual delas está antes de
  * digitar. O que muda é o rótulo do botão e a presença do nome.
  *
- * A senha mínima é 10 e não 8 porque é o que o servidor exige
- * (`packages/auth/src/index.ts`, `minPasswordLength: 10`). Repetir o número aqui é duplicação —
- * mas a alternativa é a pessoa descobrir o limite depois de enviar, por uma mensagem em inglês
- * vinda do servidor. O comentário é o que impede os dois de divergirem em silêncio.
+ * O schema e a razão do mínimo de senha vivem em `entrar-form-schema.ts`, num `.ts` irmão: é o que
+ * permite testá-lo sem montar React, como a `form-output-contract.md` §1.1 pede.
  */
-const schema = z.object({
-  name: z.string().optional(),
-  email: z.email('Informe um e-mail válido'),
-  password: z.string().min(10, 'A senha precisa de pelo menos 10 caracteres'),
-})
-
-export type EntrarFormValues = z.infer<typeof schema>
 
 export function EntrarForm({ modo, enviando, onSubmit }: { modo: 'entrar' | 'cadastrar'; enviando: boolean; onSubmit: (values: EntrarFormValues) => void }) {
   const { register, handleSubmit, formState } = useForm<EntrarFormValues>({

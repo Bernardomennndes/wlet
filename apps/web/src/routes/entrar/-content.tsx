@@ -5,7 +5,8 @@ import { auth } from '@/auth'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { Button } from '@wlet/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
-import { EntrarForm, type EntrarFormValues } from './-components/entrar-form'
+import { EntrarForm } from './-components/entrar-form'
+import type { EntrarFormValues } from './-components/entrar-form-schema'
 
 /**
  * A porta do app.

@@ -1,7 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMemo, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { Controller, useForm, useWatch } from 'react-hook-form'
-import { z } from 'zod'
 import { Trash } from '@phosphor-icons/react'
 import { AppCombobox } from '@wlet/ui/components/app-combobox'
 import { Button } from '@wlet/ui/components/button'
@@ -10,43 +9,18 @@ import { FieldError } from '@wlet/ui/components/field'
 import { InputGroup, InputGroupInput } from '@wlet/ui/components/input-group'
 import { MoneyInput } from '@wlet/ui/components/money-input'
 import { QuantityInput } from '@wlet/ui/components/quantity-input'
-import { budgetCadences, type BudgetCadence, type BudgetItem } from '@wlet/domain'
+import { budgetCadences, type BudgetItem } from '@wlet/domain'
+import {
+  rubricAmountSchema as amountSchema,
+  rubricItemSchema as itemSchema,
+  type RubricAmountFormValues as AmountFormValues,
+  type RubricItemFormValues as ItemFormValues,
+} from './rubricas-form-schema'
 import { itemAmount } from '@wlet/domain/rubric'
 import { formatBRL } from '@wlet/lib/format'
 
 /** Do enum para o que o `AppCombobox` recebe — a mesma conversão de `plan-row-controls`. */
 const CADENCE_OPTIONS = budgetCadences.map((cadence) => ({ value: cadence.value, label: cadence.label, description: cadence.labelPlural }))
-
-/**
- * Os valores aceitos saem da lista do DOMÍNIO, nunca de um `z.enum` redigitado aqui — é a §3 da
- * `forms.md`. E é ele que apagou o `cadence as BudgetCadence` que a linha carregava: o combobox
- * devolve `string`, e quem promete que a string é uma cadência é o schema, não uma asserção.
- */
-const CADENCE_VALUES = budgetCadences.map((cadence) => cadence.value) as [BudgetCadence, ...BudgetCadence[]]
-
-/**
- * O item da composição, como o formulário o coleta.
- *
- * **O nome NÃO é obrigatório**, e isso é decisão de desenho e não esquecimento: o item nasce
- * vazio de propósito (ver o "Adicionar item" da lista), e exigir nome no commit faria a
- * quantidade e o preço de um item recém-criado não gravarem enquanto ninguém o batizasse — uma
- * recusa silenciosa, que é pior que o campo em branco. O que o schema prende é o que não tem
- * leitura possível: quantidade e preço negativos.
- */
-const itemSchema = z.object({
-  label: z.string(),
-  quantity: z.number().min(0, 'A quantidade não pode ser negativa.'),
-  /** Texto livre — ver `BudgetItem.unit`; uma lista fechada obrigaria a mentir sobre a compra. */
-  unit: z.string(),
-  cadence: z.enum(CADENCE_VALUES),
-  unitAmount: z.number().min(0, 'O preço unitário não pode ser negativo.'),
-})
-
-type ItemFormValues = z.infer<typeof itemSchema>
-
-const amountSchema = z.object({ amount: z.number().min(0, 'O planejado não pode ser negativo.') })
-
-type AmountFormValues = z.infer<typeof amountSchema>
 
 interface ItemProps {
   item: BudgetItem

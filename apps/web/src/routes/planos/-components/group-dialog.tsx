@@ -1,7 +1,6 @@
 import { useRef, type RefObject } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Controller, useForm, useWatch, type Control } from 'react-hook-form'
-import { z } from 'zod'
 import { Button } from '@wlet/ui/components/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@wlet/ui/components/dialog'
 import { Field, FieldError, FieldLabel } from '@wlet/ui/components/field'
@@ -9,49 +8,7 @@ import { Input } from '@wlet/ui/components/input'
 import { MonthPicker } from '@wlet/ui/components/month-picker'
 import { Textarea } from '@wlet/ui/components/textarea'
 import type { PlanGroup } from '@wlet/domain'
-
-const MONTH = /^\d{4}-\d{2}$/
-
-const schema = z
-  .object({
-    label: z.string().trim().min(1, 'Dê um nome ao grupo.'),
-    // A janela é opcional, e a ausência dela se escreve `null` — não string vazia, e não um
-    // mês qualquer que depois seria confundido com uma escolha (`forms.md` §3). O seletor de
-    // mês fala em string; a conversão fica nele, que é quem não sabe dizer null.
-    from: z.string().nullish(),
-    to: z.string().nullish(),
-    note: z.string(),
-  })
-  .superRefine((values, ctx) => {
-    if (!values.from) return
-    if (!MONTH.test(values.from) || !values.to || !MONTH.test(values.to)) {
-      ctx.addIssue({ code: 'custom', path: ['to'], message: 'Escolha os dois meses da janela.' })
-      return
-    }
-    if (values.to < values.from) {
-      ctx.addIssue({ code: 'custom', path: ['to'], message: 'O fim da janela não pode ser antes do início.' })
-    }
-  })
-  /**
-   * A SAÍDA do schema já é o grupo — sem adaptador entre o formulário e quem o consome.
-   *
-   * A conversão morava no `handleSubmit`, e o efeito colateral era que o tipo do schema não
-   * era o payload: nada prendia um ao outro, e provar a saída exigiria montar a tela
-   * (`form-output-contract.md` §1.1).
-   */
-  .transform(
-    (values): Omit<PlanGroup, 'id'> => ({
-      label: values.label,
-      from: values.from ?? undefined,
-      to: values.to ?? undefined,
-      // A observação vem de um `<textarea>`, que nunca devolve `null`: aqui o vazio é mesmo a
-      // string em branco, e é ela que vira ausência.
-      note: values.note.trim() || undefined,
-    }),
-  )
-
-/** O que os CAMPOS guardam — a entrada do schema, antes da conversão. */
-type FormValues = z.input<typeof schema>
+import { groupFormSchema as schema, type GroupFormValues as FormValues } from './group-dialog-schema'
 
 /** O tipo de `control` depois do `.transform()`: entrada, contexto e saída, nessa ordem. */
 type GroupFormControl = Control<FormValues, unknown, Omit<PlanGroup, 'id'>>
