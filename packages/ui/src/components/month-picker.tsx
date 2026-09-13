@@ -22,6 +22,8 @@ interface Props {
    * proíbe. Quem precisa casar a altura com os vizinhos de uma linha declara aqui.
    */
   size?: ComponentProps<typeof Button>['size']
+  /** Trava o gatilho enquanto uma escrita está em voo — ver a mesma prop em `app-combobox.tsx`. */
+  disabled?: boolean
   /**
    * A variante do gatilho, repassada ao `Button`.
    *
@@ -48,7 +50,7 @@ interface Props {
  * dados não têm. Aqui a grade é de 12 meses com um passo de ano, então qualquer mês de
  * qualquer ano é alcançável.
  */
-export function MonthPicker({ value, onValueChange, withData, className, id, min, size, variant = 'outline', ...aria }: Props) {
+export function MonthPicker({ value, onValueChange, withData, className, id, min, size, disabled, variant = 'outline', ...aria }: Props) {
   const [open, setOpen] = useState(false)
   const selectedYear = Number(value.slice(0, 4))
   const [year, setYear] = useState(selectedYear)
@@ -66,6 +68,7 @@ export function MonthPicker({ value, onValueChange, withData, className, id, min
       }}
     >
       <PopoverTrigger
+        disabled={disabled}
         render={
           <Button id={id} variant={variant} size={size} aria-label={aria['aria-label']} className={cn('font-medium tabular-nums', className)}>
             {formatMonthShort(value)}

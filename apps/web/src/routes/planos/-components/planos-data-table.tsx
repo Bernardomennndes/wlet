@@ -87,6 +87,7 @@ export function PlanosDataTable({
   onHighlight,
   monthsWithData,
   defaultMonth,
+  disabled = false,
 }: {
   groups: PlanGroup[]
   items: Plan[]
@@ -94,6 +95,15 @@ export function PlanosDataTable({
   onRemove: (id: string) => void
   onRemoveGroup: (id: string) => void
   onUpdate: (id: string, patch: Partial<Omit<Plan, 'id'>>) => void
+  /**
+   * Trava a linha INTEIRA enquanto uma escrita está em voo — e é defeito medido, não zelo.
+   *
+   * Toda escrita de plano é lê-aplica-grava do catálogo inteiro (`plans.service.ts`, `mutate`).
+   * Dois controles acionados antes de a primeira gravação voltar leem o MESMO retrato, e o segundo
+   * `save` apaga o primeiro: reproduzido com duas chamadas concorrentes, dois planos entram e um
+   * some. A tela de Rubricas já se protege assim.
+   */
+  disabled?: boolean
   /**
    * Qual plano a pessoa está apontando. A tela usa isso para ACENDER a contribuição dele nas
    * colunas do gráfico acima — é o que liga a decisão ao efeito sem exigir um clique.
@@ -150,6 +160,7 @@ export function PlanosDataTable({
                         <Button
                           size="icon-sm"
                           variant="ghost"
+                          disabled={disabled}
                           aria-label={`Remover o grupo ${bucket.group.label}`}
                           className="ml-auto flex opacity-0 group-hover/bucket:opacity-100 group-focus-within/bucket:opacity-100"
                           onClick={() => bucket.group && onRemoveGroup(bucket.group.id)}
@@ -192,6 +203,7 @@ export function PlanosDataTable({
                           repetia essa mesma afirmação ao lado saiu — duas marcas para um
                           estado só obrigam o olho a conferir se concordam. */}
                       <Checkbox
+                        disabled={disabled}
                         aria-label={`Aplicar ${plan.label} na previsão`}
                         checked={plan.status === 'decided'}
                         onCheckedChange={(checked) => onUpdate(plan.id, { status: checked ? 'decided' : 'considering' })}
@@ -212,17 +224,17 @@ export function PlanosDataTable({
                     <TableCell className={cn(DIVIDER, 'text-right font-mono tabular-nums')}>{formatBRL(planTotal(plan))}</TableCell>
 
                     <TableCell className={DIVIDER}>
-                      <PaymentCell plan={plan} onUpdate={(patch) => onUpdate(plan.id, patch)} />
+                      <PaymentCell plan={plan} disabled={disabled} onUpdate={(patch) => onUpdate(plan.id, patch)} />
                     </TableCell>
 
                     <TableCell className={DIVIDER}>
                       <span className="flex items-center gap-1">
-                        <InstallmentsCell plan={plan} onUpdate={(patch) => onUpdate(plan.id, patch)} />
+                        <InstallmentsCell plan={plan} disabled={disabled} onUpdate={(patch) => onUpdate(plan.id, patch)} />
                       </span>
                     </TableCell>
 
                     <TableCell className={DIVIDER}>
-                      <MonthCell plan={plan} monthsWithData={monthsWithData} defaultMonth={defaultMonth} onUpdate={(patch) => onUpdate(plan.id, patch)} />
+                      <MonthCell plan={plan} monthsWithData={monthsWithData} defaultMonth={defaultMonth} disabled={disabled} onUpdate={(patch) => onUpdate(plan.id, patch)} />
                     </TableCell>
 
                     <TableCell>
@@ -235,7 +247,7 @@ export function PlanosDataTable({
                         <Tooltip>
                           <TooltipTrigger
                             render={
-                              <Button size="icon-sm" variant="ghost" aria-label={`Editar ${plan.label}`} onClick={() => onEdit(plan)}>
+                              <Button size="icon-sm" variant="ghost" disabled={disabled} aria-label={`Editar ${plan.label}`} onClick={() => onEdit(plan)}>
                                 <Pencil />
                               </Button>
                             }
@@ -245,7 +257,7 @@ export function PlanosDataTable({
                         <Tooltip>
                           <TooltipTrigger
                             render={
-                              <Button size="icon-sm" variant="ghost" aria-label={`Remover ${plan.label}`} onClick={() => onRemove(plan.id)}>
+                              <Button size="icon-sm" variant="ghost" disabled={disabled} aria-label={`Remover ${plan.label}`} onClick={() => onRemove(plan.id)}>
                                 <Trash />
                               </Button>
                             }

@@ -37,9 +37,10 @@ const NO_PAYMENT = 'none'
 const PAYMENT_OPTIONS: SelectOption[] = [{ value: NO_PAYMENT, label: 'Não decidido' }, ...paymentModes.map((mode) => ({ value: mode.value, label: mode.label, icon: mode.icon }))]
 
 /** Como o plano é pago. Aceita ficar SEM escolha — é o mesmo estado que o formulário permite. */
-export function PaymentCell({ plan, onUpdate }: { plan: Plan; onUpdate: (patch: Partial<Omit<Plan, 'id'>>) => void }) {
+export function PaymentCell({ plan, onUpdate, disabled }: { plan: Plan; onUpdate: (patch: Partial<Omit<Plan, 'id'>>) => void; disabled?: boolean }) {
   return (
     <AppCombobox
+      disabled={disabled}
       aria-label={`Como pagar ${plan.label}`}
       variant="ghost"
       className="w-full"
@@ -62,7 +63,7 @@ export function PaymentCell({ plan, onUpdate }: { plan: Plan; onUpdate: (patch: 
  * Em quantas vezes. Só existe quando parcelado é a forma escolhida: um "1×" editável ao lado
  * de "À vista" ofereceria dois jeitos de dizer a mesma coisa.
  */
-export function InstallmentsCell({ plan, onUpdate }: { plan: Plan; onUpdate: (patch: Partial<Omit<Plan, 'id'>>) => void }) {
+export function InstallmentsCell({ plan, onUpdate, disabled }: { plan: Plan; onUpdate: (patch: Partial<Omit<Plan, 'id'>>) => void; disabled?: boolean }) {
   /**
    * O campo guarda TEXTO CRU enquanto está sendo digitado.
    *
@@ -89,6 +90,7 @@ export function InstallmentsCell({ plan, onUpdate }: { plan: Plan; onUpdate: (pa
   return (
     <>
       <Input
+        disabled={disabled}
         aria-label={`Parcelas de ${plan.label}`}
         type="number"
         min={2}
@@ -123,16 +125,18 @@ export function MonthCell({
   monthsWithData,
   defaultMonth,
   onUpdate,
+  disabled,
 }: {
   plan: Plan
   monthsWithData: string[]
   /** O mês que "Sem mês" propõe: o primeiro projetável, não o último medido. */
   defaultMonth: string
   onUpdate: (patch: Partial<Omit<Plan, 'id'>>) => void
+  disabled?: boolean
 }) {
   if (!plan.month) {
     return (
-      <Button variant="ghost" className="w-full justify-start text-muted-foreground" onClick={() => onUpdate({ month: defaultMonth })}>
+      <Button variant="ghost" disabled={disabled} className="w-full justify-start text-muted-foreground" onClick={() => onUpdate({ month: defaultMonth })}>
         <CalendarPlus data-icon="inline-start" /> Sem mês
       </Button>
     )
@@ -141,6 +145,7 @@ export function MonthCell({
   return (
     <span className="flex w-full items-center">
       <MonthPicker
+        disabled={disabled}
         aria-label={`Mês da compra de ${plan.label}`}
         variant="ghost"
         className="min-w-0 flex-1 justify-start"
@@ -150,6 +155,7 @@ export function MonthCell({
         min={monthsWithData[0]}
       />
       <Button
+        disabled={disabled}
         variant="ghost"
         size="icon-sm"
         aria-label={`Limpar o mês de ${plan.label}`}

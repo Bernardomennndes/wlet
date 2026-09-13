@@ -44,6 +44,15 @@ interface AppComboboxProps {
    */
   modified?: boolean
   /**
+   * Trava o gatilho enquanto uma escrita está em voo.
+   *
+   * Existe por um defeito MEDIDO e não por simetria de API: a escrita de um catálogo inteiro é
+   * lê-aplica-grava, então dois controles acionados antes de a primeira gravação voltar leem o
+   * mesmo retrato e o segundo `save` apaga o primeiro. Sem esta prop, uma linha de listagem não
+   * tem como se calar durante a própria gravação.
+   */
+  disabled?: boolean
+  /**
    * Variante e tamanho do gatilho, repassados ao `Button`.
    *
    * Numa linha de lista densa o seletor precisa ficar QUIETO até a linha ser apontada, e
@@ -70,7 +79,7 @@ interface AppComboboxProps {
  * não por cor. Cor sozinha não é percebida por quem não a distingue nem anunciada por leitor
  * de tela (WCAG 1.4.1), e aqui ela já está tomada pelo destaque do teclado.
  */
-export function AppCombobox({ value, onValueChange, items, className, id, searchPlaceholder = 'Buscar…', emptyValue, modified, variant = 'outline', size, ...aria }: AppComboboxProps) {
+export function AppCombobox({ value, onValueChange, items, className, id, searchPlaceholder = 'Buscar…', emptyValue, modified, disabled, variant = 'outline', size, ...aria }: AppComboboxProps) {
   const selected = items.find((item) => item.value === value) ?? null
   const Icon = selected?.icon
   const muted = selected === null || selected.value === emptyValue
@@ -98,7 +107,12 @@ export function AppCombobox({ value, onValueChange, items, className, id, search
       autoHighlight
       filter={(item: SelectOption, query: string) => query.trim() === '' || fold(`${item.label} ${item.description ?? ''}`).includes(fold(query.trim()))}
     >
-      <ComboboxTrigger id={id} aria-label={aria['aria-label']} render={<Button variant={variant} size={size} className={cn('justify-between font-normal', modified && 'border-ring', className)} />}>
+      <ComboboxTrigger
+        id={id}
+        aria-label={aria['aria-label']}
+        disabled={disabled}
+        render={<Button variant={variant} size={size} className={cn('justify-between font-normal', modified && 'border-ring', className)} />}
+      >
         <span className="flex min-w-0 items-center gap-1.5">
           {Icon ? <Icon className="size-3 shrink-0 text-muted-foreground" /> : null}
           <span className={cn('truncate', muted && 'text-muted-foreground')}>{selected?.label ?? 'Selecionar…'}</span>

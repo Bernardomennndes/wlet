@@ -359,6 +359,7 @@ export function PlanosPageContent() {
           <PlanosDataTable
             groups={groups}
             items={items}
+            disabled={saving}
             onRemove={(id) => setPlanPendingDeletion(items.find((p) => p.id === id) ?? null)}
             onRemoveGroup={(id) => setGroupPendingDeletion(groups.find((g) => g.id === id) ?? null)}
             onUpdate={(id, patch) => updatePlan({ id, patch })}
