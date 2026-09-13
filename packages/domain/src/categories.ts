@@ -1,4 +1,4 @@
-import type { EnumOption } from './types'
+import { enumOptions } from './types'
 
 export type CategoryKind = 'income' | 'expense' | 'transfer'
 
@@ -9,14 +9,14 @@ export type CategoryGroup = 'income' | 'essentials' | 'lifestyle' | 'business' |
  * compilação aqui. Um mapa só-de-rótulo ao lado do tipo é a forma que diverge em silêncio,
  * porque nada obriga os dois a andarem juntos.
  */
-export const categoriesGroups: EnumOption<CategoryGroup>[] = [
+export const categoriesGroups = enumOptions<CategoryGroup>()([
   { value: 'income', label: 'Renda' },
   { value: 'essentials', label: 'Essenciais' },
   { value: 'lifestyle', label: 'Estilo de vida' },
   { value: 'business', label: 'Negócio' },
   { value: 'obligations', label: 'Obrigações' },
   { value: 'transfers', label: 'Movimentações' },
-]
+])
 
 const GROUP_OPTIONS = new Map(categoriesGroups.map((option) => [option.value, option]))
 

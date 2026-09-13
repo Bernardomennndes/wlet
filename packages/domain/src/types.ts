@@ -36,6 +36,30 @@ export interface EnumOption<T extends string> {
 }
 
 /**
+ * Declara a lista de opções de um enum e EXIGE que ela cubra todos os valores.
+ *
+ * A §1 da `enum-display.md` pede isto com estas palavras: "que a lista seja tipada pelo enum, para
+ * que um valor novo no tipo seja erro de compilação aqui e não uma linha faltando em silêncio". Um
+ * `EnumOption<T>[]` não entrega isso — `Flow` podia ganhar um quarto valor e as doze listas deste
+ * arquivo seguiam compilando. Medido: acrescentar `'inventado'` a `Flow` dava ZERO erros, e o
+ * sintoma em produção seria uma badge que não desenha nada justamente no dia em que o valor novo
+ * aparece.
+ *
+ * **A forma é curried, e não por estilo:** o TypeScript não infere um parâmetro de tipo e deixa o
+ * outro explícito na mesma chamada, então `enumOptions<Flow>()` fixa o enum e a segunda chamada
+ * infere a lista. O `const L` é o que faz `value` inferir como literal em vez de `string` — sem ele
+ * a checagem não tem o que comparar.
+ *
+ * Quando falta um valor, o erro NOMEIA o que falta (`FALTA_VALOR_NA_LISTA: "transfer"`), porque o
+ * ramo falso do condicional é um objeto cuja única propriedade carrega o `Exclude`. O retorno
+ * continua sendo `EnumOption<T>[]`, então nenhum consumidor muda.
+ */
+export function enumOptions<T extends string>() {
+  return <const L extends readonly EnumOption<T>[]>(list: [Exclude<T, L[number]['value']>] extends [never] ? L : { readonly FALTA_VALOR_NA_LISTA: Exclude<T, L[number]['value']> }): EnumOption<T>[] =>
+    list as unknown as EnumOption<T>[]
+}
+
+/**
  * Como um lançamento conta num recorte. Quem decide o fluxo é `flowOf`, em src/lib/finance.ts.
  *
  * `reimbursement` é dinheiro que entra e não é seu: o rateio de uma despesa que você adiantou.
@@ -48,12 +72,12 @@ export type Flow = 'income' | 'expense' | 'transfer' | 'reimbursement'
  * A leitura do fluxo, numa lista só. O plural existe porque legenda e filtro agregam
  * ("Entradas") enquanto o badge de uma linha qualifica um lançamento ("Entrada").
  */
-export const flowKinds: EnumOption<Flow>[] = [
+export const flowKinds = enumOptions<Flow>()([
   { value: 'income', label: 'Entrada', labelPlural: 'Entradas', icon: ArrowDownLeft, tone: 'positive' },
   { value: 'expense', label: 'Saída', labelPlural: 'Saídas', icon: ArrowUpRight, tone: 'neutral' },
   { value: 'transfer', label: 'Transferência', labelPlural: 'Transferências', icon: ArrowsLeftRight, tone: 'muted' },
   { value: 'reimbursement', label: 'Reembolso', labelPlural: 'Reembolsos', icon: ArrowUUpLeft, tone: 'muted' },
-]
+])
 
 export type Entity = 'PF' | 'PJ'
 
@@ -64,18 +88,18 @@ export type Entity = 'PF' | 'PJ'
  * que o eixo é a natureza jurídica dos dois lados. O `shortLabel` desenha o badge de conta, que
  * se repete em toda linha da tabela de transações e não comportaria o termo inteiro.
  */
-export const entityKinds: EnumOption<Entity>[] = [
+export const entityKinds = enumOptions<Entity>()([
   { value: 'PF', label: 'Pessoa física', shortLabel: 'PF', icon: User, tone: 'neutral' },
   { value: 'PJ', label: 'Pessoa jurídica', shortLabel: 'PJ', icon: Buildings, tone: 'neutral' },
-]
+])
 
 export type AccountType = 'checking' | 'credit-card' | 'investment'
 
-export const accountsTypes: EnumOption<AccountType>[] = [
+export const accountsTypes = enumOptions<AccountType>()([
   { value: 'checking', label: 'Conta corrente', icon: Bank, tone: 'neutral' },
   { value: 'credit-card', label: 'Cartão de crédito', icon: CreditCard, tone: 'neutral' },
   { value: 'investment', label: 'Conta investimento', icon: TrendUp, tone: 'neutral' },
-]
+])
 
 export interface Account {
   id: string
@@ -98,12 +122,12 @@ export interface Account {
 
 export type TransferKind = 'internal' | 'card-payment' | 'investment' | 'unmatched-self'
 
-export const transfersKinds: EnumOption<TransferKind>[] = [
+export const transfersKinds = enumOptions<TransferKind>()([
   { value: 'internal', label: 'Entre contas', icon: ArrowsLeftRight, tone: 'neutral' },
   { value: 'card-payment', label: 'Pagamento de fatura', icon: CreditCard, tone: 'neutral' },
   { value: 'investment', label: 'Investimento', icon: TrendUp, tone: 'neutral' },
   { value: 'unmatched-self', label: 'Sem contraparte', icon: LinkBreak, tone: 'muted' },
-]
+])
 
 export interface Installment {
   current: number
@@ -231,11 +255,11 @@ export interface IncomeMonth {
  */
 export type PlanStatus = 'considering' | 'decided' | 'discarded'
 
-export const planStatuses: EnumOption<PlanStatus>[] = [
+export const planStatuses = enumOptions<PlanStatus>()([
   { value: 'considering', label: 'Em estudo', icon: Clock, tone: 'neutral' },
   { value: 'decided', label: 'Decidido', icon: CheckCircle, tone: 'positive' },
   { value: 'discarded', label: 'Descartado', icon: MinusCircle, tone: 'muted' },
-]
+])
 
 /**
  * Como você vai pagar. É a escolha que a previsão usa.
@@ -246,10 +270,10 @@ export const planStatuses: EnumOption<PlanStatus>[] = [
  */
 export type PaymentMode = 'cash' | 'financed'
 
-export const paymentModes: EnumOption<PaymentMode>[] = [
+export const paymentModes = enumOptions<PaymentMode>()([
   { value: 'cash', label: 'À vista', icon: Money, tone: 'positive' },
   { value: 'financed', label: 'Parcelado', icon: CreditCard, tone: 'neutral' },
-]
+])
 
 /**
  * Uma intenção de compra, com o mês em que você pretende fazê-la e as formas de pagar.
@@ -316,11 +340,11 @@ export interface DatasetMeta {
 
 export type Recurrence = 'monthly' | 'once' | 'installments'
 
-export const plannedRecurrences: EnumOption<Recurrence>[] = [
+export const plannedRecurrences = enumOptions<Recurrence>()([
   { value: 'monthly', label: 'Mensal', tone: 'neutral' },
   { value: 'once', label: 'Uma vez', tone: 'neutral' },
   { value: 'installments', label: 'Parcelado', tone: 'neutral' },
-]
+])
 
 /**
  * Regra de previsão. Não é lançamento: é o que se declara que vai acontecer, e de onde
@@ -364,19 +388,19 @@ export interface MatchRule {
  */
 export type SettlementStatus = 'settled' | 'partial' | 'open' | 'overdue'
 
-export const receivableStatuses: EnumOption<SettlementStatus>[] = [
+export const receivableStatuses = enumOptions<SettlementStatus>()([
   { value: 'settled', label: 'Recebida', labelPlural: 'Recebidas', icon: CheckCircle, tone: 'positive' },
   { value: 'partial', label: 'Parcial', labelPlural: 'Parciais', icon: MinusCircle, tone: 'neutral' },
   { value: 'open', label: 'Em aberto', labelPlural: 'Em aberto', icon: Clock, tone: 'muted' },
   { value: 'overdue', label: 'Em atraso', labelPlural: 'Em atraso', icon: Warning, tone: 'negative' },
-]
+])
 
-export const payableStatuses: EnumOption<SettlementStatus>[] = [
+export const payableStatuses = enumOptions<SettlementStatus>()([
   { value: 'settled', label: 'Paga', labelPlural: 'Pagas', icon: CheckCircle, tone: 'positive' },
   { value: 'partial', label: 'Parcial', labelPlural: 'Parciais', icon: MinusCircle, tone: 'neutral' },
   { value: 'open', label: 'Em aberto', labelPlural: 'Em aberto', icon: Clock, tone: 'muted' },
   { value: 'overdue', label: 'Em atraso', labelPlural: 'Em atraso', icon: Warning, tone: 'negative' },
-]
+])
 
 /**
  * Uma cobrança: o que alguém te deve, com que frequência e até quando.
@@ -449,11 +473,11 @@ export type BudgetCadence = 'day' | 'week' | 'month'
  * quantidade, unidade e preço — "por semana" gastaria o dobro da largura para dizer o mesmo.
  * A forma longa fica em `labelPlural`, para quem precisar dela numa legenda.
  */
-export const budgetCadences: EnumOption<BudgetCadence>[] = [
+export const budgetCadences = enumOptions<BudgetCadence>()([
   { value: 'day', label: '/dia', labelPlural: 'Todo dia', tone: 'neutral' },
   { value: 'week', label: '/semana', labelPlural: 'Toda semana', tone: 'neutral' },
   { value: 'month', label: '/mês', labelPlural: 'Todo mês', tone: 'neutral' },
-]
+])
 
 export interface BudgetItem {
   label: string

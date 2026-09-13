@@ -1,5 +1,5 @@
 import { ArrowUUpLeft, CalendarDot, CreditCard, ShoppingBag, Target } from '@phosphor-icons/react'
-import type { EnumOption, Plan } from '@wlet/domain'
+import { enumOptions, type Plan } from '@wlet/domain'
 import type { ViewTransaction } from './finance'
 import { shiftMonth, toCents } from './finance'
 import { BUDGET } from './budget'
@@ -335,13 +335,13 @@ export function buildCategoryForecast(input: Input): Record<string, Record<strin
  */
 export type ForecastOrigin = 'declared' | 'committed' | 'plan' | 'rubric' | 'offset'
 
-export const forecastOrigins: EnumOption<ForecastOrigin>[] = [
+export const forecastOrigins = enumOptions<ForecastOrigin>()([
   { value: 'committed', label: 'Contratado', icon: CreditCard, tone: 'neutral' },
   { value: 'declared', label: 'Declarado', icon: CalendarDot, tone: 'neutral' },
   { value: 'plan', label: 'Plano', icon: ShoppingBag, tone: 'neutral' },
   { value: 'rubric', label: 'Rubrica', icon: Target, tone: 'muted' },
   { value: 'offset', label: 'Abatido', icon: ArrowUUpLeft, tone: 'positive' },
-]
+])
 
 export interface ForecastItem {
   key: string
