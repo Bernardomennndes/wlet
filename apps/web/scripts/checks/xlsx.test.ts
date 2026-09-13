@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { browserEnv, type SourceFile } from '@wlet/ingest/io'
 import { readSheet, serialDate, sheetNames } from '@wlet/ingest/xlsx'
+import { xlsxOf } from './support/xlsx-fixture'
 
 /**
  * O leitor de xlsx — a porta por onde entram os relatórios da B3 e o extrato da corretora.
@@ -14,89 +15,16 @@ import { readSheet, serialDate, sheetNames } from '@wlet/ingest/xlsx'
  * O que se ganha é o caminho inteiro: a planilha vira `{ coluna: valor }`, e é dessa forma que
  * `brokerage.ts` e `investments.ts` leem posição, movimentação e proventos. Um erro aqui move a
  * carteira inteira sem estourar nada.
+ *
+ * O construtor do ZIP mora em `support/xlsx-fixture.ts`: o teste do razão da corretora usa o mesmo.
  */
-
-// ---------------------------------------------------------------------------
-// Um xlsx mínimo: ZIP com entradas STORED
-// ---------------------------------------------------------------------------
-
-const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
-  let c = n
-  for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
-  return c >>> 0
-})
-
-function crc32(data: Uint8Array): number {
-  let c = 0xffffffff
-  for (const byte of data) c = CRC_TABLE[(c ^ byte) & 0xff] ^ (c >>> 8)
-  return (c ^ 0xffffffff) >>> 0
-}
-
-/** Um ZIP de entradas STORED. É o mínimo que `readEntries` de `xlsx.ts` precisa saber ler. */
-function zip(files: Record<string, string>): Uint8Array {
-  const encoder = new TextEncoder()
-  const parts: Uint8Array[] = []
-  const central: Uint8Array[] = []
-  let offset = 0
-
-  for (const [name, content] of Object.entries(files)) {
-    const nameBytes = encoder.encode(name)
-    const data = encoder.encode(content)
-    const sum = crc32(data)
-
-    const local = new Uint8Array(30 + nameBytes.length)
-    const lv = new DataView(local.buffer)
-    lv.setUint32(0, 0x04034b50, true) // assinatura do cabeçalho local
-    lv.setUint16(4, 20, true) // versão necessária
-    lv.setUint16(8, 0, true) // método 0 = STORED
-    lv.setUint32(14, sum, true)
-    lv.setUint32(18, data.length, true) // comprimido
-    lv.setUint32(22, data.length, true) // sem compressão: os dois são iguais
-    lv.setUint16(26, nameBytes.length, true)
-    local.set(nameBytes, 30)
-
-    const entry = new Uint8Array(46 + nameBytes.length)
-    const cv = new DataView(entry.buffer)
-    cv.setUint32(0, 0x02014b50, true) // assinatura do diretório central
-    cv.setUint16(6, 20, true)
-    cv.setUint16(10, 0, true)
-    cv.setUint32(16, sum, true)
-    cv.setUint32(20, data.length, true)
-    cv.setUint32(24, data.length, true)
-    cv.setUint16(28, nameBytes.length, true)
-    cv.setUint32(42, offset, true)
-    entry.set(nameBytes, 46)
-
-    parts.push(local, data)
-    central.push(entry)
-    offset += local.length + data.length
-  }
-
-  const centralSize = central.reduce((total, e) => total + e.length, 0)
-  const end = new Uint8Array(22)
-  const ev = new DataView(end.buffer)
-  ev.setUint32(0, 0x06054b50, true) // fim do diretório central
-  ev.setUint16(8, central.length, true)
-  ev.setUint16(10, central.length, true)
-  ev.setUint32(12, centralSize, true)
-  ev.setUint32(16, offset, true)
-
-  const all = [...parts, ...central, end]
-  const out = new Uint8Array(all.reduce((total, p) => total + p.length, 0))
-  let at = 0
-  for (const p of all) {
-    out.set(p, at)
-    at += p.length
-  }
-  return out
-}
 
 const WORKBOOK = '<workbook><sheets><sheet name="Posição" sheetId="1"/><sheet name="Movimentação" sheetId="2"/></sheets></workbook>'
 const SHARED = '<sst><si><t>Produto</t></si><si><t>Casa &amp; Cia</t></si></sst>'
 
 const sheet = (rows: string) => `<worksheet><sheetData>${rows}</sheetData></worksheet>`
 
-const book = (files: Record<string, string>): SourceFile => ({ path: 'docs/investimentos/relatorio.xlsx', bytes: zip(files) })
+const book = (files: Record<string, string>): SourceFile => ({ path: 'docs/investimentos/relatorio.xlsx', bytes: xlsxOf(files) })
 
 describe('sheetNames', () => {
   it('lê os nomes das abas, com acento', async () => {
