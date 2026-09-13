@@ -11,6 +11,7 @@ import {
   makeOrpcPreferencesRepository,
   makeOrpcSourceStore,
   makeOverridesService,
+  makePlanIdGenerator,
   makePlansService,
   makePreferencesService,
   type ConfigService,
@@ -83,7 +84,7 @@ export function build(wlet: WletClient): Services {
     // A semente da config vem do BUNDLE, não do conjunto: `config` não pode conhecer quem
     // produziu aquele JSON (§4).
     config: makeConfigService({ repository: makeOrpcConfigRepository(deps), seed: makeBundleDeclarations() }),
-    plans: makePlansService({ repository: makeOrpcPlanRepository(deps), ids: { next: () => `plan-${Date.now().toString(36)}` } }),
+    plans: makePlansService({ repository: makeOrpcPlanRepository(deps), ids: makePlanIdGenerator() }),
     // `categoryExists` é regra de DOMÍNIO, não de armazenamento: um ajuste para uma categoria
     // que não existe é inválido aqui e no servidor igualmente, e o catálogo é o mesmo pacote.
     overrides: makeOverridesService({ repository: makeOrpcOverrideRepository(deps), categoryExists: (id) => id in CATEGORY_MAP }),

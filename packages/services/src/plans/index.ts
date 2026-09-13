@@ -14,3 +14,4 @@ export type { NewGroup, NewPlan, PlanPatch, PlansServiceDeps } from './applicati
 export { InvalidPlanError, PlanGroupNotFoundError, PlanNotFoundError } from './domain/errors'
 export type { IdGenerator, PlanRepository } from './domain/ports/plan-repository'
 export { makeOrpcPlanRepository } from './infrastructure/orpc-plan.adapter'
+export { makePlanIdGenerator } from './infrastructure/plan-id.adapter'

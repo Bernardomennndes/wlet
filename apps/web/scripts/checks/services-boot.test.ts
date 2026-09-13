@@ -81,3 +81,34 @@ describe('a semente é opcional', () => {
     assert.equal(await makeBundleDeclarations().read(), null)
   })
 })
+
+/**
+ * O id de um plano precisa ser único DENTRO DO MESMO MILISSEGUNDO.
+ *
+ * `@wlet/domain` já oferecia `planId`, com relógio MAIS sufixo aleatório. A montagem da aplicação
+ * ignorava aquela função e escrevia a sua própria — `plan-${Date.now().toString(36)}` — que é só o
+ * relógio. Medido: 200 chamadas no mesmo tique davam UM id distinto e 199 colisões.
+ *
+ * Dois planos com o mesmo id não estouram nada: `updatePlan` edita os dois e `removePlan` apaga os
+ * dois. Pela tela é difícil alcançar, porque cada criação espera o servidor — o que este teste
+ * tranca é o dia em que algo criar planos em laço (duplicar, colar várias linhas, semear), quando
+ * a colisão deixa de ser hipótese.
+ */
+describe('ids de plano', () => {
+  it('duas chamadas no mesmo tique dão ids diferentes', async () => {
+    const { makePlanIdGenerator } = await import('@wlet/services')
+    const ids = new Set(Array.from({ length: 200 }, () => makePlanIdGenerator().next('plan')))
+    assert.equal(ids.size, 200, 'o gerador de produção colide dentro do mesmo milissegundo')
+  })
+
+  it('a montagem USA o gerador, em vez de escrever o id à mão', async () => {
+    // Sem esta checagem, trocar a fiação de volta por um literal deixaria o teste acima verde:
+    // ele mede o adapter, e a produção poderia não estar usando o adapter.
+    const { readFileSync } = await import('node:fs')
+    const fonte = readFileSync(new URL('../../src/services.ts', import.meta.url), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '')
+    assert.match(fonte, /ids:\s*makePlanIdGenerator\(\)/, 'a montagem deixou de usar makePlanIdGenerator')
+    assert.doesNotMatch(fonte, /ids:\s*\{/, 'a montagem voltou a inventar o id num literal')
+  })
+})

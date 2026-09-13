@@ -19,7 +19,7 @@ export type { DatasetOrigin, DatasetRepository, DatasetSeed, DatasetService, Dat
 export { makeOrpcOverrideRepository, makeOverridesService } from './overrides'
 export type { OverridesService } from './overrides'
 
-export { makeOrpcPlanRepository, makePlansService } from './plans'
+export { makeOrpcPlanRepository, makePlanIdGenerator, makePlansService } from './plans'
 export type { PlansService } from './plans'
 
 export { makeOrpcPreferencesRepository, makePreferencesService } from './preferences'
