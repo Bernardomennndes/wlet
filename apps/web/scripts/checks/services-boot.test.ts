@@ -163,3 +163,36 @@ describe('boot com o servidor fora do ar', () => {
     await assert.rejects(() => Promise.all([dataset.load(), config.load(), preferences.load(), overrides.list(), plans.list()]))
   })
 })
+
+/**
+ * O cliente do app NÃO toca armazenamento de navegador.
+ *
+ * A sessão é o cookie `httpOnly`, que viaja sozinho. Havia aqui um
+ * `token: () => localStorage.getItem('wlet.token')` que nada no projeto escrevia — leitura que só
+ * podia devolver `null` — e que roda dentro do `headers()` do link, a CADA requisição. Num
+ * navegador que bloqueia armazenamento (Safari privado, "bloquear todos os cookies") o acessador
+ * lança `SecurityError`, e o app inteiro pararia de falar com o servidor por causa de um token
+ * inexistente.
+ *
+ * O teste é sobre a FONTE e não sobre comportamento porque o defeito é a presença da leitura: um
+ * teste que só chamasse `client()` no Node passaria, já que lá `localStorage` é `undefined` e o
+ * caminho nem chega a ser exercitado.
+ */
+describe('o cliente do app não depende de armazenamento local', () => {
+  it('api.ts não lê localStorage nem sessionStorage', async () => {
+    const { readFileSync } = await import('node:fs')
+    // Os comentários EXPLICAM a leitura que saiu; procurar nela acusaria a explicação.
+    const fonte = readFileSync(new URL('../../src/api.ts', import.meta.url), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '')
+    assert.doesNotMatch(fonte, /localStorage|sessionStorage|indexedDB/, 'o cliente do app voltou a depender de armazenamento de navegador — e ele lança em navegador com dados bloqueados')
+  })
+
+  it('e o app não passa `token`: quem passa é script e teste', async () => {
+    const { readFileSync } = await import('node:fs')
+    const fonte = readFileSync(new URL('../../src/api.ts', import.meta.url), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '')
+    assert.doesNotMatch(fonte, /token\s*:/, 'a sessão do app é o cookie httpOnly; um `token` aqui é um segundo caminho de credencial livre para divergir')
+  })
+})

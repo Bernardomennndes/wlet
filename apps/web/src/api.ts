@@ -16,9 +16,21 @@ import { apiUrl } from './api-url'
 let cachedClient: WletClient | null = null
 
 export function client(): WletClient {
-  // O token é para quem NÃO tem navegador (teste e script, pelo plugin `bearer()`); a sessão do
-  // app é o cookie `httpOnly`, que viaja sozinho.
-  cachedClient ??= createWletClient({ baseUrl: apiUrl(), token: () => localStorage.getItem('wlet.token') })
+  /**
+   * **Sem `token`, e isso é o certo para o APP.** A sessão dele é o cookie `httpOnly`, que viaja
+   * sozinho em toda chamada (`packages/api/src/client.ts` embrulha o `fetch` com
+   * `credentials: 'include'` justamente para isso). A opção `token` continua existindo e serve a
+   * quem NÃO tem navegador — teste e script passam o próprio callback, pelo plugin `bearer()`.
+   *
+   * Havia aqui `token: () => localStorage.getItem('wlet.token')`, e ela não era inofensiva. Nada
+   * no projeto escreve `wlet.token`, então a leitura só podia devolver `null`; e ela roda dentro
+   * do `headers()` do link, ou seja **a cada requisição**. Num navegador que bloqueia
+   * armazenamento — Safari privado, "bloquear todos os cookies" — o acessador LANÇA, medido:
+   * `SecurityError: The operation is insecure.`. O app inteiro pararia de falar com o servidor por
+   * causa de um token que nunca existiu. `sidebarDefaultOpen()`, no `app-shell`, já trata essa
+   * possibilidade com `try`/`catch` para o cookie; aqui não havia nenhum.
+   */
+  cachedClient ??= createWletClient({ baseUrl: apiUrl() })
   return cachedClient
 }
 
