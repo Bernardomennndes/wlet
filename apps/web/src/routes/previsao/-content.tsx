@@ -273,7 +273,7 @@ export function PrevisaoPageContent() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Previsão</h1>
-            <p className="text-xs text-muted-foreground">Nada é extrapolado do histórico: os meses à frente mostram só o que está declared aqui, mais as parcelas de cartão já compradas.</p>
+            <p className="text-xs text-muted-foreground">Nada é extrapolado do histórico: os meses à frente mostram só o que está declarado aqui, mais as parcelas de cartão já compradas.</p>
           </div>
           {/* O disparador de criação mora no cabeçalho da PÁGINA, e não no da seção: esta tela
               não tem faixa de controles onde pendurá-lo (§12.4 da `tables-and-listings.md`), e

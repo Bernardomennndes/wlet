@@ -266,7 +266,7 @@ export function PlanosPageContent() {
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
             <Button variant="outline" disabled={saving} onClick={() => setGroupOpen(true)}>
-              <FolderPlus data-icon="inline-start" /> Novo createdGroup
+              <FolderPlus data-icon="inline-start" /> Novo grupo
             </Button>
             <Button
               disabled={saving}
@@ -275,7 +275,7 @@ export function PlanosPageContent() {
                 setOpen(true)
               }}
             >
-              <Plus data-icon="inline-start" /> Novo created
+              <Plus data-icon="inline-start" /> Novo plano
             </Button>
           </div>
         </div>
@@ -300,7 +300,7 @@ export function PlanosPageContent() {
                 mostra cada marca do lado do nome dela — repeti-la aqui em prosa produzia um
                 parágrafo de quatro linhas que ninguém lia, e que empurrava o gráfico para
                 fora da primeira dobra. O detalhe do número vive no ⓘ do headline. */}
-            <CardDescription>Da base ao topo, em ordem de certeza: primeiro o que o mês já tem preso, depois o que esta lista acrescenta. Aponte um created para ver onde ele cai.</CardDescription>
+            <CardDescription>Da base ao topo, em ordem de certeza: primeiro o que o mês já tem preso, depois o que esta lista acrescenta. Aponte um plano para ver onde ele cai.</CardDescription>
           </CardHeader>
           <CardContent>
             <PlanScheduleChart
@@ -334,7 +334,7 @@ export function PlanosPageContent() {
             <EmptyMedia variant="icon">
               <Target />
             </EmptyMedia>
-            <EmptyTitle>Nenhum created ainda</EmptyTitle>
+            <EmptyTitle>Nenhum plano ainda</EmptyTitle>
             <EmptyDescription>Anote o que você pretende comprar — com valor, mês e parcelamento — e a tela de Previsão mostra se cabe.</EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -407,7 +407,7 @@ export function PlanosPageContent() {
       <AlertDialog open={planPendingDeletion !== null} onOpenChange={(open) => !open && setPlanPendingDeletion(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover este created?</AlertDialogTitle>
+            <AlertDialogTitle>Remover este plano?</AlertDialogTitle>
             <AlertDialogDescription>
               <strong>{planPendingDeletion?.label}</strong> sai da lista e da previsão. Não há como desfazer.
             </AlertDialogDescription>
@@ -430,7 +430,7 @@ export function PlanosPageContent() {
       <AlertDialog open={groupPendingDeletion !== null} onOpenChange={(open) => !open && setGroupPendingDeletion(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remover este createdGroup?</AlertDialogTitle>
+            <AlertDialogTitle>Remover este grupo?</AlertDialogTitle>
             <AlertDialogDescription>
               <strong>{groupPendingDeletion?.label}</strong> sai da lista. Os planos dele NÃO são apagados — ficam soltos.
             </AlertDialogDescription>

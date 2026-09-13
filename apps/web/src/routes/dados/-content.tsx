@@ -301,7 +301,7 @@ export function DadosPageContent() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm">Exportar e importPackage</CardTitle>
+          <CardTitle className="text-sm">Exportar e importar</CardTitle>
           <CardDescription>
             Tudo o que existe na sua conta, num arquivo só — lançamentos, declarações, planos, ajustes e os extratos originais. Na importação você escolhe o que trazer.
           </CardDescription>

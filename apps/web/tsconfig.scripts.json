@@ -1,12 +1,11 @@
 {
-  "extends": "@wlet/tsconfig/base.json",
+  "extends": "@wlet/tsconfig/react.json",
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.scripts.tsbuildinfo",
-    "lib": ["ES2023", "DOM"],
     "types": ["node", "vite/client"],
     "paths": {
       "@/*": ["./src/*"]
     }
   },
-  "include": ["scripts"]
+  "include": ["scripts", "src/**/*.test.ts", "src/**/*.test.tsx"]
 }

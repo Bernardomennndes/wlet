@@ -8,7 +8,7 @@
     "setup": "tsx scripts/setup.ts",
     "cdi": "tsx scripts/fetch-cdi.ts",
     "build": "tsc -b && vite build",
-    "check": "tsx --test scripts/checks/*.test.ts",
+    "check": "tsx --test scripts/checks/*.test.ts src/**/*.test.ts",
     "preview": "vite preview",
     "ingest": "tsx scripts/ingest.ts && biome format --write src/generated",
     "package": "tsx scripts/package.ts",
