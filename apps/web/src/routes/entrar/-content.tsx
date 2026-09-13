@@ -60,7 +60,14 @@ export function EntrarPageContent({ onEntrou }: { onEntrou: () => void }) {
 
         <Card>
           <CardHeader>
-            <CardTitle>{modo === 'entrar' ? 'Entrar' : 'Criar conta'}</CardTitle>
+            {/* O `<h1>` fica DENTRO do `CardTitle` — ele é um `<div>` e não aceita `render`, e a
+                tela de entrada não pode ser a única do app sem heading nenhum. Era: quem navega
+                por títulos, que é como se varre uma página com leitor de tela, não achava nada na
+                primeira tela que o app mostra. Mesma solução, e mesmo motivo, da rota 404. As
+                classes restauram a tipografia do `CardTitle`. */}
+            <CardTitle>
+              <h1 className="font-heading text-sm font-bold">{modo === 'entrar' ? 'Entrar' : 'Criar conta'}</h1>
+            </CardTitle>
             <CardDescription>Seus extratos ficam no seu servidor. A sessão é um cookie que script nenhum lê.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
