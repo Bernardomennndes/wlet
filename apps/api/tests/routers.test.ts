@@ -372,3 +372,61 @@ describe('conjunto', () => {
     assert.equal(await call(r.get, undefined, { context: b.context }), null)
   })
 })
+
+/**
+ * O isolamento por `userId` vale nos CINCO domínios, e não só nos dois que já tinham teste.
+ *
+ * É a garantia que mais importa neste app: ele guarda extrato bancário inteiro, e o eixo que separa
+ * uma pessoa da outra é uma coluna. Medido antes de escrever isto: as 30 cláusulas `where` dos cinco
+ * routers filtram por `userId` e as 15 escritas o gravam — está certo hoje. O que não havia era o que
+ * mantém assim. `overrides` e `dataset` tinham teste; `config`, `plans` e `preferences` não, e são
+ * justamente os que guardam o que a pessoa DECLAROU: as regras de categoria, o catálogo de compras,
+ * o recorte que ela escolhe.
+ *
+ * Um vazamento aqui não estoura nada — a outra pessoa simplesmente vê números que não são dela.
+ */
+describe('o dado de uma pessoa não atravessa para outra', () => {
+  it('configuração', async () => {
+    const a = await comUsuario()
+    const b = await comUsuario()
+    const r = configRouter(d)
+    const declarado = {
+      accounts: [],
+      selfNamePatterns: [{ source: 'FULANO', flags: 'i' }],
+      rules: [{ id: 'mercado', test: { source: 'MERCADO', flags: 'i' }, category: 'mercado' }],
+      planned: [],
+      receivables: [],
+      budget: { monthlyLimit: 9000, warnAt: 0.75, byCategory: [] },
+      goals: [],
+    }
+    await call(r.replace, declarado as never, { context: a.context })
+
+    const deB = await call(r.get, undefined, { context: b.context })
+    assert.deepEqual(deB.rules, [], 'a regra de categoria de A apareceu para B')
+    assert.deepEqual(deB.selfNamePatterns, [], 'o padrão de nome próprio de A apareceu para B')
+    assert.notEqual(deB.budget.monthlyLimit, 9000, 'o teto de A apareceu para B')
+  })
+
+  it('planos', async () => {
+    const a = await comUsuario()
+    const b = await comUsuario()
+    const r = plansRouter(d)
+    await call(r.addGroup, { label: 'Viagem' } as never, { context: a.context })
+    await call(r.add, { label: 'Passagem', cash: 2000, categoryId: 'viagem', status: 'considering' } as never, { context: a.context })
+
+    const deB = await call(r.list, undefined, { context: b.context })
+    assert.deepEqual(deB.items, [], 'o plano de A apareceu para B')
+    assert.deepEqual(deB.groups, [], 'o grupo de A apareceu para B')
+  })
+
+  it('preferências', async () => {
+    const a = await comUsuario()
+    const b = await comUsuario()
+    const r = preferencesRouter(d)
+    await call(r.set, { scope: 'PJ', theme: 'dark' }, { context: a.context })
+
+    const deB = await call(r.get, undefined, { context: b.context })
+    assert.equal(deB.scope, null, 'o recorte de A apareceu para B')
+    assert.equal(deB.theme, null, 'o tema de A apareceu para B')
+  })
+})
