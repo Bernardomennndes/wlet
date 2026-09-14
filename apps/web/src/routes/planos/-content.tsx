@@ -7,7 +7,7 @@ import { Button } from '@wlet/ui/components/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet/ui/components/card'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@wlet/ui/components/empty'
 import { useDocumentTitle } from '@/hooks/use-document-title'
-import type { Plan, PlanGroup } from '@wlet/domain'
+import type { Plan, PlanGroup, PlanStatus } from '@wlet/domain'
 import { ACCOUNT_MAP, lastMonthWithData, monthsBetween, projectionHorizon, shiftMonth } from '@/lib/finance'
 import { formatBRL, formatMonthShort, plural } from '@wlet/lib/format'
 import { installmentAmount, parsePlans, planMonths, planOccursIn, planScheduleByMonth, planTotal, scheduledPlans } from '@wlet/domain/plans'
@@ -96,6 +96,17 @@ export function PlanosPageContent() {
     },
   })
 
+  const { mutate: setGroupStatus, isPending: settingGroupStatus } = useMutation({
+    // Uma escrita para o grupo inteiro, e não uma por plano: o serviço grava o catálogo todo a
+    // cada chamada, e N chamadas em voo perderiam todas menos a última.
+    mutationFn: ({ id, status }: { id: string; label: string; status: Exclude<PlanStatus, 'discarded'> }) => services().plans.setGroupStatus(id, status),
+    onSuccess: (reached, { label, status }) => {
+      apply()
+      const what = status === 'decided' ? plural(reached.length, 'plano decidido', 'planos decididos') : plural(reached.length, 'plano em estudo', 'planos em estudo')
+      toast.success(`Grupo "${label}": ${reached.length} ${what}`)
+    },
+  })
+
   const { mutate: replaceAllPlans, isPending: importing } = useMutation({
     mutationFn: (saved: ReturnType<typeof parsePlans>) => services().plans.replaceAll(saved),
     onSuccess: (saved) => {
@@ -104,8 +115,8 @@ export function PlanosPageContent() {
     },
   })
 
-  /** Qualquer escrita em voo trava a lista: as seis reescrevem o mesmo catálogo. */
-  const saving = creatingPlan || updatingPlan || deletingPlan || creatingGroup || deletingGroup || importing
+  /** Qualquer escrita em voo trava a lista: as sete reescrevem o mesmo catálogo. */
+  const saving = creatingPlan || updatingPlan || deletingPlan || creatingGroup || deletingGroup || settingGroupStatus || importing
 
   const [open, setOpen] = useState(false)
   const [groupOpen, setGroupOpen] = useState(false)
@@ -363,6 +374,7 @@ export function PlanosPageContent() {
             onRemove={(id) => setPlanPendingDeletion(items.find((p) => p.id === id) ?? null)}
             onRemoveGroup={(id) => setGroupPendingDeletion(groups.find((g) => g.id === id) ?? null)}
             onUpdate={(id, patch) => updatePlan({ id, patch })}
+            onGroupStatus={(group, status) => setGroupStatus({ id: group.id, label: group.label, status })}
             onHighlight={setPointed}
             monthsWithData={monthsWithData}
             defaultMonth={nextMonth}

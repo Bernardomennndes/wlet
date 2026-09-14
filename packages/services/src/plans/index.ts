@@ -10,7 +10,7 @@
  * aqui teria de inventá-la.
  */
 export { makePlansService, type PlansService } from './application/plans.service'
-export type { NewGroup, NewPlan, PlanPatch, PlansServiceDeps } from './application/plans.service'
+export type { GroupStatus, NewGroup, NewPlan, PlanPatch, PlansServiceDeps } from './application/plans.service'
 export { InvalidPlanError, PlanGroupNotFoundError, PlanNotFoundError } from './domain/errors'
 export type { IdGenerator, PlanRepository } from './domain/ports/plan-repository'
 export { makeOrpcPlanRepository } from './infrastructure/orpc-plan.adapter'

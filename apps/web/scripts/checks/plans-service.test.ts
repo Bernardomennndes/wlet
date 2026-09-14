@@ -112,6 +112,73 @@ describe('serviço de planos: grupos', () => {
   })
 })
 
+/**
+ * O checkbox do grupo: decide ou devolve a estudo tudo o que o grupo tem, numa gravação só.
+ *
+ * A contagem de gravações não é detalhe: com um `setStatus` por plano, as escritas em voo leem o
+ * mesmo retrato e só a última sobrevive (`plans-concurrency.test.ts`).
+ */
+describe('setGroupStatus — o checkbox do grupo', () => {
+  async function withGroup() {
+    const ctx = setup()
+    const trip = await ctx.service.addGroup({ label: 'Viagem' })
+    const home = await ctx.service.addGroup({ label: 'Casa' })
+    const ticket = await ctx.service.addPlan({ ...monitor, label: 'Passagem', groupId: trip.id })
+    const hotel = await ctx.service.addPlan({ ...monitor, label: 'Hotel', groupId: trip.id })
+    const dropped = await ctx.service.addPlan({ ...monitor, label: 'Passeio', groupId: trip.id, status: 'discarded' })
+    const sofa = await ctx.service.addPlan({ ...monitor, label: 'Sofá', groupId: home.id })
+    const loose = await ctx.service.addPlan({ ...monitor, label: 'Cadeira' })
+    return { ...ctx, trip, ticket, hotel, dropped, sofa, loose }
+  }
+
+  it('decide todos os planos do grupo e devolve os que alcançou', async () => {
+    const { service, trip, ticket, hotel } = await withGroup()
+    const reached = await service.setGroupStatus(trip.id, 'decided')
+    assert.deepEqual(reached.map((p) => p.id).sort(), [ticket.id, hotel.id].sort())
+    const { items } = await service.list()
+    assert.equal(items.find((p) => p.id === ticket.id)?.status, 'decided')
+    assert.equal(items.find((p) => p.id === hotel.id)?.status, 'decided')
+  })
+
+  it('o descartado fica descartado — desistir não se desfaz pelo grupo', async () => {
+    const { service, trip, dropped } = await withGroup()
+    await service.setGroupStatus(trip.id, 'decided')
+    const { items } = await service.list()
+    assert.equal(items.find((p) => p.id === dropped.id)?.status, 'discarded')
+  })
+
+  it('não toca em outro grupo nem nos avulsos', async () => {
+    const { service, trip, sofa, loose } = await withGroup()
+    await service.setGroupStatus(trip.id, 'decided')
+    const { items } = await service.list()
+    assert.equal(items.find((p) => p.id === sofa.id)?.status, 'considering')
+    assert.equal(items.find((p) => p.id === loose.id)?.status, 'considering')
+  })
+
+  it('desmarcar devolve o grupo inteiro a EM ESTUDO', async () => {
+    const { service, trip, ticket, hotel } = await withGroup()
+    await service.setGroupStatus(trip.id, 'decided')
+    await service.setGroupStatus(trip.id, 'considering')
+    const { items } = await service.list()
+    assert.equal(items.find((p) => p.id === ticket.id)?.status, 'considering')
+    assert.equal(items.find((p) => p.id === hotel.id)?.status, 'considering')
+  })
+
+  it('é UMA gravação, não uma por plano', async () => {
+    const { repository, service, trip } = await withGroup()
+    const before = repository.saves
+    await service.setGroupStatus(trip.id, 'decided')
+    assert.equal(repository.saves - before, 1)
+  })
+
+  it('grupo que não existe é PlanGroupNotFoundError, e nada é gravado', async () => {
+    const { repository, service } = await withGroup()
+    const before = repository.saves
+    await assert.rejects(() => service.setGroupStatus('group-99', 'decided'), PlanGroupNotFoundError)
+    assert.equal(repository.saves, before)
+  })
+})
+
 describe('serviço de planos: agenda', () => {
   it('delega ao kernel e ignora quem não tem mês', async () => {
     // O serviço ORQUESTRA: a aritmética de agenda vive em src/lib/plans.ts e é testada lá.

@@ -28,6 +28,15 @@ export interface PlansService {
   setStatus(id: string, status: PlanStatus): Promise<Plan>
   setPayment(id: string, payment: PaymentMode | undefined): Promise<Plan>
   setMonth(id: string, month: string | undefined): Promise<Plan>
+  /**
+   * Decide ou devolve a estudo TODOS os planos de um grupo, numa gravação só.
+   *
+   * Uma chamada, e não um `setStatus` por plano: cada escrita é lê-aplica-grava do catálogo
+   * inteiro, e N escritas em voo perderiam todas menos a última (`plans-concurrency.test.ts`).
+   * Descartado fica como está — desistir de um plano não se desfaz por um clique no grupo.
+   * Devolve os planos que a escrita alcançou, para a tela dizer quantos.
+   */
+  setGroupStatus(groupId: string, status: GroupStatus): Promise<Plan[]>
   addGroup(input: NewGroup): Promise<PlanGroup>
   removeGroup(id: string): Promise<void>
   /**
@@ -44,6 +53,8 @@ export interface PlansService {
 export type NewPlan = Omit<Plan, 'id' | 'status'> & { status?: PlanStatus }
 export type PlanPatch = Partial<Omit<Plan, 'id'>>
 export type NewGroup = Omit<PlanGroup, 'id'>
+/** A situação que o checkbox de um grupo sabe dizer: ele alterna, e "descartado" não é alternável. */
+export type GroupStatus = Exclude<PlanStatus, 'discarded'>
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/
 
@@ -118,6 +129,15 @@ export function makePlansService({ repository, ids }: PlansServiceDeps): PlansSe
     setStatus: (id, status) => mutate((data) => patched(data, id, { status })),
     setPayment: (id, payment) => mutate((data) => patched(data, id, { payment })),
     setMonth: (id, month) => mutate((data) => patched(data, id, { month })),
+
+    setGroupStatus(groupId, status) {
+      return mutate((data) => {
+        if (!data.groups.some((g) => g.id === groupId)) throw new PlanGroupNotFoundError()
+        const reached = (item: Plan) => item.groupId === groupId && item.status !== 'discarded'
+        const items = data.items.map((item) => (reached(item) ? { ...item, status } : item))
+        return { next: { ...data, items }, result: items.filter(reached) }
+      })
+    },
 
     removePlan(id) {
       return mutate((data) => {

@@ -35,11 +35,11 @@ const EDGES = [
     invalidates: ['config'],
   },
   {
-    // Criar, editar e remover plano; criar e remover grupo; importar a lista inteira.
-    // A invalidação de `plans` move TRÊS telas: a lista, a Visão geral e a Previsão leem o mesmo
-    // cache, porque plano decidido entra nos meses futuros.
+    // Criar, editar e remover plano; criar e remover grupo; decidir o grupo inteiro; importar a
+    // lista inteira. A invalidação de `plans` move TRÊS telas: a lista, a Visão geral e a Previsão
+    // leem o mesmo cache, porque plano decidido entra nos meses futuros.
     screen: 'planos/-content.tsx',
-    writes: 6,
+    writes: 7,
     invalidates: ['plans'],
   },
   {

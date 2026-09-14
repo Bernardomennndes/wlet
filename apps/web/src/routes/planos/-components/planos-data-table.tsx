@@ -5,7 +5,7 @@ import { Button } from '@wlet/ui/components/button'
 import { Checkbox } from '@wlet/ui/components/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@wlet/ui/components/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@wlet/ui/components/tooltip'
-import { planStatuses, type Plan, type PlanGroup } from '@wlet/domain'
+import { planStatuses, type Plan, type PlanGroup, type PlanStatus } from '@wlet/domain'
 import { formatBRL, formatMonthShort } from '@wlet/lib/format'
 import { planTotal } from '@wlet/domain/plans'
 import { cn } from '@wlet/lib/utils'
@@ -84,6 +84,7 @@ export function PlanosDataTable({
   onRemove,
   onRemoveGroup,
   onUpdate,
+  onGroupStatus,
   onHighlight,
   monthsWithData,
   defaultMonth,
@@ -95,6 +96,8 @@ export function PlanosDataTable({
   onRemove: (id: string) => void
   onRemoveGroup: (id: string) => void
   onUpdate: (id: string, patch: Partial<Omit<Plan, 'id'>>) => void
+  /** O checkbox do grupo: decide ou devolve a estudo todos os planos dele, numa escrita só. */
+  onGroupStatus: (group: PlanGroup, status: Exclude<PlanStatus, 'discarded'>) => void
   /**
    * Trava a linha INTEIRA enquanto uma escrita está em voo — e é defeito medido, não zelo.
    *
@@ -139,6 +142,10 @@ export function PlanosDataTable({
 
       {buckets.map((bucket) => {
         const total = bucket.plans.reduce((sum, plan) => sum + planTotal(plan), 0)
+        // O que o checkbox do grupo alterna: descartado fica de fora, porque a caixinha da linha
+        // também não o representa. Parcial é o traço — nem todos, nem nenhum.
+        const toggleable = bucket.plans.filter((plan) => plan.status !== 'discarded')
+        const decidedCount = toggleable.filter((plan) => plan.status === 'decided').length
         return (
           <TableBody key={bucket.group?.id ?? 'avulsos'} className="border-b last:border-0">
             {/* O total do grupo cai na COLUNA "Valor", não à direita da tabela: ele é da mesma
@@ -146,7 +153,19 @@ export function PlanosDataTable({
                 as parcelas que a grade veio permitir. Encostado na borda direita ele ficava a
                 quatrocentos pixels do número que resume. */}
             <TableRow className="group/bucket bg-muted/40 hover:bg-muted/40">
-              <TableCell colSpan={2} className="py-1.5 font-medium text-muted-foreground">
+              <TableCell className="py-1.5">
+                {/* Só nos grupos reais: "Avulsos" não é uma coisa que se decide junta. */}
+                {bucket.group ? (
+                  <Checkbox
+                    disabled={disabled || toggleable.length === 0}
+                    aria-label={`Aplicar todos os planos de ${bucket.group.label} na previsão`}
+                    checked={toggleable.length > 0 && decidedCount === toggleable.length}
+                    indeterminate={decidedCount > 0 && decidedCount < toggleable.length}
+                    onCheckedChange={(checked) => bucket.group && onGroupStatus(bucket.group, checked ? 'decided' : 'considering')}
+                  />
+                ) : null}
+              </TableCell>
+              <TableCell className="py-1.5 font-medium text-muted-foreground">
                 {bucket.group?.label ?? 'Avulsos'}
                 {bucket.group?.from ? <span className="ml-2 font-normal">{formatMonthShort(bucket.group.from)}</span> : null}
               </TableCell>
