@@ -5,6 +5,7 @@ import { Button } from '@wlet/ui/components/button'
 import { Checkbox } from '@wlet/ui/components/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@wlet/ui/components/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@wlet/ui/components/tooltip'
+import { useState } from 'react'
 import { planStatuses, type Plan, type PlanGroup, type PlanStatus } from '@wlet/domain'
 import { formatBRL, formatMonthShort, plural } from '@wlet/lib/format'
 import { planTotal } from '@wlet/domain/plans'
@@ -136,6 +137,9 @@ export function PlanosDataTable({ groups, items, disabled = false, ...shared }: 
 
 function GroupBlock({ group, plans, disabled, monthsWithData, defaultMonth, ...handlers }: Shared & { group: PlanGroup | null; plans: Plan[] }) {
   const { onEdit, onRemove, onRemoveGroup, onUpdate, onGroupStatus, onRenameGroup, onHighlight } = handlers
+  // O nome está sendo editado? O estado mora no BLOCO, e não no campo, porque o gatilho (o lápis,
+  // na coluna de ações) e o que ele abre (o campo, na coluna do nome) são células diferentes.
+  const [renaming, setRenaming] = useState(false)
   const label = group?.label ?? 'Sem grupo'
   const total = plans.reduce((sum, plan) => sum + planTotal(plan), 0)
   // O que o checkbox do grupo alterna: descartado fica de fora, porque a caixinha da linha também
@@ -178,7 +182,19 @@ function GroupBlock({ group, plans, disabled, monthsWithData, defaultMonth, ...h
             </TableCell>
             <TableCell className="py-2 font-medium">
               <span className="flex min-w-0 items-center">
-                {group ? <GroupNameForm group={group} disabled={disabled} onRename={(next) => onRenameGroup(group, next)} /> : <span className="text-muted-foreground">Sem grupo</span>}
+                {group && renaming ? (
+                  <GroupNameForm
+                    group={group}
+                    onDone={(next) => {
+                      setRenaming(false)
+                      // Sair sem mudar nada não é gravação: abrir e fechar o campo levantaria
+                      // `saving` na tela inteira sem número novo nenhum.
+                      if (next !== undefined && next !== group.label) onRenameGroup(group, next)
+                    }}
+                  />
+                ) : (
+                  <span className={cn('truncate', !group && 'text-muted-foreground')}>{label}</span>
+                )}
                 {group?.from ? <span className="ml-2 font-normal text-muted-foreground">{formatMonthShort(group.from)}</span> : null}
               </span>
             </TableCell>
@@ -189,24 +205,35 @@ function GroupBlock({ group, plans, disabled, monthsWithData, defaultMonth, ...h
               {plans.length > 0 ? `${plans.length} ${plural(plans.length, 'plano', 'planos')} · ${decidedCount} ${plural(decidedCount, 'decidido', 'decididos')}` : null}
             </TableCell>
             <TableCell className="py-2">
+              {/* Renomear e remover lado a lado, no mesmo lugar e com o mesmo par de ícones das
+                  linhas de plano logo abaixo: a ação sobre a linha mora na coluna de ações, e o
+                  nome fica só com o nome. Os dois aparecem ao apontar a linha e continuam
+                  focáveis pelo teclado. */}
               {group ? (
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        disabled={disabled}
-                        aria-label={`Remover o grupo ${group.label}`}
-                        className="ml-auto flex opacity-0 group-hover/bucket:opacity-100 group-focus-within/bucket:opacity-100"
-                        onClick={() => onRemoveGroup(group.id)}
-                      >
-                        <Trash />
-                      </Button>
-                    }
-                  />
-                  <TooltipContent>Remover o grupo (os planos ficam sem grupo)</TooltipContent>
-                </Tooltip>
+                <span className="flex justify-end gap-0.5 opacity-0 group-hover/bucket:opacity-100 group-focus-within/bucket:opacity-100">
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        // Desabilitado enquanto o campo está aberto: o clique tiraria o foco do campo
+                        // (gravando e fechando) e logo em seguida o abriria de novo.
+                        <Button size="icon-sm" variant="ghost" disabled={disabled || renaming} aria-label={`Renomear o grupo ${group.label}`} onClick={() => setRenaming(true)}>
+                          <Pencil />
+                        </Button>
+                      }
+                    />
+                    <TooltipContent>Renomear o grupo</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button size="icon-sm" variant="ghost" disabled={disabled} aria-label={`Remover o grupo ${group.label}`} onClick={() => onRemoveGroup(group.id)}>
+                          <Trash />
+                        </Button>
+                      }
+                    />
+                    <TooltipContent>Remover o grupo (os planos ficam sem grupo)</TooltipContent>
+                  </Tooltip>
+                </span>
               ) : null}
             </TableCell>
           </TableRow>
