@@ -1,14 +1,14 @@
-import { useRef, type RefObject } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Controller, useForm, useWatch, type Control } from 'react-hook-form'
+import type { PlanGroup } from '@wlet/domain'
 import { Button } from '@wlet/ui/components/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@wlet/ui/components/dialog'
 import { Field, FieldError, FieldLabel } from '@wlet/ui/components/field'
 import { Input } from '@wlet/ui/components/input'
 import { MonthPicker } from '@wlet/ui/components/month-picker'
 import { Textarea } from '@wlet/ui/components/textarea'
-import type { PlanGroup } from '@wlet/domain'
-import { groupFormSchema as schema, type GroupFormValues as FormValues } from './group-dialog-schema'
+import { type RefObject, useRef } from 'react'
+import { type Control, Controller, useForm, useWatch } from 'react-hook-form'
+import { type GroupFormValues as FormValues, groupFormSchema as schema } from './group-dialog-schema'
 
 /** O tipo de `control` depois do `.transform()`: entrada, contexto e saída, nessa ordem. */
 type GroupFormControl = Control<FormValues, unknown, Omit<PlanGroup, 'id'>>

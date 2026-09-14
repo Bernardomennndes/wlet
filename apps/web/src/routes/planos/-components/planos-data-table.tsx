@@ -1,15 +1,15 @@
 import { Pencil, Trash } from '@phosphor-icons/react'
-import { CategoryBadge } from '@/components/category-badge'
-import { EnumBadge } from '@/components/enum-badge'
+import { type Plan, type PlanGroup, type PlanStatus, planStatuses } from '@wlet/domain'
+import { planTotal } from '@wlet/domain/plans'
+import { formatBRL, formatMonthShort, plural } from '@wlet/lib/format'
+import { cn } from '@wlet/lib/utils'
 import { Button } from '@wlet/ui/components/button'
 import { Checkbox } from '@wlet/ui/components/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@wlet/ui/components/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@wlet/ui/components/tooltip'
 import { useState } from 'react'
-import { planStatuses, type Plan, type PlanGroup, type PlanStatus } from '@wlet/domain'
-import { formatBRL, formatMonthShort, plural } from '@wlet/lib/format'
-import { planTotal } from '@wlet/domain/plans'
-import { cn } from '@wlet/lib/utils'
+import { CategoryBadge } from '@/components/category-badge'
+import { EnumBadge } from '@/components/enum-badge'
 import { GroupNameForm } from './group-name-form'
 import { InstallmentsCell, MonthCell, PaymentCell } from './plan-row-controls'
 
@@ -201,9 +201,7 @@ function GroupBlock({ group, plans, disabled, monthsWithData, defaultMonth, ...h
             <TableCell className="py-2 text-right font-mono font-medium tabular-nums">{formatBRL(total)}</TableCell>
             {/* O resumo ocupa o vão das três colunas de edição, que na linha do grupo não têm o que
                 dizer — em vez de disputar espaço com o nome. */}
-            <TableCell colSpan={3} className="py-2 text-muted-foreground">
-              {plans.length > 0 ? `${plans.length} ${plural(plans.length, 'plano', 'planos')} · ${decidedCount} ${plural(decidedCount, 'decidido', 'decididos')}` : null}
-            </TableCell>
+            <TableCell colSpan={3} className="py-2 text-muted-foreground"></TableCell>
             <TableCell className="py-2">
               {/* Renomear e remover lado a lado, no mesmo lugar e com o mesmo par de ícones das
                   linhas de plano logo abaixo: a ação sobre a linha mora na coluna de ações, e o
