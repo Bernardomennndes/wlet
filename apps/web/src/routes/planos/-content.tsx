@@ -359,18 +359,15 @@ export function PlanosPageContent() {
         </Empty>
       )}
 
-      {/* A tabela SANGRA até a borda do cartão: `pb-0` tira o respiro de baixo do próprio
-          `Card` e `px-0` o das laterais do `CardContent`. Recuada, ela desenhava uma segunda
-          moldura por dentro da primeira — duas arestas paralelas a dezesseis pixels uma da
-          outra, que não hierarquizam nada. Sangrando, a borda do cartão passa a ser a aresta
-          externa da grade, e as divisórias das linhas encostam nela. O respiro das pontas
-          passou para as células (`BLEED`, em `planos-data-table.tsx`). */}
-      <Card className="pb-0">
+      {/* A lista é o cartão, e cada grupo é um bloco DENTRO dele. A tabela sangrava até a borda
+          do cartão enquanto era uma grade só; agora quem emoldura é cada bloco, e o cartão volta
+          ao respiro normal — sangrando, as molduras dos blocos encostariam na borda dele. */}
+      <Card>
         <CardHeader>
           <CardTitle>A lista</CardTitle>
           <CardDescription>A caixinha decide o que entra na previsão. Forma, parcelas e mês se editam na própria linha.</CardDescription>
         </CardHeader>
-        <CardContent className="px-0">
+        <CardContent>
           {/* Os dois `onRemove` ABREM a pergunta; quem grava é o `AlertDialogAction` lá embaixo.
               Excluir é mutação instantânea e sem formulário, e a `mutation-confirmation.md` §1 não
               admite disparo direto no `onClick` — um clique errado numa lista densa não tem
