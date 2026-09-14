@@ -101,16 +101,28 @@ const MIRRORED: [domain: string, wire: string][] = [
   ['Transaction', 'transaction'],
   ['Account', 'account'],
   ['Transfer', 'transfer'],
+  ['DatasetMeta', 'datasetMeta'],
+  ['InvestmentHolding', 'investmentHolding'],
+  ['InvestmentSnapshot', 'investmentSnapshot'],
+  ['PatrimonyPoint', 'patrimonyPoint'],
+  ['IncomeMonth', 'incomeMonth'],
 ]
 
 describe('o contrato espelha o domínio, campo a campo', () => {
   it('o leitor está achando os dois lados', () => {
     // Uma extração que devolve lista vazia faria as comparações abaixo passarem por vacuidade —
     // e é o modo de falha mais provável de um teste que lê fonte.
+    //
+    // O piso é por TIPO e por SOMA, e os dois números têm razão de ser. Por tipo ele é baixo
+    // porque tipo pequeno existe: `DatasetMeta` tem quatro campos, e um piso de cinco reprovava
+    // o leitor funcionando. A soma é o que pega o leitor quebrando para todos de uma vez.
+    let total = 0
     for (const [domain, wire] of MIRRORED) {
-      assert.ok(domainFields(domain).length >= 5, `${domain}: só ${domainFields(domain).length} campos lidos`)
-      assert.ok(wireFields(wire).length >= 5, `${wire}: só ${wireFields(wire).length} campos lidos`)
+      assert.ok(domainFields(domain).length >= 2, `${domain}: só ${domainFields(domain).length} campos lidos`)
+      assert.ok(wireFields(wire).length >= 2, `${wire}: só ${wireFields(wire).length} campos lidos`)
+      total += domainFields(domain).length + wireFields(wire).length
     }
+    assert.ok(total >= 80, `só ${total} campos lidos no total`)
   })
 
   for (const [domain, wire] of MIRRORED) {
@@ -226,4 +238,69 @@ describe('os planos: o espelho com a divergência DECLARADA', () => {
       assert.deepEqual(onlyWire, [])
     })
   }
+})
+
+const PREFERENCES_SHAPE = 'packages/api/src/domains/preferences/shape.ts'
+const PREFERENCES_PORT = 'packages/services/src/preferences/domain/ports/preferences-repository.ts'
+
+describe('as preferências também espelham', () => {
+  it('`Preferences` e `preferencesShape` têm os MESMOS campos', () => {
+    // O tipo mora na PORTA do contexto e não no vocabulário, e ainda assim é o que atravessa —
+    // um campo a mais de um lado é uma preferência que a pessoa escolhe e o servidor não guarda.
+    assert.deepEqual(wireFields('preferencesShape', PREFERENCES_SHAPE), domainFields('Preferences', PREFERENCES_PORT))
+  })
+})
+
+/**
+ * Nenhuma forma do contrato fica FORA do espelho sem ser declarada.
+ *
+ * É a guarda que faz este arquivo continuar valendo: sem ela, uma forma nova entra no contrato,
+ * ninguém a espelha, e o teste segue verde porque nunca ouviu falar dela. O mesmo buraco por onde
+ * a divergência dos planos passou — ela existia desde que os planos foram para o servidor, e só
+ * apareceu quando o espelho chegou naquele domínio.
+ */
+const NOT_MIRRORED: Record<string, string> = {
+  investments: 'envelope: junta as três partes da carteira, não espelha tipo nenhum',
+  dataset: 'envelope do conjunto — tem teste próprio, logo acima',
+  declarations: 'envelope da configuração: junta as sete listas',
+  plansData: 'envelope dos planos: grupos mais itens',
+  ingestReport: 'relatório do pipeline — a forma nasce no contrato, não no domínio',
+  sourceFileUpload: 'transporte de arquivo: caminho mais base64, não é dado de domínio',
+  storedSource: 'metadado de arquivo guardado, montado pelo servidor',
+  matchRule: 'espelhado na tabela da configuração',
+  rule: 'regra de categoria: a forma do domínio vive em `@wlet/ingest`, com `RegExp` em vez de fio',
+  regexWire: 'a travessia de `RegExp` — existe justamente porque o domínio NÃO tem essa forma',
+}
+
+describe('o espelho cobre tudo o que atravessa', () => {
+  const SHAPE_FILES = [DATASET_SHAPE, CONFIG_SHAPE, PLANS_SHAPE, PREFERENCES_SHAPE, 'packages/api/src/shared/shape.ts']
+
+  it('toda forma do contrato está espelhada ou DECLARADA como envelope', () => {
+    const mirrored = new Set([...MIRRORED, ...CONFIG_MIRRORED, ...PLANS_MIRRORED].map(([, wire]) => wire).concat('preferencesShape'))
+    const orphans: string[] = []
+    let seen = 0
+    for (const file of SHAPE_FILES) {
+      for (const match of stripComments(read(file)).matchAll(/(?:export )?const ([A-Za-z]+) = z\.object\(/g)) {
+        seen++
+        const name = match[1]
+        if (!mirrored.has(name) && !NOT_MIRRORED[name]) orphans.push(`${file}: ${name}`)
+      }
+    }
+    assert.ok(seen >= 20, `só ${seen} formas lidas — a varredura das formas quebrou`)
+    assert.deepEqual(orphans, [], 'forma do contrato sem espelho e sem justificativa')
+  })
+
+  it('e nenhuma justificativa sobrevive à forma que ela justifica', () => {
+    // Anistia que ninguém revisita vira sedimento — a mesma regra da allowlist do sensor de
+    // badge e da do sensor de idioma.
+    const declared = new Set<string>()
+    for (const file of SHAPE_FILES) {
+      for (const match of stripComments(read(file)).matchAll(/(?:export )?const ([A-Za-z]+) = z\.object\(/g)) declared.add(match[1])
+    }
+    assert.deepEqual(
+      Object.keys(NOT_MIRRORED).filter((name) => !declared.has(name)),
+      [],
+      'justificativa apontando para forma que não existe mais',
+    )
+  })
 })
