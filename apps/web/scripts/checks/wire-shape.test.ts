@@ -24,7 +24,9 @@ const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url))
 const read = (relative: string) => readFileSync(`${repoRoot}${relative}`, 'utf8')
 
 const TYPES = 'packages/domain/src/types.ts'
-const SHAPE = 'packages/api/src/domains/dataset/shape.ts'
+const PIPELINE = 'packages/ingest/src/pipeline.ts'
+const DATASET_SHAPE = 'packages/api/src/domains/dataset/shape.ts'
+const CONFIG_SHAPE = 'packages/api/src/domains/config/shape.ts'
 
 /** Sem comentário: um bloco de documentação que cite um nome de campo seria lido como campo. */
 const stripComments = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
@@ -40,37 +42,55 @@ function body(source: string, start: number): string {
   throw new Error('chave não fechada')
 }
 
-/** Só as chaves do PRIMEIRO nível: o que está aninhado é forma de um campo, não campo. */
+/**
+ * Só as chaves do PRIMEIRO nível: o que está aninhado é forma de um campo, não campo.
+ *
+ * A separação é por VÍRGULA de profundidade zero e não por linha, e a diferença apareceu no
+ * `goal`, que o contrato escreve numa linha só. Um leitor por linha devolvia zero campos ali —
+ * e zero campos comparado com zero campos fecha, que é o jeito mais silencioso de um sensor
+ * deixar de olhar.
+ */
 function topLevelKeys(block: string): string[] {
-  const keys: string[] = []
+  const parts: string[] = []
   let depth = 0
-  for (const line of block.split('\n')) {
-    const trimmed = line.trim()
-    if (depth === 0) {
-      // A forma ABREVIADA conta como campo: `entity,` no Zod é o mesmo que `entity: entity`, e
-      // ignorá-la fez este teste acusar uma divergência que não existia — o `entity` estava nos
-      // dois lados, e só o leitor não o via. Um sensor que erra assim é desligado na primeira vez.
-      const match = trimmed.match(/^([A-Za-z_][\w$]*)\??\s*[:,]/)
-      if (match) keys.push(match[1])
+  let current = ''
+  for (const ch of block) {
+    if (ch === '{' || ch === '(' || ch === '[') depth++
+    else if (ch === '}' || ch === ')' || ch === ']') depth--
+    // Vírgula E quebra de linha separam: o Zod escreve `a: x, b: y` (às vezes numa linha só) e a
+    // interface do TypeScript escreve um campo por linha, sem vírgula. Um separador só cobre um
+    // dos dois — e foi assim que a primeira versão deste leitor devolveu zero campo para as três
+    // interfaces do domínio depois de eu consertá-lo para o `goal` do contrato.
+    if ((ch === ',' || ch === '\n') && depth === 0) {
+      parts.push(current)
+      current = ''
+      continue
     }
-    for (const ch of line) {
-      if (ch === '{' || ch === '(' || ch === '[') depth++
-      else if (ch === '}' || ch === ')' || ch === ']') depth--
-    }
+    current += ch
+  }
+  parts.push(current)
+
+  const keys: string[] = []
+  for (const part of parts) {
+    // A forma ABREVIADA conta como campo: `entity` no Zod é o mesmo que `entity: entity`.
+    const match = part.trim().match(/^([A-Za-z_][\w$]*)\s*\??\s*(:|$)/)
+    if (match) keys.push(match[1])
   }
   return keys.sort()
 }
 
-const domainFields = (name: string) => {
-  const source = stripComments(read(TYPES))
+const domainFields = (name: string, file = TYPES) => {
+  const source = stripComments(read(file))
   const at = source.indexOf(`export interface ${name} {`)
   assert.notEqual(at, -1, `${name} sumiu do domínio`)
   return topLevelKeys(body(source, at))
 }
 
-const wireFields = (name: string) => {
-  const source = stripComments(read(SHAPE))
-  const at = source.indexOf(`export const ${name} = z.object(`)
+const wireFields = (name: string, file = DATASET_SHAPE) => {
+  const source = stripComments(read(file))
+  // Sem o `export`: `matchRule` e `dueOn` são internos ao módulo do contrato e viajam dentro dos
+  // outros. Não serem exportados não os torna menos parte do fio.
+  const at = source.search(new RegExp(`(?:export )?const ${name} = z\\.object\\(`))
   assert.notEqual(at, -1, `${name} sumiu do contrato`)
   return topLevelKeys(body(source, at))
 }
@@ -100,6 +120,51 @@ describe('o contrato espelha o domínio, campo a campo', () => {
       assert.deepEqual(wireFields(wire), domainFields(domain))
     })
   }
+})
+
+/**
+ * A configuração: a superfície onde a divergência JÁ ACONTECEU.
+ *
+ * `amountBetween` era `z.tuple([number, number])` no contrato e `{ min?, max? }` no domínio, e a
+ * configuração real usa `{ min: 200 }` — sem máximo, porque um rateio varia mês a mês. Uma tupla
+ * não representa isso. O defeito ficou invisível por um `as never` no adapter do cliente; tirado o
+ * cast, ele apareceu no typecheck. Este espelho é o que dispensa o typecheck de ser a única
+ * chance — ele acusa mesmo que um cast novo volte a esconder.
+ */
+const CONFIG_MIRRORED: [domain: string, wire: string, file?: string][] = [
+  ['PlannedEntry', 'plannedEntry'],
+  ['Receivable', 'receivable'],
+  ['BudgetItem', 'budgetItem'],
+  ['Budget', 'budget'],
+  ['Goal', 'goal'],
+  ['MatchRule', 'matchRule'],
+  ['AccountProfile', 'accountProfile', PIPELINE],
+]
+
+describe('a configuração declarada também espelha o domínio', () => {
+  it('o leitor está achando os dois lados', () => {
+    for (const [domain, wire, file] of CONFIG_MIRRORED) {
+      assert.ok(domainFields(domain, file ?? TYPES).length >= 3, `${domain}: só ${domainFields(domain, file ?? TYPES).length} campos lidos`)
+      assert.ok(wireFields(wire, CONFIG_SHAPE).length >= 3, `${wire}: só ${wireFields(wire, CONFIG_SHAPE).length} campos lidos`)
+    }
+  })
+
+  for (const [domain, wire, file] of CONFIG_MIRRORED) {
+    it(`\`${domain}\` e \`${wire}\` têm os MESMOS campos`, () => {
+      assert.deepEqual(wireFields(wire, CONFIG_SHAPE), domainFields(domain, file ?? TYPES))
+    })
+  }
+
+  it('e a RUBRICA, que viaja INLINE, não perdeu campo', () => {
+    // `BudgetCategory` não tem forma nomeada no contrato: ela é escrita dentro do `byCategory`.
+    // Por isso fica fora do espelho acima e ganha esta checagem própria — sem ela, o único campo
+    // do domínio que não é conferido seria justamente o que a composição de uma rubrica usa.
+    const source = stripComments(read(CONFIG_SHAPE))
+    const at = source.indexOf('byCategory:')
+    assert.notEqual(at, -1, 'o `byCategory` mudou de nome')
+    const inline = topLevelKeys(body(source, source.indexOf('z.object(', at)))
+    assert.deepEqual(inline, domainFields('BudgetCategory'))
+  })
 })
 
 describe('o dataset do fio carrega as cinco partes', () => {
