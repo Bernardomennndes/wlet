@@ -1,13 +1,13 @@
-import { useState } from 'react'
 import { CalendarPlus, X } from '@phosphor-icons/react'
+import { type PaymentMode, type Plan, paymentModes } from '@wlet/domain'
+import { installmentAmount, isInstallmentCount, planInstallments } from '@wlet/domain/plans'
+import { formatBRL } from '@wlet/lib/format'
 import { AppCombobox, type SelectOption } from '@wlet/ui/components/app-combobox'
 import { Button } from '@wlet/ui/components/button'
 import { Input } from '@wlet/ui/components/input'
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '@wlet/ui/components/input-group'
 import { MonthPicker } from '@wlet/ui/components/month-picker'
-import { paymentModes, type PaymentMode, type Plan } from '@wlet/domain'
-import { isInstallmentCount } from '@wlet/domain/plans'
-import { formatBRL } from '@wlet/lib/format'
-import { installmentAmount, planInstallments } from '@wlet/domain/plans'
+import { useState } from 'react'
 
 /**
  * As células de edição de uma linha da lista de planos.
@@ -88,8 +88,8 @@ export function InstallmentsCell({ plan, onUpdate, disabled }: { plan: Plan; onU
   }
 
   return (
-    <>
-      <Input
+    <InputGroup>
+      <InputGroupInput
         disabled={disabled}
         aria-label={`Parcelas de ${plan.label}`}
         type="number"
@@ -103,13 +103,11 @@ export function InstallmentsCell({ plan, onUpdate, disabled }: { plan: Plan; onU
           setDraft(setInstallments(Number(event.target.value)) ? null : event.target.value)
         }}
         onBlur={() => setDraft(null)}
-        // `h-7` casa com a altura padrão dos vizinhos, e o `Input` deste registry não tem prop
-        // `size` para declará-la — desvio da §6 sem remédio disponível, porque o arquivo é
-        // gerado e o `CLAUDE.md` proíbe editá-lo.
-        className="h-7 w-12 px-1 text-center"
       />
-      <span className="truncate tabular-nums text-muted-foreground">× {formatBRL(installmentAmount(plan))}</span>
-    </>
+      <InputGroupAddon align="inline-end">
+        <InputGroupText>× {formatBRL(installmentAmount(plan))}</InputGroupText>
+      </InputGroupAddon>
+    </InputGroup>
   )
 }
 
