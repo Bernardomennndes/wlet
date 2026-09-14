@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 import { describe, it } from 'node:test'
-import { fileURLToPath } from 'node:url'
+import { body, interfaceFields, read, stripComments, topLevelKeys, zodObjectFields } from './support/source-fields'
 
 /**
  * Um campo que o DOMÍNIO tem e o CONTRATO não é dado que some no fio, em silêncio.
@@ -19,82 +18,14 @@ import { fileURLToPath } from 'node:url'
  * É o modo de falha que este projeto já conhece de outro ângulo — foi um `as never` que segurou o
  * `amountBetween` divergindo entre contrato e domínio. Aqui a divergência nem precisa de cast.
  */
-const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url))
-
-const read = (relative: string) => readFileSync(`${repoRoot}${relative}`, 'utf8')
-
 const TYPES = 'packages/domain/src/types.ts'
 const PIPELINE = 'packages/ingest/src/pipeline.ts'
 const DATASET_SHAPE = 'packages/api/src/domains/dataset/shape.ts'
 const CONFIG_SHAPE = 'packages/api/src/domains/config/shape.ts'
 const PLANS_SHAPE = 'packages/api/src/domains/plans/shape.ts'
 
-/** Sem comentário: um bloco de documentação que cite um nome de campo seria lido como campo. */
-const stripComments = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
-
-/** O corpo de uma declaração, do primeiro `{` até a chave que o fecha. */
-function body(source: string, start: number): string {
-  const open = source.indexOf('{', start)
-  let depth = 0
-  for (let i = open; i < source.length; i++) {
-    if (source[i] === '{') depth++
-    else if (source[i] === '}' && --depth === 0) return source.slice(open + 1, i)
-  }
-  throw new Error('chave não fechada')
-}
-
-/**
- * Só as chaves do PRIMEIRO nível: o que está aninhado é forma de um campo, não campo.
- *
- * A separação é por VÍRGULA de profundidade zero e não por linha, e a diferença apareceu no
- * `goal`, que o contrato escreve numa linha só. Um leitor por linha devolvia zero campos ali —
- * e zero campos comparado com zero campos fecha, que é o jeito mais silencioso de um sensor
- * deixar de olhar.
- */
-function topLevelKeys(block: string): string[] {
-  const parts: string[] = []
-  let depth = 0
-  let current = ''
-  for (const ch of block) {
-    if (ch === '{' || ch === '(' || ch === '[') depth++
-    else if (ch === '}' || ch === ')' || ch === ']') depth--
-    // Vírgula E quebra de linha separam: o Zod escreve `a: x, b: y` (às vezes numa linha só) e a
-    // interface do TypeScript escreve um campo por linha, sem vírgula. Um separador só cobre um
-    // dos dois — e foi assim que a primeira versão deste leitor devolveu zero campo para as três
-    // interfaces do domínio depois de eu consertá-lo para o `goal` do contrato.
-    if ((ch === ',' || ch === '\n') && depth === 0) {
-      parts.push(current)
-      current = ''
-      continue
-    }
-    current += ch
-  }
-  parts.push(current)
-
-  const keys: string[] = []
-  for (const part of parts) {
-    // A forma ABREVIADA conta como campo: `entity` no Zod é o mesmo que `entity: entity`.
-    const match = part.trim().match(/^([A-Za-z_][\w$]*)\s*\??\s*(:|$)/)
-    if (match) keys.push(match[1])
-  }
-  return keys.sort()
-}
-
-const domainFields = (name: string, file = TYPES) => {
-  const source = stripComments(read(file))
-  const at = source.indexOf(`export interface ${name} {`)
-  assert.notEqual(at, -1, `${name} sumiu do domínio`)
-  return topLevelKeys(body(source, at))
-}
-
-const wireFields = (name: string, file = DATASET_SHAPE) => {
-  const source = stripComments(read(file))
-  // Sem o `export`: `matchRule` e `dueOn` são internos ao módulo do contrato e viajam dentro dos
-  // outros. Não serem exportados não os torna menos parte do fio.
-  const at = source.search(new RegExp(`(?:export )?const ${name} = z\\.object\\(`))
-  assert.notEqual(at, -1, `${name} sumiu do contrato`)
-  return topLevelKeys(body(source, at))
-}
+const domainFields = (name: string, file = TYPES) => interfaceFields(file, name)
+const wireFields = (name: string, file = DATASET_SHAPE) => zodObjectFields(file, name)
 
 /** Os três que viajam inteiros, do domínio para o fio. */
 const MIRRORED: [domain: string, wire: string][] = [
