@@ -9,6 +9,7 @@ import { planStatuses, type Plan, type PlanGroup, type PlanStatus } from '@wlet/
 import { formatBRL, formatMonthShort } from '@wlet/lib/format'
 import { planTotal } from '@wlet/domain/plans'
 import { cn } from '@wlet/lib/utils'
+import { GroupNameForm } from './group-name-form'
 import { InstallmentsCell, MonthCell, PaymentCell } from './plan-row-controls'
 
 /**
@@ -85,6 +86,7 @@ export function PlanosDataTable({
   onRemoveGroup,
   onUpdate,
   onGroupStatus,
+  onRenameGroup,
   onHighlight,
   monthsWithData,
   defaultMonth,
@@ -98,6 +100,8 @@ export function PlanosDataTable({
   onUpdate: (id: string, patch: Partial<Omit<Plan, 'id'>>) => void
   /** O checkbox do grupo: decide ou devolve a estudo todos os planos dele, numa escrita só. */
   onGroupStatus: (group: PlanGroup, status: Exclude<PlanStatus, 'discarded'>) => void
+  /** O nome editado na linha do grupo. Só chega aqui quando mudou e não está vazio. */
+  onRenameGroup: (group: PlanGroup, label: string) => void
   /**
    * Trava a linha INTEIRA enquanto uma escrita está em voo — e é defeito medido, não zelo.
    *
@@ -166,8 +170,10 @@ export function PlanosDataTable({
                 ) : null}
               </TableCell>
               <TableCell className="py-1.5 font-medium text-muted-foreground">
-                {bucket.group?.label ?? 'Avulsos'}
-                {bucket.group?.from ? <span className="ml-2 font-normal">{formatMonthShort(bucket.group.from)}</span> : null}
+                <span className="flex min-w-0 items-center">
+                  {bucket.group ? <GroupNameForm group={bucket.group} disabled={disabled} onRename={(label) => bucket.group && onRenameGroup(bucket.group, label)} /> : 'Avulsos'}
+                  {bucket.group?.from ? <span className="ml-2 font-normal">{formatMonthShort(bucket.group.from)}</span> : null}
+                </span>
               </TableCell>
               <TableCell className={cn(DIVIDER, 'py-1.5 text-right font-mono tabular-nums')}>{formatBRL(total)}</TableCell>
               <TableCell colSpan={3} className={cn(DIVIDER, 'py-1.5')} />

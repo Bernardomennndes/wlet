@@ -107,6 +107,14 @@ export function PlanosPageContent() {
     },
   })
 
+  const { mutate: renameGroup, isPending: renamingGroup } = useMutation({
+    mutationFn: ({ id, label }: { id: string; label: string }) => services().plans.renameGroup(id, label),
+    onSuccess: (renamed) => {
+      apply()
+      toast.success(`Grupo renomeado para "${renamed.label}"`)
+    },
+  })
+
   const { mutate: replaceAllPlans, isPending: importing } = useMutation({
     mutationFn: (saved: ReturnType<typeof parsePlans>) => services().plans.replaceAll(saved),
     onSuccess: (saved) => {
@@ -115,8 +123,8 @@ export function PlanosPageContent() {
     },
   })
 
-  /** Qualquer escrita em voo trava a lista: as sete reescrevem o mesmo catálogo. */
-  const saving = creatingPlan || updatingPlan || deletingPlan || creatingGroup || deletingGroup || settingGroupStatus || importing
+  /** Qualquer escrita em voo trava a lista: as oito reescrevem o mesmo catálogo. */
+  const saving = creatingPlan || updatingPlan || deletingPlan || creatingGroup || deletingGroup || settingGroupStatus || renamingGroup || importing
 
   const [open, setOpen] = useState(false)
   const [groupOpen, setGroupOpen] = useState(false)
@@ -375,6 +383,7 @@ export function PlanosPageContent() {
             onRemoveGroup={(id) => setGroupPendingDeletion(groups.find((g) => g.id === id) ?? null)}
             onUpdate={(id, patch) => updatePlan({ id, patch })}
             onGroupStatus={(group, status) => setGroupStatus({ id: group.id, label: group.label, status })}
+            onRenameGroup={(group, label) => renameGroup({ id: group.id, label })}
             onHighlight={setPointed}
             monthsWithData={monthsWithData}
             defaultMonth={nextMonth}

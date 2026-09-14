@@ -37,6 +37,8 @@ export interface PlansService {
    * Devolve os planos que a escrita alcançou, para a tela dizer quantos.
    */
   setGroupStatus(groupId: string, status: GroupStatus): Promise<Plan[]>
+  /** Troca o nome de um grupo. Os planos apontam para o id, então nenhum deles é tocado. */
+  renameGroup(id: string, label: string): Promise<PlanGroup>
   addGroup(input: NewGroup): Promise<PlanGroup>
   removeGroup(id: string): Promise<void>
   /**
@@ -136,6 +138,17 @@ export function makePlansService({ repository, ids }: PlansServiceDeps): PlansSe
         const reached = (item: Plan) => item.groupId === groupId && item.status !== 'discarded'
         const items = data.items.map((item) => (reached(item) ? { ...item, status } : item))
         return { next: { ...data, items }, result: items.filter(reached) }
+      })
+    },
+
+    renameGroup(id, label) {
+      return mutate((data) => {
+        const current = data.groups.find((g) => g.id === id)
+        if (!current) throw new PlanGroupNotFoundError()
+        const trimmed = label.trim()
+        if (!trimmed) throw new InvalidPlanError('O grupo precisa de um nome.')
+        const renamed = { ...current, label: trimmed }
+        return { next: { ...data, groups: data.groups.map((g) => (g.id === id ? renamed : g)) }, result: renamed }
       })
     },
 

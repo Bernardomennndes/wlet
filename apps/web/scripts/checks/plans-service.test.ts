@@ -179,6 +179,49 @@ describe('setGroupStatus — o checkbox do grupo', () => {
   })
 })
 
+/** Renomear o grupo pela linha dele: um campo, uma gravação, e os planos seguem apontando para o id. */
+describe('renameGroup — o nome editado na linha do grupo', () => {
+  it('troca o nome, apara os espaços e devolve o grupo renomeado', async () => {
+    const { service } = setup()
+    const trip = await service.addGroup({ label: 'Viagem' })
+    const renamed = await service.renameGroup(trip.id, '  Viagem ao Chile  ')
+    assert.equal(renamed.label, 'Viagem ao Chile')
+    assert.equal(renamed.id, trip.id)
+    const { groups } = await service.list()
+    assert.equal(groups.find((g) => g.id === trip.id)?.label, 'Viagem ao Chile')
+  })
+
+  it('os planos do grupo continuam nele — o vínculo é pelo id, não pelo nome', async () => {
+    const { service } = setup()
+    const trip = await service.addGroup({ label: 'Viagem' })
+    const ticket = await service.addPlan({ ...monitor, label: 'Passagem', groupId: trip.id })
+    await service.renameGroup(trip.id, 'Chile')
+    const { items } = await service.list()
+    assert.equal(items.find((p) => p.id === ticket.id)?.groupId, trip.id)
+  })
+
+  it('é UMA gravação', async () => {
+    const { repository, service } = setup()
+    const trip = await service.addGroup({ label: 'Viagem' })
+    const before = repository.saves
+    await service.renameGroup(trip.id, 'Chile')
+    assert.equal(repository.saves - before, 1)
+  })
+
+  it('recusa nome em branco, e nada é gravado', async () => {
+    const { repository, service } = setup()
+    const trip = await service.addGroup({ label: 'Viagem' })
+    const before = repository.saves
+    await assert.rejects(() => service.renameGroup(trip.id, '   '), InvalidPlanError)
+    assert.equal(repository.saves, before)
+  })
+
+  it('grupo que não existe é PlanGroupNotFoundError', async () => {
+    const { service } = setup()
+    await assert.rejects(() => service.renameGroup('group-99', 'Chile'), PlanGroupNotFoundError)
+  })
+})
+
 describe('serviço de planos: agenda', () => {
   it('delega ao kernel e ignora quem não tem mês', async () => {
     // O serviço ORQUESTRA: a aritmética de agenda vive em src/lib/plans.ts e é testada lá.
