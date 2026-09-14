@@ -27,6 +27,7 @@ const TYPES = 'packages/domain/src/types.ts'
 const PIPELINE = 'packages/ingest/src/pipeline.ts'
 const DATASET_SHAPE = 'packages/api/src/domains/dataset/shape.ts'
 const CONFIG_SHAPE = 'packages/api/src/domains/config/shape.ts'
+const PLANS_SHAPE = 'packages/api/src/domains/plans/shape.ts'
 
 /** Sem comentário: um bloco de documentação que cite um nome de campo seria lido como campo. */
 const stripComments = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
@@ -173,4 +174,56 @@ describe('o dataset do fio carrega as cinco partes', () => {
     // incompleto e o serviço o recusa — a tela abre pela semente sem explicar por quê.
     assert.deepEqual(wireFields('dataset'), ['accounts', 'investments', 'meta', 'transactions', 'transfers'])
   })
+})
+
+/**
+ * Os PLANOS — e aqui o espelho encontrou uma divergência de verdade, que segue aberta.
+ *
+ * Um grupo de planos declara janela (`from`, `to`) e observação (`note`) no domínio, o formulário
+ * COLETA os três — `group-dialog.tsx` tem os dois seletores de mês e um `<Textarea>` — e o schema
+ * os valida e apara. Eles não chegam ao banco: o contrato descreve `{ id, label }`, a tabela
+ * `plan_groups` tem duas colunas, e o handler insere duas.
+ *
+ * Medido, não deduzido: enviado `{id, label, from: '2026-03', to: '2026-04', note: 'levar câmera'}`
+ * pelo `addGroup`, a leitura seguinte devolve `{id, label}`. Ninguém erra, nada estoura, e a
+ * pessoa vê "Grupo criado" — a janela e a observação que ela escreveu simplesmente não existem
+ * mais. O `Plan` perde `note` pelo mesmo caminho, e esse ainda não tem campo na tela.
+ *
+ * O conserto atravessa migração, contrato e handler, e não é meu para fazer sem alinhamento. O
+ * que cabe aqui é não deixar a divergência voltar a ser invisível: ela fica DECLARADA campo a
+ * campo, e o teste falha tanto se um quarto campo começar a sumir quanto se estes três voltarem a
+ * atravessar — porque aí esta lista é que está errada.
+ */
+const PLANS_MIRRORED: [domain: string, wire: string][] = [
+  ['Plan', 'plan'],
+  ['PlanGroup', 'planGroup'],
+]
+
+/** Campo do domínio que NÃO atravessa, por tipo. Lista fechada: é débito, não licença. */
+const DOES_NOT_CROSS: Record<string, string[]> = {
+  PlanGroup: ['from', 'note', 'to'],
+  Plan: ['note'],
+}
+
+describe('os planos: o espelho com a divergência DECLARADA', () => {
+  it('o leitor está achando os dois lados', () => {
+    for (const [domain, wire] of PLANS_MIRRORED) {
+      assert.ok(domainFields(domain).length >= 2, `${domain}: só ${domainFields(domain).length} campos lidos`)
+      assert.ok(wireFields(wire, PLANS_SHAPE).length >= 2, `${wire}: só ${wireFields(wire, PLANS_SHAPE).length} campos lidos`)
+    }
+  })
+
+  for (const [domain, wire] of PLANS_MIRRORED) {
+    it(`\`${domain}\` e \`${wire}\`: só os campos conhecidos deixam de atravessar`, () => {
+      const onlyDomain = domainFields(domain).filter((field) => !wireFields(wire, PLANS_SHAPE).includes(field))
+      assert.deepEqual(onlyDomain, DOES_NOT_CROSS[domain], 'mudou o conjunto de campos que some no fio')
+    })
+
+    it(`e \`${wire}\` não inventa campo que o domínio não tem`, () => {
+      // Esta direção não tem anistia: campo só no contrato é resposta que o handler não consegue
+      // montar, e a validação de saída recusa o `GET` inteiro.
+      const onlyWire = wireFields(wire, PLANS_SHAPE).filter((field) => !domainFields(domain).includes(field))
+      assert.deepEqual(onlyWire, [])
+    })
+  }
 })
