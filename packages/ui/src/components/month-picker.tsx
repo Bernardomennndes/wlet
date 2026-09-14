@@ -1,9 +1,9 @@
 import { CaretDown, CaretLeft, CaretRight } from '@phosphor-icons/react'
+import { formatMonthShort } from '@wlet/lib/format'
+import { cn } from '@wlet/lib/utils'
 import { type ComponentProps, useState } from 'react'
 import { Button } from './button'
 import { Popover, PopoverContent, PopoverTrigger } from './popover'
-import { formatMonthShort } from '@wlet/lib/format'
-import { cn } from '@wlet/lib/utils'
 
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 
@@ -70,7 +70,7 @@ export function MonthPicker({ value, onValueChange, withData, className, id, min
       <PopoverTrigger
         disabled={disabled}
         render={
-          <Button id={id} variant={variant} size={size} aria-label={aria['aria-label']} className={cn('font-medium tabular-nums', className)}>
+          <Button id={id} variant={variant} size={size} aria-label={aria['aria-label']} className={cn('font-medium justify-between tabular-nums', className)}>
             {formatMonthShort(value)}
             <CaretDown data-icon="inline-end" className="text-muted-foreground" />
           </Button>
