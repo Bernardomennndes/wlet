@@ -131,8 +131,8 @@ describe('o lote de 500 não é otimização — é o limite do Postgres', () =>
   it('o conjunto INTEIRO volta com os valores que entraram', async () => {
     const { context } = await comUsuario()
     const r = datasetRouter(d)
-    const valores = [-1234567.89, -0.015, -123.455, -0.1 - 0.2]
-    await call(r.replace, conjunto(valores.map((v, i) => lancamento(idDe(i), v))), { context })
+    const amounts = [-1234567.89, -0.015, -123.455, -0.1 - 0.2]
+    await call(r.replace, conjunto(amounts.map((v, i) => lancamento(idDe(i), v))), { context })
     const lido = await call(r.get, undefined, { context })
     assert.deepEqual(
       lido?.transactions
