@@ -230,3 +230,90 @@ describe('o SALDO que vale é o mais recente', () => {
     assert.deepEqual(account?.reportedBalance, { amount: 2500, asOf: '2026-02-28' })
   })
 })
+
+/**
+ * A DIREÇÃO de uma transferência — o sinal que faz o dinheiro andar para o lado certo.
+ *
+ * Toda transferência inferida sai de um único `isOut = tx.amount < 0` e de cinco ternários que
+ * dependem dele: de onde saiu, para onde foi, e qual das duas pontas tem lançamento. O valor é
+ * `Math.abs`, então uma direção invertida NÃO desequilibra nada — as duas contas continuam
+ * batendo, o total do mês não muda, e a tela de Patrimônio mostra dinheiro saindo da corretora no
+ * mês em que você aportou.
+ *
+ * Os dois blocos abaixo eram os últimos de `pipeline.ts` com o lado do resgate nunca exercitado.
+ */
+const PROFILE_CARTAO: AccountProfile = { ...PROFILE, id: 'cartao-exemplo', name: 'Cartão Exemplo', type: 'credit-card', match: { bankCode: '001', accountType: 'credit-card' } }
+
+describe('aporte e resgate apontam para lados opostos', () => {
+  it('o APORTE sai da conta e entra na corretora', async () => {
+    const ofx = OFX(TRN('20260110', '-2000.00', 'APLICACAO CONTA INVESTIMENTO'))
+    const { transfers } = await runIngest(input([file('docs/extrato/exemplo/janeiro.ofx', ofx)]))
+
+    assert.deepEqual(
+      transfers.map((t) => [t.kind, t.fromAccountId, t.toAccountId, t.amount]),
+      [['investment', 'conta-exemplo', 'xp-investimentos', 2000]],
+    )
+    assert.equal(transfers[0].toTransactionId, null, 'só a saída tem lançamento — o outro lado é a conta virtual')
+  })
+
+  it('e o RESGATE volta da corretora para a conta', async () => {
+    // O espelho, e o que estava sem teste. Invertido, o mês em que você resgatou apareceria como
+    // mês de aporte: o patrimônio na corretora cresceria em vez de cair, e a conta corrente
+    // mostraria dinheiro saindo dela no dia em que ele entrou.
+    const ofx = OFX(TRN('20260115', '3000.00', 'RESGATE CONTA INVESTIMENTO'))
+    const { transfers, transactions } = await runIngest(input([file('docs/extrato/exemplo/janeiro.ofx', ofx)]))
+
+    assert.deepEqual(
+      transfers.map((t) => [t.kind, t.fromAccountId, t.toAccountId, t.amount]),
+      [['investment', 'xp-investimentos', 'conta-exemplo', 3000]],
+    )
+    assert.equal(transfers[0].fromTransactionId, null, 'agora é a ENTRADA que tem lançamento')
+    assert.equal(transfers[0].toTransactionId, transactions[0].id, 'e ela aponta para o lançamento lido, não para a conta virtual')
+  })
+})
+
+describe('a contraparte INFERIDA, quando o outro lado não está no período', () => {
+  it('o pagamento de fatura vira transferência, e não despesa', async () => {
+    // O erro mais caro do módulo se este bloco não rodasse: as compras da fatura já contaram como
+    // gasto quando foram lidas do cartão. O pagamento dela, se contasse como despesa da conta
+    // corrente, somaria a fatura INTEIRA de novo — o mês dobraria, e cada linha estaria certa.
+    //
+    // A contraparte é achada por `siblingAccount`: mesma instituição, tipo oposto. Por isso o
+    // fixture declara as duas contas do mesmo `bankCode`.
+    const ofx = OFX(TRN('20260112', '-1800.00', 'PAGAMENTO DE FATURA'))
+    const { transactions, transfers } = await runIngest(input([file('docs/extrato/exemplo/janeiro.ofx', ofx)], { accounts: [PROFILE, PROFILE_CARTAO] }))
+
+    assert.deepEqual(
+      transfers.map((t) => [t.kind, t.fromAccountId, t.toAccountId]),
+      [['card-payment', 'conta-exemplo', 'cartao-exemplo']],
+    )
+    assert.equal(transactions[0].transferKind, 'card-payment')
+    assert.equal(transactions[0].categoryId, 'pagamento-fatura')
+    assert.match(transfers[0].description, /contraparte inferida/)
+  })
+
+  it('e o "Pix no Crédito" é INTERNO, não pagamento de fatura', async () => {
+    // O outro ramo do mesmo bloco, e ele muda duas coisas de uma vez: o tipo da transferência e a
+    // CATEGORIA do lançamento, que passa a ser `transferencia`. Tratá-lo como pagamento de fatura
+    // o faria abater uma dívida que não existe; deixá-lo fora do bloco o faria virar gasto.
+    const ofx = OFX(TRN('20260118', '-450.00', 'PIX NO CREDITO PARA FULANO'))
+    const { transactions, transfers } = await runIngest(input([file('docs/extrato/exemplo/janeiro.ofx', ofx)], { accounts: [PROFILE, PROFILE_CARTAO] }))
+
+    assert.deepEqual(
+      transfers.map((t) => t.kind),
+      ['internal'],
+    )
+    assert.equal(transactions[0].categoryId, 'transferencia', 'a categoria é REESCRITA aqui')
+  })
+
+  it('sem conta irmã no mesmo banco, NÃO se inventa contraparte', async () => {
+    // A guarda que impede o bloco de fabricar um par. Sem o cartão no fixture não há para onde
+    // apontar, e o certo é deixar o lançamento como está: uma transferência com contraparte
+    // inventada some da conta errada, e some em silêncio.
+    const ofx = OFX(TRN('20260112', '-1800.00', 'PAGAMENTO DE FATURA'))
+    const { transfers, transactions } = await runIngest(input([file('docs/extrato/exemplo/janeiro.ofx', ofx)]))
+
+    assert.deepEqual(transfers, [])
+    assert.equal(transactions[0].transferId, null, 'o lançamento segue sem par')
+  })
+})
