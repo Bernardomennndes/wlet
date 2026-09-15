@@ -121,3 +121,52 @@ describe('deriveMerchant', () => {
     assert.equal(deriveMerchant('Supermercado Dia'), 'Supermercado Dia')
   })
 })
+
+/**
+ * `deriveMerchant`: as três limpezas que decidem entre NOME LEGÍVEL e gasto em "outros".
+ *
+ * Ele tem duas saídas e elas não são independentes. O texto que sai vai para a tela COMO nome do
+ * estabelecimento, e é contra ele que as regras de categoria casam — então limpar demais não
+ * produz só um nome feio: produz um nome que regra nenhuma reconhece, e o gasto cai em "outros"
+ * com o valor certo.
+ *
+ * Esse é o modo de falha que o repositório mais teme nesta função, porque é invisível na
+ * conferência: o total do mês continua batendo, e a única pista é uma categoria mais gorda do que
+ * deveria.
+ */
+describe('deriveMerchant: o que se tira e o que se preserva do fim da descrição', () => {
+  it('o código alfanumérico com DÍGITO no fim é removido', () => {
+    // "UBER TRIP ABC123" é o mesmo estabelecimento de "UBER TRIP XYZ789": o código muda a cada
+    // corrida. Mantê-lo faria cada viagem virar um estabelecimento diferente na tela, e a regra de
+    // categoria — que casa por trecho — ainda pegaria, mas a lista de estabelecimentos ficaria
+    // ilegível.
+    assert.equal(deriveMerchant('MERCADO DIA AB12CD'), 'Mercado Dia')
+  })
+
+  it('mas a palavra só de LETRAS no fim FICA — ela é parte do nome', () => {
+    // O outro lado do mesmo `replace`, e o que o torna uma decisão em vez de uma faxina: o callback
+    // devolve `m` quando não há dígito. Sem isso, "MERCADO CENTRAL" viraria "Mercado" — e a regra
+    // que casa "MERCADO CENTRAL" pararia de casar, mandando o gasto para "outros".
+    assert.equal(deriveMerchant('MERCADO CENTRAL'), 'Mercado Central')
+    assert.equal(deriveMerchant('PADARIA ESTRELA'), 'Padaria Estrela')
+  })
+
+  it('quando a limpeza APAGA tudo, volta a descrição original', () => {
+    // A guarda `if (!text) text = cleaned`. Uma descrição que é só um código some inteira nas
+    // limpezas acima — e um estabelecimento VAZIO na tela é pior que um código: a linha perde a
+    // identidade, e duas linhas diferentes viram a mesma coisa visualmente.
+    //
+    // A capitalização amigável roda DEPOIS e também se aplica aqui, então o que volta é `*abc123` e
+    // não `*ABC123`. Escrevi a asserção com a caixa original e ela falhou: a ordem das etapas é o
+    // que decide, e a fallback devolve `cleaned` para a esteira, não para a saída.
+    assert.equal(deriveMerchant('*ABC123'), '*abc123', 'a identidade sobrevive; a caixa, não')
+  })
+
+  it('e o prefixo de pagamento genérico sai, deixando só o destino', () => {
+    // A quarta forma do bloco de prefixos, ao lado das três de Pix e TED. O extrato escreve
+    // "Pagamento PMSP-SF: IPTU 2026" e o que interessa a quem lê é o que vem depois dos dois
+    // pontos.
+    // `IPTU 2026` chega todo em maiúsculas e sai capitalizado — é a mesma etapa final do caso acima.
+    assert.equal(deriveMerchant('Pagamento PMSP-SF: IPTU 2026'), 'Iptu 2026')
+  })
+})
