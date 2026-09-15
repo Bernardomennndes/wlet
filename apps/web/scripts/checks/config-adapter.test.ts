@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { makeOrpcConfigRepository } from '@wlet/services'
+import type { ConfigRepository } from '@wlet/services/config/domain/ports/config-repository'
 import { DomainError } from '@wlet/services/shared/domain/errors'
 
 /**
@@ -45,25 +46,37 @@ function fakeClient(over: { get?: () => Promise<unknown>; replace?: (input: unkn
   return { client: client as never, sent }
 }
 
+/**
+ * A porta permite `null` — "nada gravado ainda", que no navegador era o `localStorage` vazio.
+ *
+ * O adapter da API NUNCA o devolve: `config.get()` responde com a configuração de quem pediu,
+ * vazia se for o caso, e não tem forma de dizer "não existe". Por isso esta conversão é uma
+ * AFIRMAÇÃO, e não conveniência de tipo — se um dia ela estourar, a semente do serviço
+ * (`config.service.ts`, `current()`) voltou a ser alcançável, e isso é decisão a tomar e não
+ * coisa a calar com um `??`.
+ */
+async function found(repository: ConfigRepository) {
+  const config = await repository.find()
+  assert.ok(config, 'o adapter da API não responde "nada gravado" — ver o docblock de `found`')
+  return config
+}
+
 describe('o que chega do servidor vira DOMÍNIO', () => {
-  it('as regras de categoria voltam a ser `RegExp`, com as flags', () => {
+  it('as regras de categoria voltam a ser `RegExp`, com as flags', async () => {
     // Sem a conversão, `r.test.test(...)` estoura — `{source, flags}` não tem `.test`. Com ela
     // errada (flags perdidas), a regra deixa de casar minúsculas e metade do extrato muda de
     // categoria sem nada avisar.
-    return makeOrpcConfigRepository({ client: fakeClient().client })
-      .find()
-      .then((config) => {
-        assert.ok(config.rules[0].test instanceof RegExp)
-        assert.equal(config.rules[0].test.source, 'IFOOD|RAPPI')
-        assert.equal(config.rules[0].test.flags, 'i')
-        assert.ok(config.selfNamePatterns[0] instanceof RegExp)
-      })
+    const config = await found(makeOrpcConfigRepository({ client: fakeClient().client }))
+    assert.ok(config.rules[0].test instanceof RegExp)
+    assert.equal(config.rules[0].test.source, 'IFOOD|RAPPI')
+    assert.equal(config.rules[0].test.flags, 'i')
+    assert.ok(config.selfNamePatterns[0] instanceof RegExp)
   })
 
   it('o `externalId` em EXPRESSÃO vira expressão, e em TEXTO continua texto', async () => {
     // O campo aceita os dois. Mandar a string para `fromRegexWire` lê `source` de onde não há, e
     // o perfil volta como `/undefined/` — um casamento que aceita QUALQUER conta, em silêncio.
-    const config = await makeOrpcConfigRepository({ client: fakeClient().client }).find()
+    const config = await found(makeOrpcConfigRepository({ client: fakeClient().client }))
     assert.ok(config.accounts[0].match.externalId instanceof RegExp)
     assert.equal(config.accounts[1].match.externalId, '9988776')
   })
@@ -71,7 +84,7 @@ describe('o que chega do servidor vira DOMÍNIO', () => {
   it('campo ausente segue AUSENTE, e não vira chave com `undefined`', async () => {
     // O `match` é montado campo a campo de propósito. Uma chave presente valendo `undefined` muda
     // o que `'externalId' in match` responde — e é essa pergunta que decide se a conta casa por id.
-    const config = await makeOrpcConfigRepository({ client: fakeClient().client }).find()
+    const config = await found(makeOrpcConfigRepository({ client: fakeClient().client }))
     assert.equal('externalId' in config.accounts[2].match, false)
     assert.equal('bankCode' in config.accounts[1].match, false)
   })
@@ -81,7 +94,7 @@ describe('o que vai para o servidor volta a ser FIO', () => {
   it('a expressão é desmontada em `source` e `flags`', async () => {
     const { client, sent } = fakeClient()
     const repository = makeOrpcConfigRepository({ client })
-    await repository.save(await repository.find())
+    await repository.save(await found(repository))
     const payload = sent[0] as typeof WIRE
     assert.deepEqual(payload.rules[0].test, { source: 'IFOOD|RAPPI', flags: 'i' })
     assert.deepEqual(payload.selfNamePatterns, [{ source: 'MEU NOME', flags: 'i' }])
@@ -93,7 +106,7 @@ describe('o que vai para o servidor volta a ser FIO', () => {
     // aparece aqui como diferença, mesmo que cada uma sozinha pareça certa.
     const { client, sent } = fakeClient()
     const repository = makeOrpcConfigRepository({ client })
-    await repository.save(await repository.find())
+    await repository.save(await found(repository))
     assert.deepEqual(sent[0], WIRE)
   })
 })
