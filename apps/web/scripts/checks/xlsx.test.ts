@@ -89,3 +89,69 @@ describe('serialDate', () => {
     assert.equal(serialDate(45658.25), '2025-01-01')
   })
 })
+
+/**
+ * O ARQUIVO QUE NÃO É UMA PLANILHA — falhar alto é melhor que ler vazio.
+ *
+ * Os testes acima leem planilhas bem-formadas. Este leitor, porém, abre o que estiver em
+ * `docs/investimentos/`: um download interrompido, um `.xlsx` que na verdade é um `.csv`
+ * renomeado, um arquivo copiado pela metade de um pen drive.
+ *
+ * A distinção que importa é entre ERRO e VAZIO, e ela decide o que a pessoa vê. Uma planilha
+ * ilegível lida como zero linhas não parece defeito: a tela de Patrimônio mostra que você não tem
+ * nada, e o razão da corretora acusa que "não fecha" apontando para arquivo faltando — o
+ * diagnóstico errado, sobre um arquivo que está lá. Por isso o leitor ESTOURA, e é isso que estes
+ * testes prendem.
+ *
+ * Dentro de uma planilha válida a regra é a oposta: célula estranha se ignora, porque descartar
+ * uma linha é melhor que perder o arquivo. As duas metades estão aqui, e a diferença entre elas é
+ * o assunto.
+ */
+describe('o que não é planilha não é lido como planilha vazia', () => {
+  it('arquivo que não é ZIP nenhum ESTOURA, dizendo o que faltou', async () => {
+    // Sem o `if (eocd < 0)`, o laço termina e o leitor seguiria com um diretório central
+    // inexistente — lendo zero entradas e devolvendo zero linhas, que é o modo de falha silencioso
+    // que esta guarda existe para impedir.
+    const naoEhZip: SourceFile = { path: 'docs/investimentos/posicao.xlsx', bytes: new TextEncoder().encode('Data;Produto;Valor\n01/01/2026;PETR4;100') }
+    await assert.rejects(() => readSheet(naoEhZip, browserEnv, 1), /diretório central/)
+  })
+
+  it('e o diretório central corrompido também', async () => {
+    // O caso do download interrompido: o fim do arquivo chegou, o começo não. A assinatura da
+    // primeira entrada não bate, e continuar dali leria bytes arbitrários como nomes de arquivo.
+    const bytes = xlsxOf({ 'xl/workbook.xml': WORKBOOK, 'xl/worksheets/sheet1.xml': sheet('') })
+    const corrompido = new Uint8Array(bytes)
+    // A assinatura da primeira entrada do diretório central é `PK\x01\x02`; basta trocar um byte.
+    const at = corrompido.findIndex((_, i) => corrompido[i] === 0x50 && corrompido[i + 1] === 0x4b && corrompido[i + 2] === 0x01 && corrompido[i + 3] === 0x02)
+    assert.notEqual(at, -1, 'o fixture precisa ter um diretório central para este teste valer')
+    corrompido[at + 2] = 0xff
+
+    await assert.rejects(() => readSheet({ path: 'docs/investimentos/posicao.xlsx', bytes: corrompido }, browserEnv, 1), /entrada do diretório central/)
+  })
+})
+
+describe('dentro de uma planilha válida, a célula estranha se IGNORA', () => {
+  it('célula sem referência de coluna não entra na linha', async () => {
+    // `<c>` sem `r=` não tem como virar `{ coluna: valor }` — não há coluna. Estourar aqui perderia
+    // a planilha inteira por causa de uma célula que alguns geradores emitem em branco.
+    const file = book({
+      'xl/workbook.xml': WORKBOOK,
+      'xl/worksheets/sheet1.xml': sheet('<row><c><v>órfã</v></c><c r="B" ><v>42</v></c></row>'),
+    })
+    assert.deepEqual(await readSheet(file, browserEnv, 1), [{ B: '42' }])
+  })
+
+  it('índice de string compartilhada fora da tabela vira VAZIO, e não `undefined`', async () => {
+    // O `?? ''` de `shared[Number(value)]`. Um índice fora da faixa colocaria a string
+    // "undefined" na célula — e ela viaja: vira descrição de lançamento, casa regra de categoria
+    // nenhuma, e aparece na tela como um estabelecimento chamado "undefined".
+    //
+    // Como a célula vazia não entra na linha, o efeito certo é a coluna SUMIR.
+    const file = book({
+      'xl/workbook.xml': WORKBOOK,
+      'xl/sharedStrings.xml': SHARED,
+      'xl/worksheets/sheet1.xml': sheet('<row><c r="A" t="s"><v>99</v></c><c r="B" t="s"><v>1</v></c></row>'),
+    })
+    assert.deepEqual(await readSheet(file, browserEnv, 1), [{ B: 'Casa & Cia' }], 'a coluna A some; a B, que existe, atravessa')
+  })
+})
