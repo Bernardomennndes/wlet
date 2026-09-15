@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { Download, FolderPlus, Plus, Target, Upload } from '@phosphor-icons/react'
 import { KpiCard, KpiCardGrid, KpiHeadline } from '@/components/kpi'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@wlet/ui/components/alert-dialog'
@@ -8,9 +8,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@wlet
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@wlet/ui/components/empty'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import type { Plan, PlanGroup, PlanStatus } from '@wlet/domain'
-import { ACCOUNT_MAP, lastMonthWithData, monthsBetween, projectionHorizon, shiftMonth } from '@/lib/finance'
+import { ACCOUNT_MAP, lastMonthWithData, monthsBetween, projectionHorizon, shiftMonth, TRANSACTIONS } from '@/lib/finance'
 import { formatBRL, formatMonthShort, plural } from '@wlet/lib/format'
 import { installmentAmount, parsePlans, planMonths, planOccursIn, planScheduleByMonth, planTotal, scheduledPlans } from '@wlet/domain/plans'
+import { groupInstallmentPurchases, latestInvoiceByAccount, planPurchase, planValue, suggestPurchases } from '@wlet/domain/purchases'
 import { useFilters } from '@/providers/use-filters'
 import { buildForecast } from '@/lib/forecast'
 import { plannedInScope } from '@/lib/planned'
@@ -24,6 +25,7 @@ import { PlanosDataTable } from './-components/planos-data-table'
 import { GroupDialog } from './-components/group-dialog'
 import { type PlanHighlight, PlanScheduleChart } from './-components/plan-schedule-chart'
 import { PlanSheet } from './-components/plan-sheet'
+import { PurchaseLinkDialog } from './-components/purchase-link-dialog'
 
 export function PlanosPageContent() {
   useDocumentTitle('Planos')
@@ -115,6 +117,24 @@ export function PlanosPageContent() {
     },
   })
 
+  const { mutate: attachPurchase, isPending: attachingPurchase } = useMutation({
+    // O estabelecimento e as parcelas viajam nas variáveis: o serviço devolve o plano, e o aviso
+    // precisa dizer A QUAL compra ele foi ligado.
+    mutationFn: ({ planId, purchaseId }: { planId: string; purchaseId: string; merchant: string; installments: number }) => services().plans.linkPurchase(planId, purchaseId),
+    onSuccess: (plan, { merchant, installments }) => {
+      apply()
+      toast.success(`Plano "${plan.label}" vinculado à compra ${merchant} · ${installments}×`)
+    },
+  })
+
+  const { mutate: detachPurchase, isPending: detachingPurchase } = useMutation({
+    mutationFn: ({ id }: { id: string }) => services().plans.unlinkPurchase(id),
+    onSuccess: (plan) => {
+      apply()
+      toast.success(`Plano "${plan.label}" desvinculado da compra`)
+    },
+  })
+
   const { mutate: replaceAllPlans, isPending: importing } = useMutation({
     mutationFn: (saved: ReturnType<typeof parsePlans>) => services().plans.replaceAll(saved),
     onSuccess: (saved) => {
@@ -123,8 +143,8 @@ export function PlanosPageContent() {
     },
   })
 
-  /** Qualquer escrita em voo trava a lista: as oito reescrevem o mesmo catálogo. */
-  const saving = creatingPlan || updatingPlan || deletingPlan || creatingGroup || deletingGroup || settingGroupStatus || renamingGroup || importing
+  /** Qualquer escrita em voo trava a lista: as dez reescrevem o mesmo catálogo. */
+  const saving = creatingPlan || updatingPlan || deletingPlan || creatingGroup || deletingGroup || settingGroupStatus || renamingGroup || attachingPurchase || detachingPurchase || importing
 
   const [open, setOpen] = useState(false)
   const [groupOpen, setGroupOpen] = useState(false)
@@ -140,18 +160,47 @@ export function PlanosPageContent() {
    */
   const [planPendingDeletion, setPlanPendingDeletion] = useState<Plan | null>(null)
   const [groupPendingDeletion, setGroupPendingDeletion] = useState<PlanGroup | null>(null)
+  // O plano cuja compra está sendo escolhida, e o que espera confirmação para ser desvinculado. Um
+  // diálogo de cada, com o estado guardando QUEM — o mesmo desenho das remoções.
+  const [linking, setLinking] = useState<Plan | null>(null)
+  const [planPendingUnlink, setPlanPendingUnlink] = useState<Plan | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
   const lastMonth = monthsWithData.at(-1) ?? new Date().toISOString().slice(0, 7)
   const nextMonth = shiftMonth(lastMonth, 1)
 
-  const totalDecided = decided.reduce((s, p) => s + planTotal(p), 0)
+  // As compras parceladas do conjunto INTEIRO, não do recorte: o vínculo de um plano não pode sumir
+  // porque a pessoa olhou só a PJ. O conjunto é fixado no boot, então isto é calculado uma vez.
+  const purchases = useMemo(() => groupInstallmentPurchases(TRANSACTIONS, latestInvoiceByAccount(TRANSACTIONS)), [])
+
+  const totalDecided = decided.reduce((s, p) => s + planValue(p, purchases), 0)
   const totalConsidering = items.filter((p) => p.status === 'considering').reduce((s, p) => s + planTotal(p), 0)
-  const dueNext = decided.filter((p) => planOccursIn(p, nextMonth)).reduce((s, p) => s + installmentAmount(p), 0)
-  // Decidido SEM mês é dinheiro que o KPI soma e a previsão não mostra em lugar nenhum. A
-  // contagem existe para essa lacuna não ser silenciosa: sem ela, o total do cartão e o do
-  // gráfico divergiriam e nada na tela explicaria por quê.
-  const undated = decided.length - scheduledPlans(decided).length
+  // Plano ligado cai pela parcela REAL do mês, e só enquanto a série roda.
+  const dueNext = decided.reduce((sum, plan) => {
+    const link = planPurchase(plan, purchases)
+    if (link.status === 'linked') return sum + (!link.purchase.ended && link.purchase.remainingMonths.includes(nextMonth) ? link.purchase.lastAmount : 0)
+    if (link.status === 'broken') return sum
+    return planOccursIn(plan, nextMonth) ? sum + installmentAmount(plan) : sum
+  }, 0)
+  // Decidido SEM mês é dinheiro que o KPI soma e a previsão não mostra em lugar nenhum. Plano ligado
+  // não entra na conta: ele tem data — a das parcelas — mesmo sem `month`.
+  const unlinkedDecided = decided.filter((p) => !p.purchaseId)
+  const undated = unlinkedDecided.length - scheduledPlans(unlinkedDecided).length
+  // Vínculo QUEBRADO é a outra lacuna: a parcela âncora sumiu do conjunto (um reprocessamento mudou o
+  // id), então o plano não projeta — as parcelas seguem no contratado com o id novo, e reprojetá-lo
+  // contaria o mesmo dinheiro duas vezes —, mas "Decidido" ainda o soma. A legenda o conta pelo mesmo
+  // motivo que conta os sem mês: senão o cartão e o gráfico divergem sem explicação.
+  const brokenLinks = decided.filter((p) => planPurchase(p, purchases).status === 'broken').length
+  const decidedHint =
+    undated === 0 && brokenLinks === 0
+      ? `${decided.length} ${plural(decided.length, 'plano', 'planos')} na previsão`
+      : [`${decided.length - undated - brokenLinks} na previsão`, undated > 0 ? `${undated} sem mês` : null, brokenLinks > 0 ? `${brokenLinks} com compra não encontrada` : null]
+          .filter(Boolean)
+          .join(' · ')
+  // As sugestões e o nome da conta vão por prop ao diálogo: memoizados, para não recriar lista e
+  // função a cada render enquanto ele está aberto.
+  const suggestions = useMemo(() => (linking ? suggestPurchases(linking, purchases, items, lastMonthWithData()) : []), [linking, purchases, items])
+  const accountName = useCallback((accountId: string) => ACCOUNT_MAP[accountId]?.name ?? accountId, [])
   // A agenda sai da lista INTEIRA e por isso se refaz a cada edição: acrescentar um plano,
   // trocar a forma de pagamento ou mudar a situação recompõe as colunas na hora.
   const schedule = useMemo(() => planScheduleByMonth(items), [items])
@@ -241,13 +290,22 @@ export function PlanosPageContent() {
    */
   const highlight = useMemo<PlanHighlight | undefined>(() => {
     if (!pointed || pointed.status === 'discarded') return undefined
+    const link = planPurchase(pointed, purchases)
+    if (link.status === 'broken') return undefined
+    if (link.status === 'linked') {
+      // Ligado, o plano mora dentro da fatia "Contratado": acende-se a parcela dele em cada mês que falta.
+      if (link.purchase.ended) return undefined
+      const byMonth: Record<string, number> = {}
+      for (const month of link.purchase.remainingMonths) byMonth[month] = link.purchase.lastAmount
+      return { key: 'committed', byMonth }
+    }
     const months = planMonths(pointed)
     if (months.length === 0) return undefined
     const value = installmentAmount(pointed)
     const byMonth: Record<string, number> = {}
     for (const month of months) byMonth[month] = (byMonth[month] ?? 0) + value
     return { key: pointed.status === 'decided' ? 'decided' : 'considering', byMonth }
-  }, [pointed])
+  }, [pointed, purchases])
 
   const exportPlans = () => {
     const blob = new Blob([JSON.stringify({ groups, items }, null, 2)], { type: 'application/json' })
@@ -301,12 +359,7 @@ export function PlanosPageContent() {
       </header>
 
       <KpiCardGrid columns={3}>
-        <KpiCard
-          label="Decidido"
-          definition={PLANOS_METRICS.decided}
-          value={formatBRL(totalDecided)}
-          hint={undated > 0 ? `${decided.length - undated} na previsão · ${undated} sem mês` : `${decided.length} ${plural(decided.length, 'plano', 'planos')} na previsão`}
-        />
+        <KpiCard label="Decidido" definition={PLANOS_METRICS.decided} value={formatBRL(totalDecided)} hint={decidedHint} />
         <KpiCard label="Em estudo" definition={PLANOS_METRICS.considering} value={formatBRL(totalConsidering)} hint="Fora da previsão até você decidir" />
         <KpiCard label="Cai em" definition={PLANOS_METRICS.nextMonth} value={formatBRL(dueNext)} hint={formatMonthShort(nextMonth)} />
       </KpiCardGrid>
@@ -376,6 +429,9 @@ export function PlanosPageContent() {
             groups={groups}
             items={items}
             disabled={saving}
+            purchases={purchases}
+            onLinkPurchase={setLinking}
+            onUnlinkPurchase={setPlanPendingUnlink}
             onRemove={(id) => setPlanPendingDeletion(items.find((p) => p.id === id) ?? null)}
             onRemoveGroup={(id) => setGroupPendingDeletion(groups.find((g) => g.id === id) ?? null)}
             onUpdate={(id, patch) => updatePlan({ id, patch })}
@@ -468,6 +524,41 @@ export function PlanosPageContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Desvincular devolve o plano à previsão pelos próprios números — é ação instantânea, e a
+          `mutation-confirmation.md` §1 não admite disparo direto no clique. */}
+      <AlertDialog open={planPendingUnlink !== null} onOpenChange={(open) => !open && setPlanPendingUnlink(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desvincular da compra?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{planPendingUnlink?.label}</strong> deixa de acompanhar as parcelas e volta a entrar na previsão pelo preço e pelo mês planejados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel />
+            <AlertDialogAction
+              onClick={() => {
+                if (planPendingUnlink) detachPurchase({ id: planPendingUnlink.id })
+                setPlanPendingUnlink(null)
+              }}
+            >
+              Desvincular
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <PurchaseLinkDialog
+        plan={linking}
+        suggestions={suggestions}
+        accountName={accountName}
+        onOpenChange={(open) => !open && setLinking(null)}
+        onSubmit={(suggestion) => {
+          if (linking) attachPurchase({ planId: linking.id, purchaseId: suggestion.purchase.seen[0].id, merchant: suggestion.purchase.merchant, installments: suggestion.purchase.installments })
+          setLinking(null)
+        }}
+      />
 
       <PlanSheet
         open={open}

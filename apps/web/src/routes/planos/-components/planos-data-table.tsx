@@ -1,7 +1,8 @@
-import { Pencil, Trash } from '@phosphor-icons/react'
+import { LinkBreak, LinkSimple, Pencil, Trash } from '@phosphor-icons/react'
 import { type Plan, type PlanGroup, type PlanStatus, planStatuses } from '@wlet/domain'
 import { planTotal } from '@wlet/domain/plans'
-import { formatBRL, formatMonthShort, plural } from '@wlet/lib/format'
+import { type InstallmentPurchase, planPurchase, planValue, planValueOf } from '@wlet/domain/purchases'
+import { formatBRL, formatMonthShort } from '@wlet/lib/format'
 import { cn } from '@wlet/lib/utils'
 import { Button } from '@wlet/ui/components/button'
 import { Checkbox } from '@wlet/ui/components/checkbox'
@@ -12,6 +13,7 @@ import { CategoryBadge } from '@/components/category-badge'
 import { EnumBadge } from '@/components/enum-badge'
 import { GroupNameForm } from './group-name-form'
 import { InstallmentsCell, MonthCell, PaymentCell } from './plan-row-controls'
+import { PurchaseMeter } from './purchase-meter'
 
 /**
  * A tabela de planos, em BLOCOS por grupo.
@@ -41,9 +43,9 @@ const COLUMNS = 7
  *
  * É esta constante que alinha as colunas entre blocos: com `table-fixed`, quem manda na largura é
  * o `<colgroup>`, e a coluna do nome (sem largura) fica com o que sobra — igual em todos, porque
- * todos têm a mesma largura total.
+ * todos têm a mesma largura total. A coluna de ações tem três botões — vincular, editar e remover.
  */
-const COL_WIDTHS = ['w-8', undefined, 'w-28', 'w-32', 'w-36', 'w-32', 'w-16'] as const
+const COL_WIDTHS = ['w-8', undefined, 'w-28', 'w-32', 'w-36', 'w-32', 'w-24'] as const
 
 /** O recuo das pontas é das CÉLULAS, e casa com o `px-3` que o bloco não tem por fora. */
 const EDGE = '[&_td:first-child]:pl-3 [&_td:last-child]:pr-3 [&_th:first-child]:pl-3 [&_th:last-child]:pr-3'
@@ -75,11 +77,17 @@ interface Handlers {
    * colunas do gráfico acima — é o que liga a decisão ao efeito sem exigir um clique.
    */
   onHighlight: (plan: Plan | null) => void
+  /** Abre a escolha da compra parcelada que este plano virou. */
+  onLinkPurchase: (plan: Plan) => void
+  /** Pede confirmação para desfazer o vínculo com a compra. */
+  onUnlinkPurchase: (plan: Plan) => void
 }
 
 interface Shared extends Handlers {
   monthsWithData: string[]
   defaultMonth: string
+  /** As compras parceladas do conjunto inteiro, para resolver o vínculo de cada plano. */
+  purchases: InstallmentPurchase[]
   /**
    * Trava os controles enquanto uma escrita está em voo — e é defeito medido, não zelo.
    *
@@ -135,16 +143,16 @@ export function PlanosDataTable({ groups, items, disabled = false, ...shared }: 
   )
 }
 
-function GroupBlock({ group, plans, disabled, monthsWithData, defaultMonth, ...handlers }: Shared & { group: PlanGroup | null; plans: Plan[] }) {
-  const { onEdit, onRemove, onRemoveGroup, onUpdate, onGroupStatus, onRenameGroup, onHighlight } = handlers
+function GroupBlock({ group, plans, disabled, monthsWithData, defaultMonth, purchases, ...handlers }: Shared & { group: PlanGroup | null; plans: Plan[] }) {
+  const { onEdit, onRemove, onRemoveGroup, onUpdate, onGroupStatus, onRenameGroup, onHighlight, onLinkPurchase, onUnlinkPurchase } = handlers
   // O nome está sendo editado? O estado mora no BLOCO, e não no campo, porque o gatilho (o lápis,
   // na coluna de ações) e o que ele abre (o campo, na coluna do nome) são células diferentes.
   const [renaming, setRenaming] = useState(false)
   const label = group?.label ?? 'Sem grupo'
-  const total = plans.reduce((sum, plan) => sum + planTotal(plan), 0)
-  // O que o checkbox do grupo alterna: descartado fica de fora, porque a caixinha da linha também
-  // não o representa. Parcial é o traço — nem todos, nem nenhum.
-  const toggleable = plans.filter((plan) => plan.status !== 'discarded')
+  const total = plans.reduce((sum, plan) => sum + planValue(plan, purchases), 0)
+  // O que o checkbox do grupo alterna: descartado fica de fora, e ligado também — a compra já foi feita,
+  // e "voltar a estudo" não desfaz compra nenhuma. Parcial é o traço.
+  const toggleable = plans.filter((plan) => plan.status !== 'discarded' && !plan.purchaseId)
   const decidedCount = toggleable.filter((plan) => plan.status === 'decided').length
 
   return (
@@ -245,6 +253,9 @@ function GroupBlock({ group, plans, disabled, monthsWithData, defaultMonth, ...h
           ) : (
             plans.map((plan) => {
               const discarded = plan.status === 'discarded'
+              const link = planPurchase(plan, purchases)
+              const purchase = link.status === 'linked' ? link.purchase : undefined
+              const value = planValueOf(plan, link)
               return (
                 <TableRow
                   key={plan.id}
@@ -256,47 +267,89 @@ function GroupBlock({ group, plans, disabled, monthsWithData, defaultMonth, ...h
                   onFocus={() => onHighlight(plan)}
                   onBlur={() => onHighlight(null)}
                 >
-                  <TableCell>
+                  {/* A caixinha e o nome alinham pelo TOPO, e a primeira linha dos dois tem a altura dos
+                      controles da linha (h-7): numa linha comum tudo fica na mesma altura, e numa linha
+                      com o medidor de parcelas embaixo a caixinha continua ao lado do nome, em vez de
+                      descer para o meio do bloco. */}
+                  <TableCell className="align-top">
                     {/* A caixinha É a situação: marcada é "Decidido" e entra na previsão;
                         desmarcada volta a "Em estudo". */}
-                    <Checkbox
-                      disabled={disabled}
-                      aria-label={`Aplicar ${plan.label} na previsão`}
-                      checked={plan.status === 'decided'}
-                      onCheckedChange={(checked) => onUpdate(plan.id, { status: checked ? 'decided' : 'considering' })}
-                    />
-                  </TableCell>
-
-                  <TableCell>
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className={cn('truncate font-medium', discarded && 'text-muted-foreground line-through')}>{plan.label}</span>
-                      <CategoryBadge value={plan.categoryId} className="shrink-0" />
-                      {/* O badge de situação sobrou para UM caso: "Descartado", que a caixinha não
-                          sabe dizer — desmarcada, ela significa "em estudo". */}
-                      {discarded ? <EnumBadge option={planStatuses.find((s) => s.value === 'discarded')} value="discarded" className="shrink-0" /> : null}
+                    {/* Com o pagamento iniciado (vinculado a uma compra), o plano está decidido por fato: a
+                        caixinha fica marcada e SÓ LEITURA — não desabilitada. Ela não está indisponível, ela
+                        afirma um fato; `readOnly` recusa a troca sem o esmaecido de controle desligado. O
+                        guarda no handler é a segunda trava, e o rótulo diz a um leitor de tela POR QUE ela
+                        não muda. `disabled` fica só para a escrita em voo. */}
+                    <span className="flex h-7 items-center">
+                      <Checkbox
+                        disabled={disabled}
+                        readOnly={link.status !== 'none'}
+                        aria-label={link.status !== 'none' ? `${plan.label}: pagamento iniciado, o plano segue decidido enquanto estiver vinculado` : `Aplicar ${plan.label} na previsão`}
+                        checked={plan.status === 'decided'}
+                        onCheckedChange={(checked) => {
+                          if (link.status !== 'none') return
+                          onUpdate(plan.id, { status: checked ? 'decided' : 'considering' })
+                        }}
+                      />
                     </span>
                   </TableCell>
 
-                  <TableCell className="text-right font-mono tabular-nums">{formatBRL(planTotal(plan))}</TableCell>
+                  <TableCell className="align-top">
+                    <span className="flex min-w-0 flex-col gap-1">
+                      <span className="flex h-7 min-w-0 items-center gap-2">
+                        <span className={cn('truncate font-medium', discarded && 'text-muted-foreground line-through')}>{plan.label}</span>
+                        <CategoryBadge value={plan.categoryId} className="shrink-0" />
+                        {/* O badge de situação sobrou para UM caso: "Descartado", que a caixinha não
+                            sabe dizer — desmarcada, ela significa "em estudo". */}
+                        {discarded ? <EnumBadge option={planStatuses.find((s) => s.value === 'discarded')} value="discarded" className="shrink-0" /> : null}
+                      </span>
+                      {purchase ? <PurchaseMeter purchase={purchase} /> : null}
+                      {link.status === 'broken' ? <span className="text-muted-foreground">Compra não encontrada</span> : null}
+                    </span>
+                  </TableCell>
+
+                  <TableCell className="text-right font-mono tabular-nums">
+                    {/* Ligado, o valor é o da compra; o planejado fica embaixo, riscado, só quando diverge
+                        mais de um real — senão seria ruído de centavo. */}
+                    <span className="flex flex-col items-end">
+                      <span>{formatBRL(value)}</span>
+                      {purchase && Math.abs(value - planTotal(plan)) > 1 ? <span className="text-muted-foreground line-through">{formatBRL(planTotal(plan))}</span> : null}
+                    </span>
+                  </TableCell>
 
                   <TableCell>
-                    <PaymentCell plan={plan} disabled={disabled} onUpdate={(patch) => onUpdate(plan.id, patch)} />
+                    <PaymentCell plan={plan} purchase={purchase} disabled={disabled} onUpdate={(patch) => onUpdate(plan.id, patch)} />
                   </TableCell>
 
                   <TableCell>
                     <span className="flex items-center gap-1">
-                      <InstallmentsCell plan={plan} disabled={disabled} onUpdate={(patch) => onUpdate(plan.id, patch)} />
+                      <InstallmentsCell plan={plan} purchase={purchase} disabled={disabled} onUpdate={(patch) => onUpdate(plan.id, patch)} />
                     </span>
                   </TableCell>
 
                   <TableCell>
-                    <MonthCell plan={plan} monthsWithData={monthsWithData} defaultMonth={defaultMonth} disabled={disabled} onUpdate={(patch) => onUpdate(plan.id, patch)} />
+                    <MonthCell plan={plan} purchase={purchase} monthsWithData={monthsWithData} defaultMonth={defaultMonth} disabled={disabled} onUpdate={(patch) => onUpdate(plan.id, patch)} />
                   </TableCell>
 
                   <TableCell>
                     {/* As ações ficam invisíveis até a linha ser apontada e continuam FOCÁVEIS: o
                         `focus-within` as traz de volta para quem chega pelo teclado. */}
                     <span className="flex justify-end gap-0.5 opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100">
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            link.status === 'none' ? (
+                              <Button size="icon-sm" variant="ghost" disabled={disabled} aria-label={`Vincular ${plan.label} a uma compra`} onClick={() => onLinkPurchase(plan)}>
+                                <LinkSimple />
+                              </Button>
+                            ) : (
+                              <Button size="icon-sm" variant="ghost" disabled={disabled} aria-label={`Desvincular ${plan.label} da compra`} onClick={() => onUnlinkPurchase(plan)}>
+                                <LinkBreak />
+                              </Button>
+                            )
+                          }
+                        />
+                        <TooltipContent>{link.status === 'none' ? 'Vincular a uma compra parcelada' : 'Desvincular da compra'}</TooltipContent>
+                      </Tooltip>
                       <Tooltip>
                         <TooltipTrigger
                           render={

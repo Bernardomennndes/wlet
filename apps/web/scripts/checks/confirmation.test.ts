@@ -31,7 +31,7 @@ function codeOf(url: URL): string {
  * nos dois sentidos, e o que decide é o efeito, que só quem escreveu a tela sabe.
  */
 const DESTRUCTIVE = [
-  { screen: 'planos/-content.tsx', prompts: 2, mutations: ['deletePlan', 'deleteGroup'] },
+  { screen: 'planos/-content.tsx', prompts: 3, mutations: ['deletePlan', 'deleteGroup', 'detachPurchase'] },
   { screen: 'rubricas/-content.tsx', prompts: 1, mutations: ['deleteRubric'] },
   { screen: 'previsao/-content.tsx', prompts: 1, mutations: ['deleteEntry'] },
   // Reprocessar não apaga nada por si, mas reescreve o conjunto INTEIRO: se um perfil de conta

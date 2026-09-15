@@ -85,8 +85,8 @@ const DIMMED = 0.2
  * inteira esmaece e só a porção dele fica cheia.
  */
 export interface PlanHighlight {
-  /** Em qual das duas séries de plano ele cai, conforme a situação. */
-  key: 'decided' | 'considering'
+  /** Em qual série ele cai: as duas de plano, ou o contratado quando o plano está ligado a uma compra. */
+  key: 'decided' | 'considering' | 'committed'
   byMonth: Record<string, number>
 }
 

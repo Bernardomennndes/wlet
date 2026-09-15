@@ -1,10 +1,10 @@
 import { CalendarPlus, X } from '@phosphor-icons/react'
 import { type PaymentMode, type Plan, paymentModes } from '@wlet/domain'
 import { installmentAmount, isInstallmentCount, planInstallments } from '@wlet/domain/plans'
-import { formatBRL } from '@wlet/lib/format'
+import type { InstallmentPurchase } from '@wlet/domain/purchases'
+import { formatBRL, formatMonthShort } from '@wlet/lib/format'
 import { AppCombobox, type SelectOption } from '@wlet/ui/components/app-combobox'
 import { Button } from '@wlet/ui/components/button'
-import { Input } from '@wlet/ui/components/input'
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '@wlet/ui/components/input-group'
 import { MonthPicker } from '@wlet/ui/components/month-picker'
 import { useState } from 'react'
@@ -37,7 +37,10 @@ const NO_PAYMENT = 'none'
 const PAYMENT_OPTIONS: SelectOption[] = [{ value: NO_PAYMENT, label: 'Não decidido' }, ...paymentModes.map((mode) => ({ value: mode.value, label: mode.label, icon: mode.icon }))]
 
 /** Como o plano é pago. Aceita ficar SEM escolha — é o mesmo estado que o formulário permite. */
-export function PaymentCell({ plan, onUpdate, disabled }: { plan: Plan; onUpdate: (patch: Partial<Omit<Plan, 'id'>>) => void; disabled?: boolean }) {
+export function PaymentCell({ plan, purchase, onUpdate, disabled }: { plan: Plan; purchase?: InstallmentPurchase; onUpdate: (patch: Partial<Omit<Plan, 'id'>>) => void; disabled?: boolean }) {
+  // Ligado a uma compra, a forma é a da compra — editá-la aqui não mudaria nada que a previsão lê.
+  if (purchase) return <span className="px-2 text-muted-foreground">Parcelado</span>
+
   return (
     <AppCombobox
       disabled={disabled}
@@ -63,7 +66,7 @@ export function PaymentCell({ plan, onUpdate, disabled }: { plan: Plan; onUpdate
  * Em quantas vezes. Só existe quando parcelado é a forma escolhida: um "1×" editável ao lado
  * de "À vista" ofereceria dois jeitos de dizer a mesma coisa.
  */
-export function InstallmentsCell({ plan, onUpdate, disabled }: { plan: Plan; onUpdate: (patch: Partial<Omit<Plan, 'id'>>) => void; disabled?: boolean }) {
+export function InstallmentsCell({ plan, purchase, onUpdate, disabled }: { plan: Plan; purchase?: InstallmentPurchase; onUpdate: (patch: Partial<Omit<Plan, 'id'>>) => void; disabled?: boolean }) {
   /**
    * O campo guarda TEXTO CRU enquanto está sendo digitado.
    *
@@ -75,6 +78,14 @@ export function InstallmentsCell({ plan, onUpdate, disabled }: { plan: Plan; onU
    * pelo dado se corrige no meio da digitação, e a correção vira entrada.
    */
   const [draft, setDraft] = useState<string | null>(null)
+
+  if (purchase) {
+    return (
+      <span className="truncate tabular-nums text-muted-foreground">
+        {purchase.installments}× {formatBRL(purchase.lastAmount)}
+      </span>
+    )
+  }
 
   if (plan.payment !== 'financed') return null
 
@@ -120,18 +131,22 @@ export function InstallmentsCell({ plan, onUpdate, disabled }: { plan: Plan; onU
  */
 export function MonthCell({
   plan,
+  purchase,
   monthsWithData,
   defaultMonth,
   onUpdate,
   disabled,
 }: {
   plan: Plan
+  purchase?: InstallmentPurchase
   monthsWithData: string[]
   /** O mês que "Sem mês" propõe: o primeiro projetável, não o último medido. */
   defaultMonth: string
   onUpdate: (patch: Partial<Omit<Plan, 'id'>>) => void
   disabled?: boolean
 }) {
+  if (purchase) return <span className="px-2 text-muted-foreground">{formatMonthShort(purchase.originMonth)}</span>
+
   if (!plan.month) {
     return (
       <Button variant="ghost" disabled={disabled} className="w-full justify-start text-muted-foreground" onClick={() => onUpdate({ month: defaultMonth })}>
