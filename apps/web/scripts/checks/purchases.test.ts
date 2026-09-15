@@ -268,3 +268,70 @@ describe('a previsão usa ESTE agrupamento, e não um próprio', () => {
     assert.doesNotMatch(source, /function purchaseKey\(/)
   })
 })
+
+/**
+ * O QUE NÃO DÁ PARA ALCANÇAR, e por que ficou escrito em vez de perseguido.
+ *
+ * O medidor aponta cinco ramos descobertos em `groupInstallmentPurchases` — os `?? 1` e `?? 0` de
+ * `tx.installment?.current`. Nenhum é alcançável, e provar isso vale mais que tentar cobri-los:
+ * sem a prova, todo tick futuro reabre a mesma caça.
+ *
+ * Eles também NÃO são código morto a remover. `Transaction.installment` é opcional no tipo, então o
+ * `?.` é exigido pelo compilador e o `??` é o valor que ele obriga a escrever ao lado. O que é
+ * inalcançável é o valor de fallback, não a expressão.
+ */
+describe('nenhum lançamento sem parcela chega ao agrupamento', () => {
+  it('`purchaseKeyOf` recusa quem não tem parcela, e o agrupamento pula quem não tem chave', () => {
+    // A cadeia inteira em duas linhas: a chave é `null` sem `installment`, e `groupInstallmentPurchases`
+    // dá `continue` em quem não tem chave. Por isso todo `tx` que chega ao laço TEM parcela, e os
+    // `?? 1` do corpo dele não podem rodar.
+    const semParcela = { ...julyFirst, id: 'sem-parcela', installment: undefined } as unknown as Transaction
+    assert.equal(purchaseKeyOf(semParcela), null)
+    assert.deepEqual(group([semParcela]), [], 'nenhuma compra sai de um lançamento sem parcela')
+  })
+
+  it('e misturar os dois não contamina a compra de verdade', () => {
+    // A prova pelo lado que importa: com o lançamento avulso na mesma lista, a compra de julho
+    // continua com as suas duas parcelas — ele não entra na chave nem no total.
+    const avulso = { ...julyFirst, id: 'avulso', amount: -500, installment: undefined } as unknown as Transaction
+    const purchases = group([...ALL, avulso])
+
+    assert.equal(purchases.length, 2, 'julho e maio, e nada mais')
+    const july = purchases.find((p) => p.postedDate === '2026-07-04')
+    assert.equal(july?.paidCount, 2)
+  })
+})
+
+describe('duas compras SUGERIDAS se ordenam pela pontuação', () => {
+  it('a de pontuação maior vem primeiro, mesmo sendo a mais antiga', () => {
+    // O ramo `if (a.suggested && a.score !== b.score)`. Ele só existe quando DUAS compras passam do
+    // limiar de 3 pontos, o que os testes anteriores não produziam: lá uma era sugerida e a outra
+    // não, e a primeira comparação já resolvia.
+    //
+    // O caso é real na tela de vínculo: duas hospedagens parecidas, uma de R$ 5.622,20 em 6× e
+    // outra de valor próximo. Sem o desempate, a ordem entre elas seria a da data — e a mais
+    // recente apareceria em cima mesmo casando PIOR com o plano, que é o oposto do que a sugestão
+    // existe para fazer.
+    //
+    // O plano aponta para maio: mesmo mês, mesmo total, mesma categoria, mesmas parcelas — quatro
+    // pontos. Julho bate parcelas, categoria e mês (agosto está a um mês de julho), mas não o
+    // total: três pontos. As duas são sugeridas; maio precisa vir primeiro.
+    const planoDeMaio = {
+      id: 'plan-maio',
+      label: 'Arraial',
+      categoryId: 'moradia',
+      cash: 6908.7,
+      financed: { total: 6908.7, installments: 6 },
+      payment: 'financed',
+      status: 'decided',
+      month: '2026-06',
+    } as Plan
+
+    const ranked = suggestPurchases(planoDeMaio, group(), [planoDeMaio], '2026-09')
+    const suggested = ranked.filter((r) => r.suggested)
+
+    assert.equal(suggested.length, 2, 'as duas passam do limiar — é isso que faz o desempate existir')
+    assert.ok(suggested[0].score > suggested[1].score, 'a de pontuação maior primeiro')
+    assert.equal(suggested[0].purchase.postedDate, '2026-05-11', 'maio, apesar de ser a mais antiga')
+  })
+})
