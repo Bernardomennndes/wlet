@@ -450,10 +450,18 @@ ao problema.
   arquivo" e manda procurar `@/lib/storage`, módulo que não existe. `PLANS_KEY` segue exportado com
   ZERO consumidores. Quem abre o arquivo hoje conclui o contrário do que é verdade.
   *Guarda:* nenhum — comentário desatualizado não quebra teste.
-- **`docs/` na raiz não está no `.gitignore`**, e guarda spec com compra, valor e cartão reais. O
-  `.gitignore` cobre `apps/web/docs/`, não a raiz; o sensor de dado pessoal também não o pega,
-  porque a lista dele nomeia caminhos declarados. Um `git add .` commitaria.
-  *Guarda:* `personal-data.test.ts` cobre os caminhos declarados — este não é um deles.
+- **Valores REAIS de compra em arquivos versionados** — e o enquadramento anterior deste item
+  estava errado, o que é pior que o item. Ele dizia "`docs/` na raiz não está no `.gitignore`, e um
+  `git add .` commitaria os extratos". Medido em 15/09/2026: os extratos, faturas e relatórios da
+  corretora moram em `apps/web/docs/`, que ESTÁ no `.gitignore` (linha 36). A raiz `docs/` guarda só
+  `superpowers/` — duas specs, agora commitadas em `6c12a39`.
+  O risco que sobra é outro e menor: essas specs trazem valores reais (R$ 5.622,20, R$ 937,03,
+  R$ 1.874,08, R$ 1.151,41, R$ 890,00), e os mesmos números aparecem como fixture em
+  `apps/api/tests/routers.test.ts`, `plans.test.ts` e `purchases.test.ts`. São VALORES apenas — sem
+  CPF, conta, agência ou cartão, conferido por varredura. Se o repositório for público um dia, são
+  gastos reais legíveis; se continuar privado, não são nada.
+  *Guarda:* `personal-data.test.ts` cobre os caminhos declarados. Um sensor para valor solto não
+  existe e provavelmente não deve existir — todo fixture de dinheiro pareceria violação.
 - **`settlement-history.tsx` remonta as badges de `payableStatuses` e `receivableStatuses`**, com
   `PayableStatusBadge` e `ReceivableStatusBadge` prontos ao lado. É a terceira cópia do mesmo `Map`.
   Contornável fazendo o `KINDS` carregar o COMPONENTE em vez da lista de opções.
