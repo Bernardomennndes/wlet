@@ -245,3 +245,132 @@ describe('o razão da corretora, quando está lá', () => {
     assert.equal(report.series.at(-1)?.month, '2026-01', 'vence a posição de janeiro, apesar de a PASTA dela vir antes')
   })
 })
+
+/**
+ * A RENDA FIXA não tem cotação: o valor de cada mês é DERIVADO, e a derivação pode não fechar.
+ *
+ * Um papel de renda fixa vale o preço de emissão composto pelo CDI, a um percentual que o módulo
+ * RESOLVE por bisseção para bater com a posição de hoje. É uma conta que inventa um número — e o
+ * módulo sabe disso: depois de resolver, ele confere se o percentual encontrado reproduz a posição,
+ * e declara problema quando não reproduz.
+ *
+ * Esse ramo nunca rodava, e ele é o mesmo princípio da trava aritmética do razão: um número que não
+ * se confere não deve ser publicado calado. A diferença é que aqui o número é PLAUSÍVEL — sai de
+ * uma curva de juros de verdade, sobe suavemente, e só está errado.
+ */
+const positionAt = (path: string, rows: string): SourceFile => ({
+  path,
+  bytes: xlsxOf({ 'xl/workbook.xml': workbook(3), 'xl/worksheets/sheet1.xml': SHEET(HEADER + rows), 'xl/worksheets/sheet2.xml': SHEET(HEADER), 'xl/worksheets/sheet3.xml': SHEET(HEADER) }),
+})
+
+/**
+ * A posição de RENDA FIXA vai na TERCEIRA aba, com o valor na coluna Q.
+ *
+ * A aba decide a espécie no RELATÓRIO, e o código do papel decide na RECONSTRUÇÃO — são dois
+ * classificadores para a mesma coisa, e eles só concordam se o fixture puser o papel na aba certa.
+ * Descobri isso medindo: com o CDB na aba 1, os meses reconstruídos vinham como renda fixa (o
+ * `FIXED_INCOME_CODE` casa o código) e o último mês vinha como renda VARIÁVEL (a aba 1 é
+ * `equity`), então `fixedIncome` do último mês era zero. Não é defeito do módulo; era o meu
+ * fixture na aba errada.
+ */
+const fixedPositionAt = (path: string, code: string, quantity: number, value: number): SourceFile => ({
+  path,
+  bytes: xlsxOf({
+    'xl/workbook.xml': workbook(3),
+    'xl/worksheets/sheet1.xml': SHEET(HEADER),
+    'xl/worksheets/sheet2.xml': SHEET(HEADER),
+    'xl/worksheets/sheet3.xml': SHEET(`${HEADER}<row>${cell('D', code, true)}${cell('I', String(quantity))}${cell('Q', String(value))}</row>`),
+  }),
+})
+
+describe('o %CDI derivado precisa REPRODUZIR a posição', () => {
+  it('quando nenhuma taxa alcança o valor informado, o problema é declarado', async () => {
+    // A posição diz R$ 5.000 sobre uma emissão de R$ 1.000, num único dia de CDI. Nem 250% do CDI
+    // — o teto da bisseção — chega perto. O módulo não pode inventar o número: ele o entrega e
+    // avisa, com os dois valores, porque a diferença entre eles é o que a pessoa vai investigar.
+    const report = await buildInvestments(
+      [
+        positionAt('docs/investimentos/posicao-2026-01-31.xlsx', `<row>${cell('D', 'CDB012345678', true)}${cell('I', '1')}${cell('N', '5000')}</row>`),
+        movements(movement('Credito', '30/01/2026', 'Aplicação', 'CDB012345678 - BANCO X', 1, 1000)),
+      ],
+      browserEnv,
+      [{ date: '2026-01-31', rate: 0.0005 }],
+    )
+
+    assert.ok(report)
+    const derivado = report.problems.find((p) => p.includes('CDB012345678'))
+    assert.ok(derivado, 'o problema nomeia o papel')
+    assert.match(derivado, /não reproduz a posição/)
+    assert.match(derivado, /5000\.00/, 'e traz o valor informado, para a diferença ser visível')
+  })
+
+  it('e quando alcança, não há problema sobre o papel', async () => {
+    // O controle. Sem ele, o teste acima passaria com um fixture que o leitor nem entende — zero
+    // papéis também não produz problema de papel nenhum, por outro motivo.
+    const report = await buildInvestments(
+      [
+        positionAt('docs/investimentos/posicao-2026-01-31.xlsx', `<row>${cell('D', 'CDB012345678', true)}${cell('I', '1')}${cell('N', '1000.5')}</row>`),
+        movements(movement('Credito', '30/01/2026', 'Aplicação', 'CDB012345678 - BANCO X', 1, 1000)),
+      ],
+      browserEnv,
+      [{ date: '2026-01-31', rate: 0.0005 }],
+    )
+
+    assert.ok(report)
+    assert.deepEqual(
+      report.problems.filter((p) => p.includes('não reproduz')),
+      [],
+    )
+  })
+})
+
+/** Movimento em que o TOTAL não é quantidade × preço unitário — é o que acontece com custos embutidos. */
+const movementWithFee = (date: string, product: string, quantity: number, unit: number, total: number) =>
+  `<row>${cell('A', 'Credito', true)}${cell('B', date, true)}${cell('C', 'Aplicação', true)}${cell('D', product, true)}${cell('F', String(quantity))}${cell('G', String(unit))}${cell('H', String(total))}</row>`
+
+describe('o preço unitário sai do TOTAL dividido pela quantidade', () => {
+  it('e não da coluna de preço, que ignora custos embutidos', async () => {
+    // O relatório traz as duas colunas, e elas discordam quando há custo no meio: 10 papéis a R$ 30
+    // com R$ 50 de taxa saem com total de R$ 350. O preço que o patrimônio precisa é o EFETIVO —
+    // R$ 35 —, porque é ele que saiu da conta. Usar a coluna de preço subestima a carteira toda, e
+    // o rendimento aparece maior do que foi.
+    //
+    // A compra é em NOVEMBRO e a posição de janeiro: sem essa distância a série tem um ponto só, e
+    // esse ponto vem pronto do relatório — foi assim que a primeira versão deste teste passou com o
+    // defeito aplicado. É a mesma armadilha que o cabeçalho deste arquivo registra.
+    const report = await buildInvestments(
+      [positionAt('docs/investimentos/posicao-2026-01-31.xlsx', holding('PETR4', 10, 400)), movements(movementWithFee('10/11/2025', 'PETR4 - PETROBRAS PN', 10, 30, 350))],
+      browserEnv,
+      [{ date: '2026-01-31', rate: 0.0005 }],
+    )
+
+    assert.ok(report)
+    const novembro = report.series.find((p) => p.month === '2025-11')
+    assert.ok(novembro, 'a série alcança o mês da compra')
+    assert.equal(novembro.equity, 350, 'dez papéis ao preço EFETIVO de 35, e não aos 30 da coluna')
+  })
+})
+
+describe('a renda fixa não rende ALÉM do último dia com CDI', () => {
+  it('com o cache do CDI mais velho que o relatório, os meses seguintes ficam PARADOS', async () => {
+    // O caso real: `pnpm cdi` roda menos vezes que a exportação da corretora, então o cache termina
+    // antes do relatório de posição. A série vai até o mês do relatório, mas a composição para no
+    // último dia com CDI — os meses sem dado ficam no mesmo valor, em vez de subirem sozinhos.
+    //
+    // Uma subida suave e falsa é pior que um degrau: ela não convida a conferir.
+    const report = await buildInvestments(
+      [fixedPositionAt('docs/investimentos/posicao-2026-03-31.xlsx', 'CDB012345678', 1, 1000.5), movements(movement('Credito', '05/01/2026', 'Aplicação', 'CDB012345678 - BANCO X', 1, 1000))],
+      browserEnv,
+      [
+        { date: '2026-01-05', rate: 0.0005 },
+        { date: '2026-01-31', rate: 0.0005 },
+      ],
+    )
+
+    assert.ok(report)
+    const janeiro = report.series.find((p) => p.month === '2026-01')
+    const fevereiro = report.series.find((p) => p.month === '2026-02')
+    assert.ok(janeiro && fevereiro, 'a série alcança os meses sem CDI')
+    assert.equal(fevereiro.fixedIncome, janeiro.fixedIncome, 'fevereiro não rende: não há CDI para compor')
+  })
+})
