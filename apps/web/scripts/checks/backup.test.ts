@@ -162,3 +162,88 @@ describe('pacote: importação seletiva', () => {
     await assert.rejects(() => importState(torto as never, ['declarations'], destino), /inválida|negativo/i)
   })
 })
+
+/**
+ * A PRÉVIA NÃO PODE MENTIR SOBRE UM PACOTE INCOMPLETO.
+ *
+ * `inspectPackage` existe para o diálogo mostrar o que vai SUBSTITUIR antes de substituir — o
+ * docblock diz por quê: "importar e ver no que dá" é o oposto disso num app cujo armazenamento é a
+ * única cópia. Os testes acima a exercitam com pacotes inteiros, gerados pelo próprio `exportState`.
+ *
+ * O que faltava é o pacote TORTO, e ele é o caso realista: arquivo truncado numa cópia interrompida,
+ * pacote de uma versão que ainda não tinha uma seção, arquivo editado à mão para tirar algo. Em
+ * todos, a prévia é o único lugar onde a pessoa pode perceber — e ela decide sobre o número que a
+ * prévia mostra.
+ *
+ * Os dois erros possíveis são opostos e ambos caros. Dizer "0" sobre uma seção que tem conteúdo faz
+ * a pessoa importar achando que não perde nada; desenhar uma seção que está vazia faz ela recusar um
+ * pacote bom, ou pior, substituir dado por vazio.
+ */
+const packageOf = (payload: Record<string, unknown>) => JSON.stringify({ app: 'wlet', version: 2, exportedAt: '2026-01-01T00:00:00.000Z', payload })
+
+describe('pacote: a prévia de um arquivo incompleto', () => {
+  it('seção AUSENTE é `null`, e não zero', () => {
+    // A distinção carrega significado: `null` é "este pacote não traz isto", e `0` é "traz, e está
+    // vazio". Confundi-los faz o diálogo oferecer substituir um conjunto de 500 lançamentos por
+    // nada, com a mesma aparência de quem não vai mexer neles.
+    const lido = inspectPackage(packageOf({}))
+    assert.ok(lido)
+    assert.deepEqual(lido.contents, { dataset: null, declarations: null, plans: null, overrides: null, preferences: false, sources: null })
+  })
+
+  it('seção PRESENTE e vazia é zero, e não `null`', () => {
+    const lido = inspectPackage(packageOf({ plans: { version: 1, groups: [], items: [] }, overrides: {}, sources: [] }))
+    assert.ok(lido)
+    assert.equal(lido.contents.plans, 0)
+    assert.equal(lido.contents.overrides, 0)
+    assert.equal(lido.contents.sources, 0)
+  })
+
+  it('conjunto SEM lançamentos não é desenhado — é o que o diálogo trata como "não traz conjunto"', () => {
+    // A leitura pende de `transactions`, e não da presença do objeto: um `dataset` que veio só com
+    // `meta` não substitui nada de útil, e mostrá-lo como seção convidaria a marcar a caixa.
+    const lido = inspectPackage(packageOf({ dataset: { meta: { months: [] } } }))
+    assert.ok(lido)
+    assert.equal(lido.contents.dataset, null)
+  })
+
+  it('e conjunto COM lançamentos mas sem contas conta zero contas, sem estourar', () => {
+    const lido = inspectPackage(packageOf({ dataset: { transactions: [{ id: 'a' }, { id: 'b' }] } }))
+    assert.ok(lido)
+    assert.deepEqual(lido.contents.dataset, { transactions: 2, accounts: 0 })
+  })
+
+  it('declaração com metade das seções conta as que vieram e zera as outras', () => {
+    // O caso do pacote de uma versão anterior: ele tem `planned` e não tem `goals`. Zerar é a
+    // leitura certa — a seção existe no formato e está vazia neste arquivo.
+    const lido = inspectPackage(packageOf({ declarations: { planned: [{ id: 'p1' }], rules: [{ id: 'r1' }, { id: 'r2' }] } }))
+    assert.ok(lido)
+    assert.deepEqual(lido.contents.declarations, { planned: 1, receivables: 0, goals: 0, rules: 2, accounts: 0 })
+  })
+
+  it('planos sem a lista de itens não são desenhados', () => {
+    const lido = inspectPackage(packageOf({ plans: { version: 1, groups: [] } }))
+    assert.ok(lido)
+    assert.equal(lido.contents.plans, null)
+  })
+})
+
+describe('pacote: preferências pela metade', () => {
+  it('só o que veio é gravado — o que falta fica como está', async () => {
+    // As três preferências são independentes, e o pacote pode trazer uma só. Gravar as ausentes
+    // como `undefined` apagaria a escolha de quem importou: o tema voltaria ao padrão porque o
+    // arquivo de outra máquina não falava de tema.
+    const destino = setup()
+    await destino.preferences.setTheme('dark')
+    await destino.preferences.setScope('PJ')
+
+    const lido = inspectPackage(packageOf({ preferences: { period: { from: '2026-03', to: '2026-05' } } }))
+    assert.ok(lido)
+    await importState(lido.payload, ['preferences'], destino)
+
+    const prefs = await destino.preferences.load()
+    assert.deepEqual(prefs.period, { from: '2026-03', to: '2026-05' }, 'o que veio entrou')
+    assert.equal(prefs.theme, 'dark', 'e o que não veio sobreviveu')
+    assert.equal(prefs.scope, 'PJ')
+  })
+})
