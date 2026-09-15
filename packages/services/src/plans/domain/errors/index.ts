@@ -26,3 +26,15 @@ export class InvalidPlanError extends DomainError {
     super(message)
   }
 }
+
+/**
+ * A compra escolhida já é outro plano.
+ *
+ * Uma compra liga a UM plano: dois planos apontando para as mesmas parcelas voltariam a contar o mesmo
+ * dinheiro duas vezes, que é o defeito que o vínculo existe para desfazer.
+ */
+export class PurchaseAlreadyLinkedError extends DomainError {
+  constructor(message = 'Esta compra já está vinculada a outro plano.') {
+    super(message)
+  }
+}

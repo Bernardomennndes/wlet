@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { makePlansService } from '@wlet/services/plans/application/plans.service'
-import { InvalidPlanError, PlanGroupNotFoundError, PlanNotFoundError } from '@wlet/services/plans/domain/errors/index'
+import { InvalidPlanError, PlanGroupNotFoundError, PlanNotFoundError, PurchaseAlreadyLinkedError } from '@wlet/services/plans/domain/errors/index'
 import { makeFakePlanRepository, makeSequentialIds } from '@wlet/services/plans/test-support/fake-plan-repository'
 
 /**
@@ -319,5 +319,101 @@ describe('replaceAll — o caminho da importação', () => {
     await service.addPlan(monitor)
     await service.replaceAll({ version: 2, groups: [], items: [] })
     assert.deepEqual(repository.snapshot()?.items, [])
+  })
+})
+
+/**
+ * O invariante "ligado ⇒ decidido" é do SERVIÇO, e não da tela.
+ *
+ * A revisão final achou três portas por onde um plano ligado voltava a "em estudo" sem passar
+ * por `unlinkPurchase`: o checkbox do grupo (`setGroupStatus` incluía o ligado em `reached`),
+ * a gaveta de edição (`plan-sheet-schema.ts` pode gerar `status: 'considering'`) e um arquivo
+ * importado. As três escrevem por `patched` ou por `setGroupStatus`, então o conserto fica ali.
+ */
+describe('plano ligado é sempre decidido', () => {
+  it('setGroupStatus não alcança o plano ligado, e ele sai da contagem devolvida', async () => {
+    const { service } = setup()
+    const group = await service.addGroup({ label: 'Viagem' })
+    const created = await service.addPlan({ ...monitor, label: 'Passagem', groupId: group.id })
+    const linked = await service.linkPurchase(created.id, 'db78e48a1935')
+    const open = await service.addPlan({ ...monitor, label: 'Hotel', groupId: group.id })
+
+    const reached = await service.setGroupStatus(group.id, 'considering')
+    assert.deepEqual(
+      reached.map((p) => p.id),
+      [open.id],
+    )
+    const { items } = await service.list()
+    assert.equal(items.find((p) => p.id === linked.id)?.status, 'decided')
+    assert.equal(items.find((p) => p.id === open.id)?.status, 'considering')
+  })
+
+  it('updatePlan não consegue devolver um plano ligado a "em estudo"', async () => {
+    const { service } = setup()
+    const created = await service.addPlan(monitor)
+    await service.linkPurchase(created.id, 'db78e48a1935')
+
+    const after = await service.updatePlan(created.id, { status: 'considering' })
+    assert.equal(after.status, 'decided')
+    const { items } = await service.list()
+    assert.equal(items.find((p) => p.id === created.id)?.status, 'decided')
+  })
+
+  it('editar outro campo pela gaveta preserva o vínculo — o merge não o descarta', async () => {
+    const { service } = setup()
+    const created = await service.addPlan(monitor)
+    await service.linkPurchase(created.id, 'db78e48a1935')
+
+    const renamed = await service.updatePlan(created.id, { label: 'Novo nome' })
+    assert.equal(renamed.purchaseId, 'db78e48a1935')
+    assert.equal(renamed.status, 'decided')
+  })
+})
+
+/** O vínculo com a compra parcelada: uma escrita, e uma compra liga a um plano só. */
+describe('linkPurchase e unlinkPurchase', () => {
+  it('ligar grava o id da parcela e marca o plano como decidido, numa escrita', async () => {
+    const { repository, service } = setup()
+    const created = await service.addPlan(monitor)
+    const before = repository.saves
+    const linked = await service.linkPurchase(created.id, 'db78e48a1935')
+    assert.equal(linked.purchaseId, 'db78e48a1935')
+    assert.equal(linked.status, 'decided')
+    assert.equal(repository.saves - before, 1)
+  })
+
+  it('desvincular remove o id e mantém a situação', async () => {
+    const { service } = setup()
+    const created = await service.addPlan(monitor)
+    await service.linkPurchase(created.id, 'db78e48a1935')
+    const unlinked = await service.unlinkPurchase(created.id)
+    assert.equal('purchaseId' in unlinked, false)
+    assert.equal(unlinked.status, 'decided')
+  })
+
+  it('a compra já ligada a outro plano é recusada, e nada é gravado', async () => {
+    const { repository, service } = setup()
+    const first = await service.addPlan(monitor)
+    const second = await service.addPlan({ ...monitor, label: 'Cadeira' })
+    await service.linkPurchase(first.id, 'db78e48a1935')
+    const before = repository.saves
+    await assert.rejects(() => service.linkPurchase(second.id, 'db78e48a1935'), PurchaseAlreadyLinkedError)
+    assert.equal(repository.saves, before)
+  })
+
+  it('religar o MESMO plano à mesma parcela não é conflito', async () => {
+    const { service } = setup()
+    const created = await service.addPlan(monitor)
+    await service.linkPurchase(created.id, 'db78e48a1935')
+    assert.equal((await service.linkPurchase(created.id, 'db78e48a1935')).purchaseId, 'db78e48a1935')
+  })
+
+  it('plano inexistente é PlanNotFoundError nos dois caminhos, sem gravar', async () => {
+    const { repository, service } = setup()
+    await service.addPlan(monitor)
+    const before = repository.saves
+    await assert.rejects(() => service.linkPurchase('plan-99', 'db78e48a1935'), PlanNotFoundError)
+    await assert.rejects(() => service.unlinkPurchase('plan-99'), PlanNotFoundError)
+    assert.equal(repository.saves, before)
   })
 })

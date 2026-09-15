@@ -1,6 +1,6 @@
 import type { Plan, PlanGroup, PlanStatus, PaymentMode } from '@wlet/domain'
 import { type PlansData, planScheduleByMonth, type PlanScheduleMonth, scheduledPlans } from '@wlet/domain/plans'
-import { InvalidPlanError, PlanGroupNotFoundError, PlanNotFoundError } from '../domain/errors'
+import { InvalidPlanError, PlanGroupNotFoundError, PlanNotFoundError, PurchaseAlreadyLinkedError } from '../domain/errors'
 import type { IdGenerator, PlanRepository } from '../domain/ports/plan-repository'
 
 /**
@@ -39,6 +39,18 @@ export interface PlansService {
   setGroupStatus(groupId: string, status: GroupStatus): Promise<Plan[]>
   /** Troca o nome de um grupo. Os planos apontam para o id, então nenhum deles é tocado. */
   renameGroup(id: string, label: string): Promise<PlanGroup>
+  /**
+   * Liga o plano a uma compra parcelada pela id de uma parcela, e o marca como decidido — a compra já
+   * foi feita. Uma escrita só.
+   *
+   * Ligar torna o plano decidido mesmo que ele estivesse descartado ou em estudo, e o invariante
+   * não é só do momento da ligação: enquanto o vínculo existir, `patched` recoloca o plano em
+   * "decidido" a cada escrita, mesmo que o patch peça outra coisa. Para voltar a estudo, o
+   * caminho é `unlinkPurchase` — desvincular, não desmarcar.
+   */
+  linkPurchase(planId: string, purchaseId: string): Promise<Plan>
+  /** Desfaz o vínculo; a situação fica como está. Uma escrita só. */
+  unlinkPurchase(planId: string): Promise<Plan>
   addGroup(input: NewGroup): Promise<PlanGroup>
   removeGroup(id: string): Promise<void>
   /**
@@ -103,8 +115,14 @@ export function makePlansService({ repository, ids }: PlansServiceDeps): PlansSe
   function patched(data: PlansData, id: string, patch: PlanPatch): { next: PlansData; result: Plan } {
     const current = locate(data, id)
     const merged = normalizePayment({ ...current, ...patch })
-    assertValid(merged)
-    return { next: { ...data, items: data.items.map((item) => (item.id === id ? merged : item)) }, result: merged }
+    // Ligado ⇒ decidido, sempre — a compra já foi feita, e nenhum caminho de escrita pode
+    // devolvê-lo a "em estudo" por baixo do vínculo. Sem isto, o checkbox do grupo (que já
+    // exclui o ligado) não protege a gaveta: `plan-sheet-schema.ts` pode produzir
+    // `status: 'considering'` num plano que ainda tem `purchaseId`, e a única saída para
+    // "em estudo" volta a ser desvincular.
+    const kept = merged.purchaseId ? { ...merged, status: 'decided' as const } : merged
+    assertValid(kept)
+    return { next: { ...data, items: data.items.map((item) => (item.id === id ? kept : item)) }, result: kept }
   }
 
   return {
@@ -135,7 +153,11 @@ export function makePlansService({ repository, ids }: PlansServiceDeps): PlansSe
     setGroupStatus(groupId, status) {
       return mutate((data) => {
         if (!data.groups.some((g) => g.id === groupId)) throw new PlanGroupNotFoundError()
-        const reached = (item: Plan) => item.groupId === groupId && item.status !== 'discarded'
+        // Ligado fica fora do checkbox do grupo, do mesmo jeito que descartado fica: a compra já
+        // foi feita, e "voltar a estudo" não desfaz uma compra. Sem esta exclusão, desmarcar um
+        // grupo com um plano ligado e um em aberto rebaixava os dois — o ligado saía "decidido"
+        // por fato e voltava "em estudo" por um clique que não passou por `unlinkPurchase`.
+        const reached = (item: Plan) => item.groupId === groupId && item.status !== 'discarded' && !item.purchaseId
         const items = data.items.map((item) => (reached(item) ? { ...item, status } : item))
         return { next: { ...data, items }, result: items.filter(reached) }
       })
@@ -149,6 +171,21 @@ export function makePlansService({ repository, ids }: PlansServiceDeps): PlansSe
         if (!trimmed) throw new InvalidPlanError('O grupo precisa de um nome.')
         const renamed = { ...current, label: trimmed }
         return { next: { ...data, groups: data.groups.map((g) => (g.id === id ? renamed : g)) }, result: renamed }
+      })
+    },
+
+    linkPurchase(planId, purchaseId) {
+      return mutate((data) => {
+        if (data.items.some((item) => item.id !== planId && item.purchaseId === purchaseId)) throw new PurchaseAlreadyLinkedError()
+        return patched(data, planId, { purchaseId, status: 'decided' })
+      })
+    },
+
+    unlinkPurchase(planId) {
+      return mutate((data) => {
+        const current = locate(data, planId)
+        const { purchaseId: _dropped, ...rest } = current
+        return { next: { ...data, items: data.items.map((item) => (item.id === planId ? rest : item)) }, result: rest }
       })
     },
 
