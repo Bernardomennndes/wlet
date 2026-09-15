@@ -325,3 +325,105 @@ describe('plano LIGADO a uma compra não é previsão', () => {
     assert.equal(items.filter((item) => item.origin === 'committed').length, 1)
   })
 })
+
+/**
+ * AS BORDAS DO RATEIO, e a ORDEM em que a agenda se lê.
+ *
+ * O abatimento é a última origem a entrar, e a única que SUBTRAI. Isso a torna a mais fácil de
+ * errar em silêncio: um rateio a mais some com uma despesa que existe, e um rateio a menos deixa o
+ * mês parecendo mais caro — os dois produzem um total plausível, porque o que muda é o quanto e não
+ * a forma.
+ *
+ * A ordenação vem junto porque é o mesmo assunto visto pela tela: a agenda é lida de cima para
+ * baixo, e o que o código escolhe pôr primeiro é o que a pessoa lê primeiro.
+ */
+describe('o rateio não pode abater mais do que existe', () => {
+  it('rateio MAIOR que a despesa abate só até zerá-la, na AGENDA', () => {
+    // Há DOIS limitadores no módulo, um em cada função, e cada um precisa do seu teste porque são
+    // códigos separados: `expenseByCategory` (linha 253) e `forecastItems` (linha 431). O primeiro
+    // já tinha dois testes; a falsificação mostrou que este caso, escrito contra `buildForecast`,
+    // duplicava aqueles e deixava o da agenda descoberto.
+    //
+    // Sem o `Math.min`, o item de rateio sairia com os R$ 9.000 inteiros — uma linha de "Rateio ·
+    // Contraparte" maior que a despesa que ela abate, e o somatório da agenda viraria positivo.
+    const grande: Receivable = { ...RATEIO, id: 'r-grande', amount: 9000 }
+    const items = forecastItems(input({ planned: [declared({ amount: 1500 })], receivables: [grande] }), MONTH)
+    const offset = items.find((item) => item.origin === 'offset')
+
+    assert.equal(offset?.amount, 1500, 'abate os mil e quinhentos, não os nove mil')
+  })
+
+  it('e rateio sobre categoria SEM despesa nenhuma não vira item na agenda', () => {
+    // `if (applied <= 0) continue`. Uma linha de "Rateio · Fulano" com valor zero ocuparia espaço
+    // na agenda dizendo que nada acontece — e a agenda existe para listar o que acontece.
+    const orfao: Receivable = { ...RATEIO, id: 'r-orfao', offsetsCategoryId: 'tecnologia' }
+    const items = forecastItems(input({ planned: [declared()], receivables: [orfao] }), MONTH)
+
+    assert.deepEqual(
+      items.filter((item) => item.origin === 'offset'),
+      [],
+    )
+  })
+
+  it('rateio SEM dia declarado fica de fora do mês em curso', () => {
+    // Mesma razão da regra declarada sem dia, do bloco acima: sem dia não há como saber se ele já
+    // veio. Incluí-lo abateria uma despesa com dinheiro que talvez já tenha entrado — e aí o
+    // abatimento conta duas vezes, uma no extrato e outra na previsão.
+    const semDia = { ...RATEIO, id: 'r-sem-dia', dueOn: undefined } as unknown as Receivable
+    const items = forecastItems(input({ planned: [declared({ dueOn: { kind: 'day', day: 25 } })], receivables: [semDia] }), MONTH, '2026-04-05')
+
+    assert.deepEqual(
+      items.filter((item) => item.origin === 'offset'),
+      [],
+      'nenhum abatimento sem dia',
+    )
+    assert.ok(
+      items.some((item) => item.origin === 'declared'),
+      'e a despesa continua lá, inteira',
+    )
+  })
+})
+
+/**
+ * `pendingAfter` é OPCIONAL, e `null` não é o mesmo que ausente.
+ *
+ * `const partial = pendingAfter !== undefined` — passar `null` LIGA o mês em curso, com uma data de
+ * corte nula, e aí nada vence. Escrevi `null` pensando em "mês futuro" e a agenda voltou vazia nos
+ * três testes. Para o mês futuro o argumento se OMITE.
+ */
+describe('a agenda se lê de cima para baixo, e a ordem é escolhida', () => {
+  it('o que tem DIA vem antes do que não tem', () => {
+    // "Fingir uma data ali seria inventar precisão que o dado não tem": parcela cai na fatura, cuja
+    // data depende do fechamento, e rubrica não tem dia nenhum. Eles vão para o fim em vez de para
+    // o dia 1º, que é onde um `?? ''` os poria.
+    const items = forecastItems(input({ planned: [declared({ dueOn: { kind: 'day', day: 20 } })], plans: [planned()] } as never), MONTH)
+    const semData = items.findIndex((item) => item.date === null)
+    const comData = items.findIndex((item) => item.date !== null)
+
+    assert.notEqual(comData, -1)
+    assert.notEqual(semData, -1)
+    assert.ok(comData < semData, 'o datado primeiro')
+  })
+
+  it('e no MESMO dia, o de maior valor vem primeiro', () => {
+    // Empate de data resolve pelo módulo do valor. É o que faz o aluguel aparecer acima da conta de
+    // luz quando as duas vencem no dia 10 — a ordem alfabética ou a de inserção poria a menor em
+    // cima, e quem abre a agenda procura primeiro o que pesa.
+    const items = forecastItems(
+      input({
+        planned: [
+          declared({ id: 'p-pequeno', label: 'Luz', amount: 120, categoryId: 'utilidades', dueOn: { kind: 'day', day: 10 } }),
+          declared({ id: 'p-grande', label: 'Aluguel', amount: 1500, dueOn: { kind: 'day', day: 10 } }),
+        ],
+      }),
+      MONTH,
+    )
+
+    // A rubrica entra junto e vai para o FIM, por não ter dia — o que prende as duas regras de
+    // ordenação numa asserção só.
+    assert.deepEqual(
+      items.map((item) => item.key),
+      ['declared-p-grande', 'declared-p-pequeno', 'rubric-viagens'],
+    )
+  })
+})
