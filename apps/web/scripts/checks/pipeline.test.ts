@@ -136,3 +136,97 @@ describe('pickBestFormat', () => {
     assert.equal(picked.length, 2)
   })
 })
+
+/**
+ * QUAL ARQUIVO VENCE, e QUAL LANÇAMENTO É DUPLICATA — o bloco que decide se dinheiro é contado
+ * duas vezes ou some.
+ *
+ * O medidor apontou `pipeline.ts` com 79,3% de ramos, e este é o grupo de maior consequência entre
+ * os que faltavam. Os dois erros possíveis são opostos e nenhum estoura: contar duas vezes infla o
+ * mês, e descartar demais faz um gasto sumir de um extrato que o contém. Nos dois casos os totais
+ * continuam plausíveis, porque o que está errado é a CONTAGEM e não os valores.
+ *
+ * O núcleo é um mecanismo só — o `ordinal` na chave do lançamento — que precisa fazer coisas
+ * OPOSTAS conforme o contexto, e o módulo declara isso: "o `ordinal` distingue repetições DENTRO de
+ * um arquivo; ele não distingue arquivos, e é de propósito: o mesmo lançamento lido de dois
+ * extratos sobrepostos precisa colidir". Os dois primeiros testes abaixo são esse par, e é a tensão
+ * entre eles que impede a "correção" de um de quebrar o outro em silêncio.
+ */
+describe('o mesmo mecanismo separa dentro do arquivo e junta entre arquivos', () => {
+  it('duas linhas IDÊNTICAS no mesmo extrato são DOIS lançamentos', async () => {
+    // Dois cafés de R$ 12,00 no mesmo dia, no mesmo lugar. O banco exporta as duas linhas com o
+    // mesmo valor, a mesma data e a mesma descrição — e, num extrato sem `FITID`, sem nada que as
+    // separe. Sem o `ordinal` as duas colidiriam num id só e a segunda sumiria: o dia perderia
+    // R$ 12,00 e o extrato na tela mostraria uma linha onde o banco mostra duas.
+    const dois = [TRN('20260105', '-12.00', 'CAFETERIA', ''), TRN('20260105', '-12.00', 'CAFETERIA', '')].join('\n')
+    const { transactions } = await runIngest(input([file('docs/extrato/exemplo/janeiro.ofx', OFX(dois))]))
+
+    assert.equal(transactions.length, 2, 'duas compras, não uma')
+    assert.notEqual(transactions[0].id, transactions[1].id, 'e ids distintos, senão o ajuste de categoria de uma valeria pela outra')
+  })
+
+  it('a mesma linha em dois extratos SOBREPOSTOS conta UMA vez — e o relatório diz quantas', async () => {
+    // O contrário, pelo mesmo mecanismo: aqui a colisão é desejada. Os dois arquivos precisam ter
+    // períodos diferentes para chegarem juntos até a deduplicação — com o mesmo período, o bloco
+    // anterior já descartaria um deles como documento repetido, e este teste passaria sem exercitar
+    // a contagem de duplicatas.
+    const janeiro = OFX(TRN('20260105', '-120.50', 'DROGARIA'))
+    const sobreposto = OFX(TRN('20260105', '-120.50', 'DROGARIA')).replace('<DTSTART>20260101', '<DTSTART>20260103')
+    const { transactions, report } = await runIngest(input([file('docs/extrato/exemplo/janeiro.ofx', janeiro), file('docs/extrato/exemplo/janeiro-parcial.ofx', sobreposto)]))
+
+    assert.equal(transactions.length, 1)
+    assert.deepEqual(report.duplicated, [{ accountId: 'conta-exemplo', count: 1 }], 'o descarte é CONTADO, não silencioso')
+  })
+})
+
+describe('dois documentos do mesmo período: vence o MAIOR', () => {
+  it('a exportação parcial não substitui a completa, e o relatório nomeia a descartada', async () => {
+    // O caso real é baixar o extrato do mês antes de ele fechar e baixar de novo depois. Os dois
+    // arquivos cobrem o mesmo período da mesma conta; se o parcial vencesse, os lançamentos do fim
+    // do mês sumiriam — e o saldo da tela passaria a discordar do banco sem nada avisar.
+    //
+    // A ordem importa para o teste valer: o COMPLETO entra primeiro, então o parcial precisa perder
+    // por comparação, e não por chegar depois.
+    const completo = OFX([TRN('20260105', '-120.50', 'DROGARIA'), TRN('20260120', '-80.00', 'MERCADO')].join('\n'))
+    const parcial = OFX(TRN('20260105', '-120.50', 'DROGARIA'))
+    const { transactions, report } = await runIngest(input([file('docs/extrato/exemplo/janeiro-completo.ofx', completo), file('docs/extrato/exemplo/janeiro-parcial.ofx', parcial)]))
+
+    assert.equal(transactions.length, 2, 'os dois lançamentos do arquivo completo')
+    assert.deepEqual(report.skipped, ['docs/extrato/exemplo/janeiro-parcial.ofx'])
+  })
+
+  it('e o completo vence mesmo chegando DEPOIS — quem é descartado é o que já estava', async () => {
+    // O outro lado do `if (current)`: aqui o parcial já ocupava a chave e precisa ser expulso. Um
+    // `else` que só ignorasse o recém-chegado deixaria o resultado dependendo da ORDEM ALFABÉTICA
+    // dos arquivos na pasta, que é o tipo de defeito que só aparece quando alguém renomeia um.
+    const completo = OFX([TRN('20260105', '-120.50', 'DROGARIA'), TRN('20260120', '-80.00', 'MERCADO')].join('\n'))
+    const parcial = OFX(TRN('20260105', '-120.50', 'DROGARIA'))
+    const { transactions, report } = await runIngest(input([file('docs/extrato/exemplo/a-parcial.ofx', parcial), file('docs/extrato/exemplo/b-completo.ofx', completo)]))
+
+    assert.equal(transactions.length, 2)
+    assert.deepEqual(report.skipped, ['docs/extrato/exemplo/a-parcial.ofx'])
+  })
+})
+
+describe('o SALDO que vale é o mais recente', () => {
+  it('o extrato mais novo vence mesmo sendo LIDO por último', async () => {
+    // O saldo não é somado: é escolhido. Dois arquivos da mesma conta trazem cada um o seu
+    // `LEDGERBAL`, e ficar com o mais antigo mostraria na tela um saldo que o banco já não tem —
+    // sem contradizer lançamento nenhum, porque os lançamentos estão todos certos.
+    //
+    // **Os nomes dos arquivos são o teste, e isso custou uma volta.** A primeira versão usava
+    // `janeiro.ofx` e `fevereiro.ofx` e passava COM a comparação de data removida: `pickBestFormat`
+    // ORDENA POR CAMINHO antes de tudo, então "fevereiro" vinha sempre primeiro, o `!current` já
+    // devolvia o saldo certo e a comparação nunca rodava. Ler nas duas ordens de entrada não
+    // ajudava — a ordenação apaga a diferença. Com `a-` e `b-`, o mais ANTIGO chega primeiro e o
+    // mais novo precisa vencer por data, que é a única coisa que este teste existe para provar.
+    const antigo = OFX(TRN('20260105', '-120.50', 'DROGARIA'))
+    const novo = OFX(TRN('20260210', '-50.00', 'PADARIA'))
+      .replace('<DTSTART>20260101</DTSTART><DTEND>20260131', '<DTSTART>20260201</DTSTART><DTEND>20260228')
+      .replace('<BALAMT>1000.00</BALAMT><DTASOF>20260131', '<BALAMT>2500.00</BALAMT><DTASOF>20260228')
+    const { accounts } = await runIngest(input([file('docs/extrato/exemplo/a-janeiro.ofx', antigo), file('docs/extrato/exemplo/b-fevereiro.ofx', novo)]))
+
+    const account = accounts.find((a) => a.id === 'conta-exemplo')
+    assert.deepEqual(account?.reportedBalance, { amount: 2500, asOf: '2026-02-28' })
+  })
+})
