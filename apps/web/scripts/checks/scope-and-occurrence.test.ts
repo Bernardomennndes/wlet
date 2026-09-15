@@ -47,7 +47,7 @@ const COBRANCAS = [
 setDataset({ transactions: [], accounts: [], transfers: [], meta: { months: [] }, investments: { snapshot: null, series: [], income: [] } } as never)
 setDeclarations({ planned: PLANEJADAS, budget: { monthlyLimit: 0, warnAt: 0.75, byCategory: [] }, receivables: COBRANCAS, goals: [], accounts: [], rules: [], selfNamePatterns: [] } as never)
 
-const { CONCILIATED, lastOccurrence, pendingIn, plannedInScope } = await import('@/lib/planned')
+const { CONCILIATED, lastOccurrence, pendingIn, plannedInScope, settlePlanned } = await import('@/lib/planned')
 const { offsetCategoryOf, receivablesInScope } = await import('@/lib/receivables')
 
 const ids = (list: { id: string }[]) => list.map((item) => item.id).sort()
@@ -143,5 +143,76 @@ describe('a categoria que um recebimento abate', () => {
   it('sem cobrança casada, não abate nada', () => {
     assert.equal(offsetCategoryOf(null), null)
     assert.equal(offsetCategoryOf('cobranca-que-nao-existe'), null)
+  })
+})
+
+/**
+ * `settlePlanned` — a conciliação dos lançamentos previstos, sem teste nenhum até aqui.
+ *
+ * É o que responde "o aluguel de março está pago?" para a agenda de Pagamentos e para o mês em
+ * curso da Previsão. Ela não faz a conciliação: delega ao `settleAll`, que tem bateria própria. O
+ * que é DELA são três decisões de fronteira, e as três estavam descobertas.
+ *
+ * O modo de falha é o mesmo do módulo inteiro e por isso vale repeti-lo: um casamento a menos não
+ * estoura — a tela diz que nove meses de aluguel estão vencidos, num conjunto que paga o aluguel
+ * todo mês.
+ */
+describe('settlePlanned: as três decisões de fronteira', () => {
+  const paid = (month: string, amount: number, plannedId: string | null) => ({ id: `t-${month}-${plannedId}`, amount, date: `${month}-25`, month, merchant: 'LOCADORA', plannedId })
+
+  /**
+   * O id é `pj-com-credor`, e a escolha é o teste.
+   *
+   * `CONCILIATED` é `PLANNED.filter((entry) => entry.match !== undefined)` — só regra com CREDOR
+   * declarado vira conta a pagar. Escrevi os primeiros casos contra `pf-com-dia`, que não tem
+   * `match`, e dois falharam; o terceiro PASSOU, porque `settleAll` devolve uma ocorrência por mês
+   * da janela mesmo sem casamento nenhum, e eu só conferia `length > 0`. Passar pelo motivo errado
+   * é o que uma asserção frouxa compra.
+   */
+  it('o `kind` filtra as REGRAS, e não os lançamentos', () => {
+    // A única regra conciliável do fixture é de DESPESA. Pedir a conciliação das entradas tem de
+    // devolver vazio; sem o filtro, ela voltaria, e a agenda de Cobranças listaria contas a pagar.
+    const rows = [paid('2026-03', -100, 'pj-com-credor')]
+    assert.deepEqual(settlePlanned(rows, ['2026-03'], '2026-03-31', 'income'), [])
+    // A janela vai do `startMonth` da regra até o último mês pedido, então uma regra MENSAL desde
+    // janeiro devolve três ocorrências para `['2026-03']` — o que se afirma é de QUAL regra elas
+    // são, não quantas.
+    const asDespesas = settlePlanned(rows, ['2026-03'], '2026-03-31', 'expense')
+    assert.deepEqual([...new Set(asDespesas.map((o) => o.ruleId))], ['pj-com-credor'], 'e a despesa continua conciliando')
+    assert.equal(asDespesas.find((o) => o.month === '2026-03')?.status, 'settled', 'e o mês do pagamento está quitado')
+  })
+
+  it('sem `kind`, todas as regras conciliáveis entram', () => {
+    // O caminho que a Previsão usa: ela quer o que foi cumprido dos dois lados e escolhe depois.
+    const todas = settlePlanned([paid('2026-03', -100, 'pj-com-credor')], ['2026-03'], '2026-03-31')
+    assert.ok(todas.some((o) => o.ruleId === 'pj-com-credor'))
+  })
+
+  it('o valor é tomado em MÓDULO — o extrato traz despesa negativa', () => {
+    // "A conciliação não conhece sinal, e quem chama já escolheu o lado por `kind`." A regra
+    // declara 100 positivo; o extrato traz -100. Sem o `Math.abs`, a ocorrência ficaria em ABERTO
+    // com o pagamento na mesma tela, logo abaixo.
+    const [ocorrencia] = settlePlanned([paid('2026-03', -100, 'pj-com-credor')], ['2026-03'], '2026-03-31', 'expense')
+    assert.equal(ocorrencia.actual, 100)
+    assert.equal(ocorrencia.status, 'settled')
+  })
+
+  it('sem meses, a janela sai de `today` — e não de uma lista vazia', () => {
+    // A chamada degenerada: `months[months.length - 1]` sobre lista vazia é `undefined`, e uma
+    // janela que termina em `undefined` não produz ocorrência nenhuma.
+    const ocorrencias = settlePlanned([paid('2026-03', -100, 'pj-com-credor')], [], '2026-03-31', 'expense')
+    assert.ok(ocorrencias.length > 0, 'a janela existe mesmo sem lista de meses')
+    assert.ok((ocorrencias.at(0)?.month ?? '') <= '2026-03', 'e não passa do mês do corte')
+  })
+})
+
+describe('lastOccurrence: a parcelada sem contagem', () => {
+  it('conta como UMA parcela, em vez de uma janela infinita', () => {
+    // `Math.max(1, entry.count ?? 1)`. Uma parcelada sem `count` é dado torto — o schema o exige —,
+    // mas se chegar, o fim tem de ser o próprio mês de início. Sem o `?? 1`, `undefined - 1` é
+    // `NaN`, e `shiftMonth` com `NaN` devolve uma data impossível que a Previsão tentaria desenhar.
+    assert.equal(lastOccurrence(rule({ recurrence: 'installments', startMonth: '2026-04', count: undefined })), '2026-04')
+    // E `count: 0` também: zero parcelas não é janela vazia, é uma.
+    assert.equal(lastOccurrence(rule({ recurrence: 'installments', startMonth: '2026-04', count: 0 })), '2026-04')
   })
 })
