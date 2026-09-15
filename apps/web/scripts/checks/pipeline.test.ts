@@ -317,3 +317,69 @@ describe('a contraparte INFERIDA, quando o outro lado não está no período', (
     assert.equal(transactions[0].transferId, null, 'o lançamento segue sem par')
   })
 })
+
+/**
+ * A FATURA EM PDF que não fecha, e a data da parcela que cai em mês curto.
+ *
+ * Os dois últimos blocos de `pipeline.ts` sem cobertura, e os dois são sobre RECUSAR ou CORRIGIR em
+ * vez de aceitar em silêncio. O caminho inteiro nunca tinha rodado num teste: bytes de PDF →
+ * `readPdfLines` → `parseNubankInvoicePdf` → decisão do pipeline. `nubank-invoice.test.ts` cobre a
+ * ANÁLISE entregando as linhas prontas, que é a forma certa de testá-la; o que faltava era provar
+ * que o pipeline OBEDECE ao veredito dela.
+ *
+ * O fixture é um PDF escrito à mão, sem compressão e sem dependência nova — a estrutura de um PDF é
+ * ASCII, e `decodeStream` devolve o fluxo cru quando o dicionário não declara `/FlateDecode`. Cada
+ * caractere precisa de entrada no `/ToUnicode`, então o CMap abaixo é gerado como IDENTIDADE: o
+ * código de dois bytes é o próprio ponto de código.
+ */
+const pdfInvoice = (lines: string[]): SourceFile => {
+  const chars = [...new Set(lines.join('').split(''))]
+  const hex = (n: number) => n.toString(16).padStart(4, '0')
+  const cmap = `/CIDInit /ProcSet findresource begin\nbeginbfchar\n${chars.map((c) => `<${hex(c.charCodeAt(0))}> <${hex(c.charCodeAt(0))}>`).join('\n')}\nendbfchar\nend`
+  // Dois bytes por caractere: `\000` (octal) seguido do próprio byte, escapando o que o PDF reserva.
+  const escaped = (text: string) => [...text].map((c) => `\\000${/[()\\]/.test(c) ? `\\${c}` : c}`).join('')
+  const content = lines.map((text, i) => `BT /F1 10 Tf 1 0 0 1 50 ${700 - i * 20} Tm (${escaped(text)}) Tj ET`).join('\n')
+  const body = [
+    `1 0 obj << /Type /Font /Subtype /Type0 /ToUnicode 2 0 R >> endobj`,
+    `2 0 obj << /Length ${cmap.length} >> stream\n${cmap}\nendstream endobj`,
+    `3 0 obj << /Font << /F1 1 0 R >> /Length ${content.length} >> stream\n${content}\nendstream endobj`,
+  ].join('\n')
+  return { path: 'docs/fatura/nubank/2026-03-10.pdf', bytes: new TextEncoder().encode(`%PDF-1.4\n${body}\n%%EOF`) }
+}
+
+describe('fatura de PDF que não fecha é RECUSADA, não importada com aviso', () => {
+  it('a fatura que fecha entra inteira', async () => {
+    // O controle: sem ele, o teste seguinte poderia estar recusando por qualquer outro motivo — um
+    // fixture que o leitor de PDF não entende produziria zero lançamentos do mesmo jeito.
+    const { transactions, report } = await runIngest(input([pdfInvoice(['05 FEV MERCADO X 123,45', 'Total de compras R$ 123,45'])], { accounts: [PROFILE_CARTAO] }))
+
+    assert.equal(transactions.length, 1)
+    assert.equal(transactions[0].amount, -123.45)
+    assert.deepEqual(report.pdfProblems, [])
+  })
+
+  it('a que não fecha não entra, e o relatório diz o porquê', async () => {
+    // "Dado de PDF que não confere com o total impresso é dado errado, e errado em silêncio é pior
+    // que ausente." Um caractere perdido na reconstrução por posição vira um valor errado, e o
+    // total declarado é a única forma de saber. Importar com aviso poria o número errado na tela,
+    // onde ele soma — e o aviso fica no relatório, que ninguém abre depois da primeira vez.
+    const { transactions, report } = await runIngest(input([pdfInvoice(['05 FEV MERCADO X 123,45', 'Total de compras R$ 999,99'])], { accounts: [PROFILE_CARTAO] }))
+
+    assert.deepEqual(transactions, [], 'nada entra')
+    assert.equal(report.pdfProblems.length, 1)
+    assert.match(report.pdfProblems[0], /2026-03-10\.pdf.*não bate com o declarado/)
+  })
+})
+
+describe('a parcela cai no mês certo, mesmo quando o mês é CURTO', () => {
+  it('uma compra do dia 31 em 2/6 vence no último dia de fevereiro, não em março', async () => {
+    // A data da parcela é a da compra deslocada de `current - 1` meses. Somar o mês sem encaixar o
+    // dia faz 31 de janeiro virar 3 de MARÇO — a parcela pula um mês inteiro, aparece na previsão
+    // do mês errado, e fevereiro fica sem a despesa que ele tem.
+    const { transactions } = await runIngest(input([pdfInvoice(['31 JAN ACADEMIA - 2/6 200,00', 'Total de compras R$ 200,00'])], { accounts: [PROFILE_CARTAO] }))
+
+    assert.deepEqual(transactions[0].installment, { current: 2, total: 6 })
+    assert.equal(transactions[0].date, '2026-02-28', 'encaixado no último dia do mês curto')
+    assert.equal(transactions[0].postedDate, '2026-01-31', 'e a data da COMPRA não se mexe')
+  })
+})
