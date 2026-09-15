@@ -300,3 +300,28 @@ describe('o que ainda vence, somado', () => {
     assert.equal(pending.expense, 800)
   })
 })
+
+describe('plano LIGADO a uma compra não é previsão', () => {
+  // A compra de 3× comprada em março tem a parcela de abril no contratado. Um plano decidido que
+  // descreve a MESMA compra somava de novo — o defeito que o vínculo existe para consertar.
+  const purchase = () => bought(100, 'compras', 3)
+  const samePurchasePlan = (over: Partial<Plan> = {}) => planned({ label: 'Compra parcelada', categoryId: 'compras', cash: 100, month: MONTH, ...over })
+
+  it('sem vínculo o mês soma o mesmo dinheiro duas vezes — é o defeito documentado', () => {
+    const month = april({ history: [purchase()], plans: [samePurchasePlan()] })
+    assert.equal(month.sources.committed, 100)
+    assert.equal(month.sources.plan, 100)
+  })
+
+  it('com purchaseId o plano sai da soma, e o contratado continua', () => {
+    const month = april({ history: [purchase()], plans: [samePurchasePlan({ purchaseId: 'qualquer-parcela' })] })
+    assert.equal(month.sources.committed, 100)
+    assert.equal(month.sources.plan, 0)
+  })
+
+  it('e a agenda do mês não lista o plano ligado', () => {
+    const items = forecastItems(input({ history: [purchase()], plans: [samePurchasePlan({ purchaseId: 'qualquer-parcela' })] }), MONTH)
+    assert.equal(items.filter((item) => item.origin === 'plan').length, 0)
+    assert.equal(items.filter((item) => item.origin === 'committed').length, 1)
+  })
+})

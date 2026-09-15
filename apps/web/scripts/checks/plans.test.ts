@@ -249,3 +249,37 @@ describe('o que a previsão real considera', () => {
     )
   })
 })
+
+describe('o plano ligado a uma compra', () => {
+  const base = {
+    version: PLANS_VERSION,
+    groups: [],
+    items: [{ id: 'plan-1', label: 'Airbnb', categoryId: 'moradia', cash: 5622.2, financed: { total: 5622.2, installments: 6 }, payment: 'financed', status: 'decided', month: '2026-08' }],
+  }
+
+  it('parsePlans preserva o purchaseId — exportar e importar não desfaz o vínculo', () => {
+    const parsed = parsePlans({ ...base, items: [{ ...base.items[0], purchaseId: 'db78e48a1935' }] })
+    assert.equal(parsed.items[0].purchaseId, 'db78e48a1935')
+  })
+
+  it('sem purchaseId, a chave nem aparece — ausência não vira string vazia', () => {
+    assert.equal('purchaseId' in parsePlans(base).items[0], false)
+  })
+
+  it('purchaseId em branco é descartado', () => {
+    assert.equal('purchaseId' in parsePlans({ ...base, items: [{ ...base.items[0], purchaseId: '  ' }] }).items[0], false)
+  })
+
+  it('item ligado sai sempre DECIDIDO — a fronteira de leitura aplica o mesmo invariante do serviço', () => {
+    // Um arquivo importado pode ter sido editado à mão, ou vir de uma versão anterior do app que
+    // não conhecia a regra. `parsePlans` é a fronteira de confiança, e ela corrige em silêncio —
+    // o mesmo caminho que `setGroupStatus` e `patched` já seguem no serviço.
+    const considering = { ...base.items[0], status: 'considering', purchaseId: 'db78e48a1935' }
+    assert.equal(parsePlans({ ...base, items: [considering] }).items[0].status, 'decided')
+  })
+
+  it('a agenda NÃO conta plano ligado: as parcelas dele já são contratado', () => {
+    const linked = { ...(parsePlans(base).items[0] as Plan), purchaseId: 'db78e48a1935' }
+    assert.deepEqual(planScheduleByMonth([linked]), [])
+  })
+})

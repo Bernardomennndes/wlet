@@ -6,6 +6,7 @@ import { BUDGET } from './budget'
 import { rubricAmount } from '@wlet/domain/rubric'
 import { amountAt, dueDateOf, occursIn, pendingIn, settlePlanned, type PlannedEntry } from './planned'
 import { installmentAmount, planInstallments, planMonths, planOccursIn } from '@wlet/domain/plans'
+import { groupInstallmentPurchases, latestInvoiceByAccount } from '@wlet/domain/purchases'
 import { dueDateOf as receivableDueDateOf, occursIn as receivableOccursIn, settle, type Receivable } from './receivables'
 
 /**
@@ -53,18 +54,6 @@ export interface ForecastSources {
 type Installment = NonNullable<ViewTransaction['installment']>
 
 /**
- * A compra por trás de uma parcela.
- *
- * Recuar `current - 1` meses leva toda parcela da mesma compra ao MESMO mês de origem, então
- * estabelecimento + total de parcelas + origem identifica a compra. Conferido nos dados: os
- * 31 grupos que isso produz não têm número de parcela repetido nem valor divergente — ou
- * seja, a chave não funde compras diferentes do mesmo estabelecimento.
- */
-function purchaseKey(tx: ViewTransaction, installment: Installment): string {
-  return `${tx.merchant}|${installment.total}|${shiftMonth(tx.month, -(installment.current - 1))}`
-}
-
-/**
  * Parcelas em aberto projetadas para a frente, com a categoria de origem preservada.
  *
  * Só a ÚLTIMA parcela vista de cada compra projeta. Uma compra parcelada aparece numa fatura
@@ -94,38 +83,25 @@ function committedInstallments(history: ViewTransaction[], targets: string[]): C
   const out: CommittedInstallment[] = []
   const wanted = new Set(targets)
 
-  // A fatura mais recente de cada cartão. Uma compra só continua rodando se a última parcela
-  // dela apareceu NESSA fatura: se parou de aparecer enquanto os extratos seguiram vindo, a
-  // série acabou — estorno, quitação antecipada, cancelamento. Foi o caso de uma hospedagem em 6x de
-  // maio, estornado em julho (duas entradas positivas de +890 na mesma data de compra) e
-  // recobrado como outro 6x; sem esta checagem ele projetava R$ 890,00 em outubro.
-  const lastInvoice = new Map<string, string>()
-  for (const tx of history) {
-    const month = tx.invoice?.month
-    if (month && month > (lastInvoice.get(tx.accountId) ?? '')) lastInvoice.set(tx.accountId, month)
-  }
-
-  const latest = new Map<string, { tx: ViewTransaction; installment: Installment }>()
-  for (const tx of history) {
-    if (tx.flow !== 'expense' || !tx.installment) continue
-    const entry = { tx, installment: tx.installment }
-    const key = purchaseKey(tx, tx.installment)
-    const seen = latest.get(key)
-    if (!seen || tx.installment.current > seen.installment.current) latest.set(key, entry)
-  }
-
-  for (const { tx, installment } of latest.values()) {
-    if (tx.invoice?.month !== lastInvoice.get(tx.accountId)) continue
-    for (let k = 1; k <= installment.total - installment.current; k++) {
-      const month = shiftMonth(tx.month, k)
+  // O agrupamento em compras e a regra de fim de série moram em `@wlet/domain/purchases`, onde o
+  // vínculo de planos também os lê: só a ÚLTIMA parcela vista projeta, e só se ela apareceu na fatura
+  // mais recente daquele cartão. Foi o caso de uma hospedagem em 6x de maio, estornada em julho e
+  // recobrada como outro 6x; sem a checagem ela projetava R$ 890,00 em outubro.
+  const expenses = history.filter((tx) => tx.flow === 'expense')
+  for (const purchase of groupInstallmentPurchases(expenses, latestInvoiceByAccount(history))) {
+    if (purchase.ended) continue
+    const { latest } = purchase
+    const current = latest.installment?.current ?? purchase.installments
+    for (let k = 1; k <= purchase.installments - current; k++) {
+      const month = shiftMonth(latest.month, k)
       if (!wanted.has(month)) continue
       out.push({
         month,
-        merchant: tx.merchant,
-        purchase: purchaseKey(tx, installment),
-        amount: Math.abs(tx.amount),
-        categoryId: tx.displayCategoryId,
-        installment: { current: installment.current + k, total: installment.total },
+        merchant: latest.merchant,
+        purchase: purchase.key,
+        amount: Math.abs(latest.amount),
+        categoryId: latest.displayCategoryId,
+        installment: { current: current + k, total: purchase.installments },
       })
     }
   }
@@ -254,7 +230,8 @@ function expenseByCategory(input: Input, month: string, committedByCat: Map<stri
   // ANTES da rubrica, e é essa posição que faz a regra do piso valer para o plano também:
   // com o plano já somado na categoria, a rubrica só acrescenta o que faltar para o piso.
   for (const plan of input.plans ?? []) {
-    if (!planOccursIn(plan, month)) continue
+    // Plano ligado a uma compra já é fato: as parcelas restantes dele entraram acima, como contratado.
+    if (plan.purchaseId || !planOccursIn(plan, month)) continue
     const value = installmentAmount(plan)
     add(plan.categoryId, value)
     sources.plan += value
@@ -418,7 +395,7 @@ export function forecastItems(input: Omit<Input, 'targets'>, month: string, pend
   // Plano entra também no mês EM CURSO, ao contrário da rubrica: uma rubrica ali é teto sendo
   // consumido, um plano é uma compra que ainda vai acontecer.
   for (const plan of input.plans ?? []) {
-    if (!planOccursIn(plan, month)) continue
+    if (plan.purchaseId || !planOccursIn(plan, month)) continue
     const value = installmentAmount(plan)
     bump(plan.categoryId, value)
     const total = planInstallments(plan)

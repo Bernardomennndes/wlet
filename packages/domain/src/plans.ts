@@ -1,5 +1,6 @@
 import { CATEGORY_MAP } from '@wlet/domain'
 import type { PaymentMode, Plan, PlanGroup, PlanStatus } from '@wlet/domain'
+import { addMonths } from './months'
 
 /**
  * Os planos: o catálogo de intenções de compra, guardado no navegador.
@@ -143,9 +144,28 @@ export function parsePlans(raw: unknown): PlansData {
       payment = p.payment === 'financed' && financed ? 'financed' : p.payment === 'cash' ? 'cash' : undefined
     }
 
-    const status = STATUSES.has(p.status as PlanStatus) ? (p.status as PlanStatus) : 'considering'
     const groupId = text(p.groupId)
-    items.push({ id, label, categoryId, cash, financed, payment, status, month: at, groupId: groupId && known.has(groupId) ? groupId : undefined, note: text(p.note) })
+    // O vínculo com a compra só atravessa quando é um id de verdade: string vazia não é vínculo.
+    const purchaseId = text(p.purchaseId)
+    // Ligado ⇒ decidido, sempre — o mesmo invariante que o serviço aplica em toda escrita
+    // (`plans.service.ts`, `patched`). Esta é a OUTRA fronteira: um arquivo importado, ou um
+    // registro gravado antes da regra existir, pode trazer `status: 'considering'` ao lado de
+    // um `purchaseId` — a leitura corrige em silêncio em vez de propagar um estado que a
+    // própria interface não sabe produzir mais.
+    const status = purchaseId ? 'decided' : STATUSES.has(p.status as PlanStatus) ? (p.status as PlanStatus) : 'considering'
+    items.push({
+      id,
+      label,
+      categoryId,
+      cash,
+      financed,
+      payment,
+      status,
+      month: at,
+      groupId: groupId && known.has(groupId) ? groupId : undefined,
+      note: text(p.note),
+      ...(purchaseId ? { purchaseId } : {}),
+    })
   }
   return { version: PLANS_VERSION, groups, items }
 }
@@ -199,19 +219,6 @@ export function planMonths(plan: Plan): string[] {
   return out
 }
 
-/**
- * Aritmética de mês, num lugar só dentro deste módulo.
- *
- * `finance.ts` tem um `shiftMonth` idêntico e ele NÃO é importado aqui de propósito: aquele
- * arquivo carrega `@/generated/*.json` no topo, e `plans.ts` é lido pelos testes, que passariam
- * a depender de um dataset gerado para exercitar aritmética de calendário.
- */
-function addMonths(month: string, by: number): string {
-  const [y, m] = month.split('-').map(Number)
-  const total = y * 12 + (m - 1) + by
-  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}`
-}
-
 export interface PlanScheduleMonth {
   month: string
   /** O que já entra na previsão. */
@@ -233,7 +240,9 @@ export interface PlanScheduleMonth {
  * este gráfico existe para mostrar.
  */
 export function planScheduleByMonth(items: Plan[]): PlanScheduleMonth[] {
-  const live = items.filter((p) => p.status !== 'discarded' && p.month !== undefined)
+  // Plano ligado a uma compra fica de fora: as parcelas restantes dele já entram como CONTRATADO, e
+  // contá-las aqui também seria o mesmo dinheiro duas vezes.
+  const live = items.filter((p) => p.status !== 'discarded' && p.month !== undefined && !p.purchaseId)
   const totals = new Map<string, { decided: number; considering: number }>()
 
   for (const plan of live) {
