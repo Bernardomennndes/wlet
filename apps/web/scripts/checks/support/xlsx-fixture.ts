@@ -9,6 +9,8 @@
  * ele, qualquer dependência nova. Nenhum byte aqui é dado de ninguém.
  */
 
+import { deflateRawSync } from 'node:zlib'
+
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   let c = n
   for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
@@ -21,8 +23,15 @@ function crc32(data: Uint8Array): number {
   return (c ^ 0xffffffff) >>> 0
 }
 
-/** Um ZIP de entradas STORED. É o mínimo que `readEntries` de `xlsx.ts` precisa saber ler. */
-export function xlsxOf(files: Record<string, string>): Uint8Array {
+/**
+ * Um ZIP de entradas STORED — ou DEFLATED, quando se pede.
+ *
+ * O `deflate` existe porque um xlsx de verdade é comprimido, e o caminho comprimido do leitor
+ * (`env.inflateRaw`) não era exercitado por teste nenhum: com tudo STORED, o `method === 0` desvia
+ * dele sempre. Ele usa o `node:zlib` do runner, que é o mesmo descompressor que o ingest injeta
+ * no Node — o navegador usa `DecompressionStream`, e é essa dupla que `inflate.test.ts` prende.
+ */
+export function xlsxOf(files: Record<string, string>, { deflate = false }: { deflate?: boolean } = {}): Uint8Array {
   const encoder = new TextEncoder()
   const parts: Uint8Array[] = []
   const central: Uint8Array[] = []
@@ -30,17 +39,20 @@ export function xlsxOf(files: Record<string, string>): Uint8Array {
 
   for (const [name, content] of Object.entries(files)) {
     const nameBytes = encoder.encode(name)
-    const data = encoder.encode(content)
-    const sum = crc32(data)
+    const plain = encoder.encode(content)
+    // O CRC e o tamanho SEM compressão descrevem sempre o conteúdo original; só o tamanho
+    // comprimido e o método mudam. Trocar isso é o erro clássico de quem escreve ZIP à mão.
+    const sum = crc32(plain)
+    const data = deflate ? new Uint8Array(deflateRawSync(plain)) : plain
 
     const local = new Uint8Array(30 + nameBytes.length)
     const lv = new DataView(local.buffer)
     lv.setUint32(0, 0x04034b50, true) // assinatura do cabeçalho local
     lv.setUint16(4, 20, true) // versão necessária
-    lv.setUint16(8, 0, true) // método 0 = STORED
+    lv.setUint16(8, deflate ? 8 : 0, true) // 0 = STORED, 8 = DEFLATED
     lv.setUint32(14, sum, true)
     lv.setUint32(18, data.length, true) // comprimido
-    lv.setUint32(22, data.length, true) // sem compressão: os dois são iguais
+    lv.setUint32(22, plain.length, true) // o tamanho ORIGINAL
     lv.setUint16(26, nameBytes.length, true)
     local.set(nameBytes, 30)
 
@@ -48,10 +60,10 @@ export function xlsxOf(files: Record<string, string>): Uint8Array {
     const cv = new DataView(entry.buffer)
     cv.setUint32(0, 0x02014b50, true) // assinatura do diretório central
     cv.setUint16(6, 20, true)
-    cv.setUint16(10, 0, true)
+    cv.setUint16(10, deflate ? 8 : 0, true)
     cv.setUint32(16, sum, true)
     cv.setUint32(20, data.length, true)
-    cv.setUint32(24, data.length, true)
+    cv.setUint32(24, plain.length, true)
     cv.setUint16(28, nameBytes.length, true)
     cv.setUint32(42, offset, true)
     entry.set(nameBytes, 46)
