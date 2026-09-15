@@ -24,6 +24,7 @@ function toPlan(r: Row) {
     ...(r.payment ? { payment: r.payment as 'cash' | 'financed' } : {}),
     ...(r.month ? { month: r.month } : {}),
     ...(r.groupId ? { groupId: r.groupId } : {}),
+    ...(r.purchaseId ? { purchaseId: r.purchaseId } : {}),
     status: r.status as 'decided' | 'considering' | 'discarded',
   }
 }
@@ -45,6 +46,7 @@ export function plansRouter(db: ReturnType<typeof createDb>) {
     payment: p.payment ?? null,
     month: p.month ?? null,
     groupId: p.groupId ?? null,
+    purchaseId: p.purchaseId ?? null,
     status: p.status ?? 'considering',
   })
 

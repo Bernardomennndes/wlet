@@ -1,0 +1,1 @@
+ALTER TABLE "plans" ADD COLUMN "purchase_id" text;

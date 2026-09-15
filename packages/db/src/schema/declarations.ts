@@ -116,6 +116,11 @@ export const plans = pgTable(
     payment: text('payment'),
     month: text('month'),
     groupId: text('group_id'),
+    /**
+     * Id de UMA parcela da compra parcelada que o plano virou. Sem chave estrangeira de propósito,
+     * como `overrides.transaction_id`: o conjunto de lançamentos é regravado inteiro a cada ingestão.
+     */
+    purchaseId: text('purchase_id'),
     status: text('status').notNull(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.id] }), index('plans_user_group_idx').on(t.userId, t.groupId)],

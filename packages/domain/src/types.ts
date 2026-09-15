@@ -313,6 +313,12 @@ export interface Plan {
    */
   month?: string
   groupId?: string
+  /**
+   * O id de UMA parcela da compra parcelada que este plano virou — a mais antiga visível quando o
+   * vínculo foi feito. Com ele o plano deixa de ser previsão: pago, a cair e total saem da compra
+   * (`@wlet/domain/purchases`). Não existe id de compra; a parcela é a âncora.
+   */
+  purchaseId?: string
   note?: string
 }
 

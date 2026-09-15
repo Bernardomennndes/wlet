@@ -30,6 +30,8 @@ export const plan = z.object({
   payment: z.enum(['cash', 'financed']).optional(),
   month: month.optional(),
   groupId: z.string().optional(),
+  /** A parcela âncora da compra que o plano virou — ver `@wlet/domain/purchases`. */
+  purchaseId: z.string().optional(),
   status: z.enum(['decided', 'considering', 'discarded']),
 })
 

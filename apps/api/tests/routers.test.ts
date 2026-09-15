@@ -119,6 +119,25 @@ describe('planos', () => {
     assert.equal(depois.items.length, 1, 'o plano sobrevive ao grupo')
     assert.equal(depois.items[0].groupId, undefined, 'e perde o grupo, em vez de apontar para o que sumiu')
   })
+
+  it('o vínculo com a compra atravessa: add, update e replaceAll preservam purchaseId', async () => {
+    // O campo passa pelo Zod mesmo sem coluna — a requisição responde 200 e o insert não o menciona.
+    // É o elo que só um teste contra o banco de verdade vê.
+    const { context } = await comUsuario()
+    const r = plansRouter(d)
+    const created = await call(r.add, { label: 'Airbnb', categoryId: 'moradia', cash: 5622.2, status: 'decided', purchaseId: 'db78e48a1935' }, { context })
+    const id = created.items[0].id
+    assert.equal(created.items[0].purchaseId, 'db78e48a1935')
+
+    const edited = await call(r.update, { id, patch: { label: 'Airbnb Arraial' } }, { context })
+    assert.equal(edited.items[0].purchaseId, 'db78e48a1935', 'o patch sem o campo não apaga o vínculo')
+
+    const replaced = await call(r.replaceAll, { groups: [], items: [{ ...edited.items[0], purchaseId: '3e8b4c5881bc' }] }, { context })
+    assert.equal(replaced.items[0].purchaseId, '3e8b4c5881bc')
+
+    const unlinked = await call(r.replaceAll, { groups: [], items: [{ id, label: 'Airbnb', categoryId: 'moradia', cash: 5622.2, status: 'decided' }] }, { context })
+    assert.equal('purchaseId' in unlinked.items[0], false, 'sem vínculo, a chave não volta como null')
+  })
 })
 
 describe('configuração', () => {
