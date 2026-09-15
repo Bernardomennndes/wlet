@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { PlannedEntry, Receivable, Transaction } from '@wlet/domain'
-import { matchesRule, matchPlanned, matchReceivables } from '@wlet/ingest/matching'
+import { matchesRule, matchPlanned, matchReceivables, ruleProblems } from '@wlet/ingest/matching'
 
 /**
  * O casamento de regra declarada contra o extrato — o que transforma "declarei aluguel" em "o
@@ -157,5 +157,82 @@ describe('matchPlanned', () => {
     // como cobrável.
     const { matches } = matchPlanned([tx({ date: '2026-01-05', amount: -2000, merchant: 'FULANA' })], [plannedOf({ match: undefined })])
     assert.deepEqual(matches, [])
+  })
+})
+
+/**
+ * `ruleProblems` — a única guarda contra a regra que NUNCA vai casar, e ela não tinha teste.
+ *
+ * Todo o resto deste arquivo mede o casamento acontecendo. Esta função mede o contrário: ela lê a
+ * regra ANTES de rodar e diz se ela é capaz de casar alguma coisa. O medidor a mostrou com zero
+ * cobertura, e ela é exportada e chamada duas vezes pelo `pipeline.ts`, uma por lançamento previsto
+ * e outra por cobrança.
+ *
+ * O modo de falha é o pior da família: a regra torta NÃO estoura e NÃO casa. A tela diz que nove
+ * meses de aluguel estão vencidos, num conjunto que paga o aluguel todo mês — e o extrato está
+ * certo, a regra está lá, o número que falta é o casamento. Sem esta função, a única pista seria a
+ * pessoa desconfiar sozinha.
+ *
+ * E o aviso é FRASE no relatório, não exceção: o `declared-validation.test.ts` registra por quê —
+ * "o erro tem de aparecer como texto legível e não como número estranho num gráfico três telas
+ * adiante". O preço é que a validação é invisível quando ELA está errada, e é por isso que precisa
+ * de teste próprio.
+ */
+describe('ruleProblems', () => {
+  it('fragmento em minúsculas é acusado, com o texto certo a usar', () => {
+    // `normalizeForRules` maiúscula e tira acento antes de comparar. Um fragmento gravado como
+    // "Imobiliária" é comparado contra "IMOBILIARIA" e nunca casa — e como a comparação é por
+    // `includes`, não há erro nenhum a lançar: simplesmente não encontra.
+    //
+    // A mensagem traz o fragmento JÁ NORMALIZADO porque ela é a correção: quem lê o relatório
+    // copia e cola, em vez de descobrir a regra de normalização por tentativa.
+    const [problem] = ruleProblems('aluguel', { merchants: ['Imobiliária Silva'] })
+    assert.match(problem, /aluguel/)
+    assert.match(problem, /IMOBILIARIA SILVA/, 'a forma correta vem escrita na acusação')
+  })
+
+  it('acento e espaço duplo também impedem o casamento', () => {
+    // Os três eixos da normalização, num caso só: acento, caixa e espaço repetido. O espaço é o
+    // mais traiçoeiro — ele não aparece na tela e sobrevive a um copiar-colar do extrato.
+    assert.equal(ruleProblems('x', { merchants: ['MERCADO  X'] }).length, 1, 'espaço duplo')
+    assert.equal(ruleProblems('x', { merchants: ['MERCADO X'] }).length, 0, 'e o normalizado passa')
+  })
+
+  it('regra SEM contraparte nenhuma é acusada — ela casaria o extrato inteiro ou nada', () => {
+    // `merchants: []` faz o `some` devolver `false` sempre, então na prática a regra não casa nada.
+    // Acusar é melhor que deixar quieto: uma lista vazia é quase sempre um campo que a pessoa
+    // esqueceu de preencher, e não uma decisão.
+    const problems = ruleProblems('cobranca-x', { merchants: [] })
+    assert.equal(problems.length, 1)
+    assert.match(problems[0], /sem nenhuma contraparte/)
+  })
+
+  it('faixa de valor com mínimo maior que o máximo é acusada', () => {
+    // Intervalo impossível: nenhum valor cai dentro, e a regra deixa de casar mesmo com a
+    // contraparte certa. É o erro de digitar os dois campos na ordem trocada.
+    const problems = ruleProblems('aluguel', { merchants: ['IMOBILIARIA'], amountBetween: { min: 5000, max: 1000 } })
+    assert.equal(problems.length, 1)
+    assert.match(problems[0], /min maior que max/)
+  })
+
+  it('e faixa com só uma ponta NÃO é acusada — é forma legítima', () => {
+    // Uma cobrança de valor variável declara só o mínimo. Acusar aqui seria o defeito da rule que
+    // declara lacuna já fechada: mandar consertar o que está certo.
+    assert.deepEqual(ruleProblems('x', { merchants: ['LOJA'], amountBetween: { min: 100 } }), [])
+    assert.deepEqual(ruleProblems('x', { merchants: ['LOJA'], amountBetween: { max: 900 } }), [])
+  })
+
+  it('a acusação NOMEIA onde está a regra, senão o relatório não serve', () => {
+    // O `where` é o id do lançamento ou da cobrança. Sem ele o relatório diria "um fragmento não
+    // está normalizado" sobre uma configuração com dezenas de regras — verdadeiro e inútil.
+    const [problem] = ruleProblems('receivable:aluguel-arraial', { merchants: ['fulano'] })
+    assert.match(problem, /^receivable:aluguel-arraial:/)
+  })
+
+  it('e vários defeitos na mesma regra viram várias frases', () => {
+    // Elas se acumulam em vez de a primeira mascarar as outras: quem corrige uma e roda de novo
+    // não pode descobrir a segunda só então.
+    const problems = ruleProblems('x', { merchants: ['Loja Um', 'loja dois'], amountBetween: { min: 900, max: 100 } })
+    assert.equal(problems.length, 3, 'dois fragmentos tortos e a faixa invertida')
   })
 })
