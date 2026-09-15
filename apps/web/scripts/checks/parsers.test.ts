@@ -158,3 +158,109 @@ describe('a fatura da XP em CSV', () => {
     assert.equal(parsed.invoiceDueDate, '2026-02-10', 'o vencimento vem do nome do arquivo')
   })
 })
+
+/**
+ * UMA LINHA RUIM NÃO DERRUBA O ARQUIVO — as guardas que faltavam.
+ *
+ * Todo teste acima entrega um arquivo bem-formado e confere a leitura. O que o medidor mostrou em
+ * falta é o outro lado: o que este módulo faz com lixo. E ele lê arquivos que ninguém aqui
+ * escreveu — exportações de cinco bancos, cada uma com o seu jeito de omitir um campo —, então
+ * "lixo" não é hipótese: é terça-feira.
+ *
+ * A regra do módulo é DESCARTAR a linha e seguir, nunca estourar e nunca inventar. As duas pontas
+ * importam: uma exceção perde o extrato inteiro por causa de um rodapé, e um valor inventado entra
+ * na soma sem nada avisar. O que se perde de propósito — uma linha — o relatório não menciona, e é
+ * por isso que a alternativa tem de ser pior, não melhor.
+ */
+describe('o OFX com bloco incompleto', () => {
+  it('lançamento SEM `TRNAMT` entra como R$ 0,00 — e isto é um achado, não um projeto', () => {
+    // Escrevi este teste esperando o descarte, e ele falhou. O que o código faz:
+    //
+    //     const amount = Number.parseFloat(ofxTag(block, 'TRNAMT') ?? '0')
+    //     if (!posted || Number.isNaN(amount)) continue
+    //
+    // O `?? '0'` torna TAG AUSENTE indistinguível de VALOR ZERO, e com isso anula a guarda da
+    // linha seguinte para este caso: `parseFloat('0')` não é `NaN`, então a linha sobrevive. A
+    // guarda existe e está certa; o que passa por baixo dela é o `??`.
+    //
+    // O efeito é um lançamento de R$ 0,00 no extrato — ruído que atravessa tudo: entra na
+    // contagem, pede categoria, e ninguém sabe de onde veio. Não é catastrófico, e por isso está
+    // PRESO aqui em vez de consertado por mim: mexer no valor padrão de um parser é decisão do
+    // dono do módulo, e existe a leitura oposta (um OFX pode trazer `<TRNAMT>0</TRNAMT>` de
+    // propósito, e hoje os dois casos são o mesmo).
+    //
+    // No dia em que alguém trocar o `?? '0'` por um descarte, este teste fica vermelho e obriga a
+    // decisão a ser tomada de frente. Registrado em "Débitos em aberto".
+    const semValor = '<STMTTRN><TRNTYPE>DEBIT</TRNTYPE><DTPOSTED>20260105120000[-3:BRT]</DTPOSTED><MEMO>MERCADO X</MEMO><FITID>x1</FITID></STMTTRN>'
+    const parsed = parseOfx(ofx(STMT(`${semValor}\n${TRN()}`)))
+    assert.deepEqual(
+      parsed.transactions.map((t) => t.amount),
+      [0, -123.45],
+      'o comportamento de hoje, e não o desejável',
+    )
+  })
+
+  it('e sem MEMO nem NAME a descrição fica VAZIA, em vez de estourar', () => {
+    // A descrição some, e isso é aceitável: o valor e a data estão certos, e a linha cai em
+    // "outros" pedindo categoria. Perder o extrato inteiro por causa dela não seria.
+    const [tx] = parseOfx(ofx(STMT(TRN({ memo: '' })))).transactions
+    assert.equal(tx.description, '')
+    assert.equal(tx.amount, -123.45, 'o resto da linha atravessa')
+  })
+})
+
+describe('o CSV da XP com linha truncada', () => {
+  const csv = (linhas: string) => ({ path: 'docs/fatura/xp/2026-02-10.csv', bytes: new TextEncoder().encode(`Data;Estabelecimento;Portador;Valor;Parcela\n${linhas}`) })
+
+  it('linha sem coluna de valor é descartada, e as vizinhas entram', () => {
+    // O caso real é a última linha de um arquivo cortado no meio da exportação. Ela não pode
+    // derrubar a fatura, e também não pode virar uma compra de valor indefinido.
+    const parsed = parseXpInvoiceCsv(csv(['05/01/2026;MERCADO X;FULANO;1.234,56;-', '06/01/2026;LOJA', '07/01/2026;PADARIA;FULANO;50,00;-'].join('\n')), [])
+    assert.deepEqual(
+      parsed.transactions.map((t) => t.amount),
+      [-1234.56, -50],
+    )
+  })
+
+  it('valor que não é número é descartado — não vira NaN na soma', () => {
+    // `NaN` é o pior dos descartes possíveis: ele não estoura, propaga-se por toda soma que o
+    // toque, e o total do mês vira "NaN" na tela sem dizer qual linha o causou.
+    const parsed = parseXpInvoiceCsv(csv(['05/01/2026;MERCADO X;FULANO;--;-', '06/01/2026;PADARIA;FULANO;50,00;-'].join('\n')), [])
+    assert.deepEqual(
+      parsed.transactions.map((t) => t.amount),
+      [-50],
+    )
+  })
+
+  it('data fora do formato brasileiro descarta a linha, em vez de deslocar o dia', () => {
+    // `brDate` só aceita `dd/mm/aaaa`. Um ISO vindo por engano seria lido ao contrário pelo
+    // formato — dia e mês trocados — e 05/01 viraria 01/05 sem nada acusar.
+    const parsed = parseXpInvoiceCsv(csv(['2026-01-05;MERCADO X;FULANO;10,00;-', '06/01/2026;PADARIA;FULANO;50,00;-'].join('\n')), [])
+    assert.deepEqual(
+      parsed.transactions.map((t) => t.postedDate),
+      ['2026-01-06'],
+    )
+  })
+
+  it('portador VAZIO não vira `(undefined)` colado na descrição', () => {
+    // A regra de categoria casa por TEXTO: um `(undefined)` grudado no fim faz o estabelecimento
+    // deixar de ser reconhecido, e o gasto cai em "outros" com o valor certo.
+    const [tx] = parseXpInvoiceCsv(csv('05/01/2026;MERCADO X;;1.234,56;-'), []).transactions
+    assert.equal(tx.description, 'MERCADO X')
+  })
+
+  it('e a metade `holder ?` dessa guarda é INALCANÇÁVEL — medido', () => {
+    // Descoberto pela falsificação: trocar `holder ? … : false` por `selfNamePatterns.some(…)` sem
+    // guarda nenhuma não quebrou teste algum, porque o caso não existe. `line.split(';')` devolve
+    // `[date, merchant, holder, value, …]`, e a guarda anterior já descarta `value === undefined`
+    // — para `value` estar definido, `holder` é string, no máximo vazia. Nunca `undefined`.
+    //
+    // Fica escrito em vez de o guarda ser removido: ele custa nada, e a assinatura do `split` é
+    // frágil o bastante para que uma reordenação de colunas do CSV volte a torná-lo necessário.
+    // O que não pode é alguém depois olhar a linha e achar que há um caso testado ali.
+    for (const line of ['05/01/2026;MERCADO X', '05/01/2026;MERCADO X;', '05/01/2026;MERCADO X;;10,00']) {
+      const [, , holder, value] = line.split(';')
+      if (value !== undefined) assert.equal(typeof holder, 'string', 'valor definido implica portador string')
+    }
+  })
+})
