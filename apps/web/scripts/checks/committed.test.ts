@@ -110,14 +110,61 @@ describe('a série só continua se apareceu na fatura MAIS RECENTE', () => {
   })
 })
 
-describe('duas compras do mesmo estabelecimento não se fundem', () => {
-  it('a identidade é estabelecimento + total de parcelas + mês de origem', () => {
-    // Recuar `current - 1` meses leva toda parcela da mesma compra ao mesmo mês de origem.
-    // Sem o total de parcelas na chave, um 3x e um 6x da mesma loja no mesmo mês virariam um só
-    // — e metade do contratado sumiria do total.
+describe('duas compras parecidas não se fundem', () => {
+  /**
+   * A chave da compra MUDOU, e esta prosa acompanha: ela é
+   * `conta | data da compra | mês de origem | descrição crua | parcelas` (`@wlet/domain/purchases`).
+   *
+   * O `merchant` saiu de propósito — regra de categoria o reescreve, e mudar uma regra quebraria a
+   * chave em silêncio. O valor também não entra: varia centavos entre parcelas (937,05 e 937,03).
+   * Os testes daqui continuavam passando porque o fixture escreve `rawDescription` a partir do
+   * `merchant`; o que estava errado era a EXPLICAÇÃO, e explicação errada num teste envelhece pior
+   * que código errado — ela ensina a chave que não existe a quem vier depois.
+   */
+  it('um 3× e um 6× da mesma loja, no mesmo mês, são duas compras', () => {
+    // Sem o total de parcelas na chave os dois virariam um só, e metade do contratado sumiria.
     const history = [parcela('2026-01', 1, 3, 100), parcela('2026-01', 1, 6, 200)]
     const { byMonth } = committedFor(history, ['2026-02'])
     assert.equal(byMonth.get('2026-02') ?? 0, 300, 'as duas projetam')
+  })
+
+  it('e duas compras IDÊNTICAS em datas diferentes também', () => {
+    // O caso que a data da compra entrou para resolver, visto pelo lado do DINHEIRO: mesma
+    // descrição crua, mesmo número de parcelas, mesmo mês de origem — só a data difere. É o caso
+    // real da hospedagem estornada e recobrada, que tem a mesma `AIRBNB PAGAM*AIRB` das duas vezes.
+    //
+    // Pela chave antiga (`estabelecimento | parcelas | origem`) as duas colidiam e o mês projetava
+    // UMA. O total certo é o dobro, e o erro seria de menos — o tipo que ninguém confere.
+    const compra = (dia: string, amount: number) =>
+      tx({
+        month: '2026-01',
+        amount: -amount,
+        postedDate: `2026-01-${dia}`,
+        id: `airbnb-${dia}`,
+        merchant: 'AIRBNB PAGAM*AIRB',
+        installment: { current: 1, total: 3 },
+        invoice: { month: '2026-01' },
+      } as never)
+    const { byMonth } = committedFor([compra('04', 100), compra('20', 100)], ['2026-02'])
+    assert.equal(byMonth.get('2026-02') ?? 0, 200, 'duas compras, não uma')
+  })
+  it('e o ESTABELECIMENTO não decide nada: a regra de categoria o reescreve', () => {
+    // O contrário dos dois acima — aqui as parcelas TÊM de se juntar. `merchant` é campo derivado:
+    // uma regra de categoria o reescreve, e duas parcelas da mesma compra podem sair com nomes
+    // diferentes se a regra casar só uma delas. Com `merchant` na chave, a compra se parte em
+    // duas e o mês projeta o DOBRO — sem nada errado à vista, porque as duas metades parecem
+    // compras legítimas.
+    //
+    // Este caso é o que meu fixture não sabia exercitar: ele escrevia `rawDescription` a partir do
+    // `merchant`, então os dois nunca divergiam e a mutação que trocava um pelo outro passava.
+    // SEM `invoice`, e é essa escolha que faz o teste valer: com ela, o filtro da fatura mais
+    // recente descarta a parcela 1/4 sozinho — as duas chaves dariam o mesmo total e a mutação
+    // passaria. É a mesma armadilha do primeiro teste deste arquivo, encontrada do mesmo jeito.
+    const bruta = 'PAGAMENTO*LOJA 12/34'
+    const parcelaDe = (month: string, current: number, merchant: string) =>
+      tx({ month, amount: -100, id: `${month}-${current}`, merchant, rawDescription: bruta, postedDate: '2026-01-04', installment: { current, total: 4 } } as never)
+    const history = [parcelaDe('2026-01', 1, 'Loja'), parcelaDe('2026-02', 2, 'LOJA 12/34')]
+    assert.equal(committedFor(history, ['2026-03']).byMonth.get('2026-03') ?? 0, 100, 'uma compra só — cem, não duzentos')
   })
 })
 
