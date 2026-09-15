@@ -172,3 +172,76 @@ describe('o relatório sabe dizer quando não dá para reconstruir', () => {
     assert.equal(await buildInvestments([position(holding('PETR4', 100, 4000))], browserEnv, []), null)
   })
 })
+
+/**
+ * QUANDO O RAZÃO DA CORRETORA ESTÁ PRESENTE — o lado que o fixture nunca alcançava.
+ *
+ * Todos os testes acima montam só os dois relatórios da B3. Sem `extrato_de_*.xlsx` na lista, o
+ * `readBrokerageLedger` devolve `null` sempre, e dois caminhos deste módulo nunca rodavam: o
+ * aportado sair do razão, e os problemas DELE subirem para o relatório de investimentos.
+ *
+ * Os dois importam pela mesma razão. O "Aportado" é a RÉGUA contra a qual o patrimônio se mede —
+ * o rendimento é a diferença entre os dois —, então um aportado vazio faz a tela mostrar o
+ * patrimônio inteiro como ganho. E um razão que não fecha, se o aviso dele não subir, publica esse
+ * número com uma inconsistência conhecida e escondida uma camada abaixo.
+ */
+const brokerageRow = (serial: number, description: string, value: number) =>
+  `<row><c r="B" ><v>${serial}</v></c><c r="D" t="inlineStr"><is><t>${description}</t></is></c><c r="E" ><v>${value}</v></c><c r="G" ><v>0</v></c></row>`
+
+const brokerageHeader = (balance: number) => `<row><c r="B" t="inlineStr"><is><t>Saldo total projetado</t></is></c><c r="C" ><v>${balance}</v></c></row>`
+
+const ledgerFile = (rows: string, path = 'docs/investimentos/extrato_de_conta.xlsx'): SourceFile => ({
+  path,
+  bytes: xlsxOf({ 'xl/workbook.xml': '<workbook><sheets><sheet name="Extrato" sheetId="1"/></sheets></workbook>', 'xl/worksheets/sheet1.xml': SHEET(rows) }),
+})
+
+/** 10/11/2025, contando de 30/12/1899 — o dia da compra dos testes acima. */
+const SERIAL_2025_11_10 = 45971
+
+describe('o razão da corretora, quando está lá', () => {
+  const historia = movement('Credito', '10/11/2025', 'Compra', 'PETR4 - PETROBRAS PN', 100, 30)
+
+  it('o APORTADO sai dele, e não de um mapa vazio', async () => {
+    // Sem esta leitura o "Aportado" é zero e o rendimento vira o patrimônio inteiro. É o número
+    // mais fácil de olhar e não questionar, porque ele aparece grande e positivo.
+    const report = await buildInvestments(
+      [position(holding('PETR4', 100, 3000)), movements(historia), ledgerFile(brokerageHeader(3000) + brokerageRow(SERIAL_2025_11_10, 'TED BCO 001 XP - RECEBIMENTO DE TED', 3000))],
+      browserEnv,
+      [{ date: '2026-01-31', rate: 0.0005 }],
+    )
+
+    assert.ok(report)
+    assert.deepEqual(report.problems, [], 'o razão fecha: nada a declarar')
+    assert.ok(
+      report.series.some((point) => point.contributed > 0),
+      'o aportado chegou à série',
+    )
+  })
+
+  it('e os problemas DELE sobem para o relatório de investimentos', async () => {
+    // O razão declara R$ 9.999 e a soma dá R$ 3.000. O aviso nasce em `brokerage.ts` e precisa
+    // atravessar: quem olha a tela de Patrimônio não abre o relatório do razão, e um número
+    // publicado com inconsistência conhecida é pior que um número ausente.
+    const report = await buildInvestments(
+      [position(holding('PETR4', 100, 3000)), movements(historia), ledgerFile(brokerageHeader(9999) + brokerageRow(SERIAL_2025_11_10, 'TED BCO 001 XP - RECEBIMENTO DE TED', 3000))],
+      browserEnv,
+      [{ date: '2026-01-31', rate: 0.0005 }],
+    )
+
+    assert.ok(report)
+    assert.equal(report.problems.length, 1)
+    assert.match(report.problems[0], /não fecha/)
+  })
+
+  it('e o relatório MAIS RECENTE vence, pelo nome do arquivo', async () => {
+    // Mesma disciplina de `brokerage.ts`: a ordem é de unidade de código sobre o BASENAME, nunca o
+    // caminho nem `localeCompare`. Aqui ela decide qual posição é "hoje" — e a posição de hoje é o
+    // último ponto da série, o único que não é reconstruído.
+    const antiga = { ...position(holding('PETR4', 50, 1500)), path: 'docs/investimentos/z/posicao-2025-12-31.xlsx' }
+    const nova = { ...position(holding('PETR4', 100, 3000)), path: 'docs/investimentos/a/posicao-2026-01-31.xlsx' }
+
+    const report = await buildInvestments([nova, antiga, movements(historia)], browserEnv, [{ date: '2026-01-31', rate: 0.0005 }])
+    assert.ok(report)
+    assert.equal(report.series.at(-1)?.month, '2026-01', 'vence a posição de janeiro, apesar de a PASTA dela vir antes')
+  })
+})
