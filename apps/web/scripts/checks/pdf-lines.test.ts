@@ -102,3 +102,73 @@ describe('readPdfLines', () => {
     assert.deepEqual(await readPdfLines({ path: 'docs/fatura/vazia.pdf', bytes: new TextEncoder().encode('%PDF-1.4\n%%EOF') }, browserEnv), [])
   })
 })
+
+/**
+ * OS OPERADORES QUE O MEU FIXTURE NUNCA EMITIU.
+ *
+ * Tudo acima desenha com `Tm` (matriz absoluta) e `Tj` (string simples). Um PDF real usa mais que
+ * isso, e o medidor mostrou quatro ramos do laço de operadores sem nunca rodar — `TL`, `Td`, `T*` e
+ * `TJ`. Todos são emitidos por geradores comuns, então "não exercitado" aqui quer dizer "o próximo
+ * gerador de fatura pode não ser lido".
+ *
+ * O `Td` é o mais consequente, e não por acaso: o cabeçalho do módulo o lista como a QUARTA
+ * armadilha medida na construção, com o sintoma anotado — "tratá-lo como posição absoluta empilha
+ * todas as linhas numa só; o sintoma foi uma linha com onze datas coladas". O ramo que conserta
+ * isso existia e nenhum teste o alcançava.
+ */
+
+/** Texto por deslocamento RELATIVO: `Td` move a partir de onde o cursor está. */
+const move = (dx: number, dy: number, codes: string) => `${dx} ${dy} Td (${codes}) Tj`
+
+describe('os quatro operadores de texto que faltavam', () => {
+  it('`Td` é RELATIVO — duas chamadas descem o DOBRO, e não empilham', async () => {
+    // A armadilha 4, pelo comportamento. Lido como absoluto, o segundo `Td` poria a segunda linha
+    // em y=-20 e a terceira também em -20 — as três viram uma, com o texto colado. Relativo, cada
+    // uma desce mais 20 e saem três linhas.
+    const content = `BT /F1 10 Tf 1 0 0 1 50 700 Tm ${move(0, 0, A)} ${move(0, -20, B)} ${move(0, -20, C)} ET`
+    const lines = await readPdfLines(pdf(content), browserEnv)
+    assert.deepEqual(
+      lines.map((l) => l.text.trim()),
+      ['A', 'B', 'C'],
+      'três linhas, e não uma com tudo junto',
+    )
+  })
+
+  it('`T*` desce uma linha usando o espaçamento declarado por `TL`', () => {
+    // `TL` guarda o espaçamento e `T*` o consome. Sem o ramo do `TL`, o espaçamento fica em zero e
+    // todo `T*` devolve o cursor à MESMA altura — o mesmo empilhamento da armadilha 4, por outro
+    // caminho.
+    const content = `BT /F1 10 Tf 20 TL 1 0 0 1 50 700 Tm (${A}) Tj T* (${B}) Tj T* (${C}) Tj ET`
+    return readPdfLines(pdf(content), browserEnv).then((lines) =>
+      assert.deepEqual(
+        lines.map((l) => l.text.trim()),
+        ['A', 'B', 'C'],
+      ),
+    )
+  })
+
+  it('`TJ` junta os pedaços, e o recuo GRANDE vira espaço', () => {
+    // O array do `TJ` intercala strings e ajustes de recuo. Recuo pequeno é kerning entre letras da
+    // mesma palavra — virar espaço partiria "AB" em "A B". Recuo grande é separação de palavras, e
+    // ignorá-lo colaria "MERCADO" e "DIA" num nome que regra nenhuma reconhece.
+    const kerning = `BT /F1 10 Tf 1 0 0 1 50 700 Tm [(${A}) -20 (${B})] TJ ET`
+    const espaco = `BT /F1 10 Tf 1 0 0 1 50 680 Tm [(${A}) -400 (${B})] TJ ET`
+    return readPdfLines(pdf(`${kerning} ${espaco}`), browserEnv).then((lines) => {
+      assert.equal(lines[0].text, 'AB', 'kerning não separa')
+      assert.equal(lines[1].text, 'A B', 'recuo grande separa')
+    })
+  })
+
+  it('fonte cujo `/ToUnicode` aponta para objeto AUSENTE não derruba a leitura', () => {
+    // O `if (cmap)`. Um PDF com referência pendurada — corte no meio do arquivo, objeto removido —
+    // perde aquela fonte, e é só isso: o resto do documento continua legível.
+    const body = [`1 0 obj << /Type /Font /Subtype /Type0 /ToUnicode 99 0 R >> endobj`, `3 0 obj << /Font << /F1 1 0 R >> /Length 10 >> stream\n${draw(50, 700, A)}\nendstream endobj`].join('\n')
+    const pendurado = { path: 'docs/fatura/nubank/2026-01.pdf', bytes: new TextEncoder().encode(`%PDF-1.4\n${body}\n%%EOF`) }
+    return readPdfLines(pendurado, browserEnv).then((lines) => {
+      assert.ok(
+        lines.every((l) => [...l.text].every((ch) => ch.charCodeAt(0) > 8)),
+        'nenhum byte cru vazou',
+      )
+    })
+  })
+})
