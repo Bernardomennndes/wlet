@@ -197,7 +197,11 @@ function PlanForm({
         render={({ field, fieldState }) => (
           <Field>
             <FieldLabel htmlFor="plano-status">Situação</FieldLabel>
-            <AppCombobox id="plano-status" aria-label="Situação" value={field.value} onValueChange={field.onChange} items={STATUS_ITEMS} />
+            {/* Plano vinculado a uma compra já teve o pagamento iniciado: a situação não se troca aqui.
+                O serviço recolocaria "Decidido" em silêncio; travar o campo evita a tela prometer uma
+                troca que não acontece. O caminho de volta é desvincular, na linha da lista. */}
+            <AppCombobox id="plano-status" aria-label="Situação" value={field.value} onValueChange={field.onChange} items={STATUS_ITEMS} disabled={Boolean(editing?.purchaseId)} />
+            {editing?.purchaseId ? <FieldDescription>Decidido enquanto estiver vinculado a uma compra. Para mudar, desvincule o plano na lista.</FieldDescription> : null}
             <FieldError errors={[fieldState.error]} />
           </Field>
         )}
