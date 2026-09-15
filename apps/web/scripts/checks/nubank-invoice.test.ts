@@ -121,3 +121,41 @@ describe('a trava do total confere a MESMA grandeza que o parser produz', () => 
     assert.equal(parsed.kind, 'invoice')
   })
 })
+
+/**
+ * O ANO que vem do RELÓGIO — a escapatória de determinismo que restou no ingest.
+ *
+ * O `pipeline.ts` injeta `now` por decisão registrada: "`meta.generatedAt` saía de `new Date()`
+ * dentro do pipeline, e isso tornava a saída" diferente a cada rodada. `pipeline.test.ts` prende a
+ * promessa — "o mesmo `docs/` produz o mesmo resultado". Este parser tem uma porta que escapa dela.
+ *
+ * Quando o nome do arquivo não traz `AAAA-MM-DD`, o ano do vencimento vem de
+ * `new Date().getFullYear()`. Não estoura, e o efeito não aparece na fatura: aparece no MÊS em que
+ * cada compra cai. Uma fatura de 2026 lida em 2027 põe os lançamentos um ano à frente — e a mesma
+ * pasta, lida em dois anos diferentes, produz dois conjuntos distintos.
+ *
+ * Preso como está, e não consertado: o conserto é passar `now` até aqui, o que muda a assinatura de
+ * uma função pública e é decisão do dono do módulo. Registrado em "Débitos em aberto".
+ */
+describe('a fatura sem data no NOME', () => {
+  it('tira o ano do RELÓGIO DE PAREDE, e nada acusa', async () => {
+    // A asserção é comparada contra o relógio de propósito: ela diz que a saída DEPENDE dele, que é
+    // exatamente o defeito. Um valor fixo aqui passaria a falhar na virada do ano e pareceria
+    // flaky, quando o que estaria falando é o próprio problema.
+    //
+    // Escrevi antes que a compra de JAN cairia no ano SEGUINTE, pela regra de virada — e errei: o
+    // `dueMonth` cai em 12, e JAN numa fatura que vence em dezembro é janeiro do MESMO ano. A regra
+    // de virada está certa; o que é inventado é o ano sobre o qual ela opera.
+    const parsed = await invoice('docs/fatura/nubank/fatura.pdf', ['05 JAN MERCADO X 123,45', TOTAL('123,45')])
+
+    assert.equal(parsed.transactions[0].postedDate.slice(0, 4), String(new Date().getFullYear()), 'o ano da compra é o ano em que o ingest RODOU')
+    assert.equal(parsed.problem, null, 'e a fatura fecha: nada acusa a data inventada')
+  })
+
+  it('enquanto a fatura COM data no nome não depende do relógio', async () => {
+    // O contraste que dá sentido ao caso acima: com a data no nome, o resultado é o mesmo em
+    // qualquer ano — que é o que o projeto inteiro promete.
+    const parsed = await invoice('docs/fatura/nubank/2026-03-10.pdf', ['05 FEV MERCADO X 123,45', TOTAL('123,45')])
+    assert.equal(parsed.transactions[0].postedDate, '2026-02-05')
+  })
+})
