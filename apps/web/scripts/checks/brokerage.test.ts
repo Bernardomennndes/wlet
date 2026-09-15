@@ -153,3 +153,132 @@ describe('readBrokerageLedger', () => {
     assert.ok(ledger.problems.length >= 1, 'o extrato sem saldo declarado precisa avisar que a soma não pôde ser conferida')
   })
 })
+
+/**
+ * A TRAVA ARITMÉTICA e as duas formas que a planilha assume.
+ *
+ * O docblock do módulo resume a premissa inteira: "a conferência é aritmética e não depende de
+ * ordem — a soma de TODO lançamento desde o primeiro é igual ao saldo declarado hoje. Se não for, o
+ * `problems` avisa e o número não deve ser publicado". O medidor mostrou que o lado que AVISA quase
+ * nunca rodava, e que o caso em que a soma FECHA nunca rodou: o único teste do assunto afirmava
+ * `problems.length >= 1` sobre um extrato sem saldo declarado, o que passa por qualquer motivo.
+ */
+const balanceHeader = (value: number) => `<row><c r="B" t="inlineStr"><is><t>Saldo total projetado</t></is></c><c r="C" ><v>${value}</v></c></row>`
+
+/** A mesma linha, com o valor na coluna F em vez da E. A XP alterna entre as duas por arquivo. */
+const rowF = (serial: number, description: string, value: number, balance = 0) =>
+  `<row><c r="B" ><v>${serial}</v></c><c r="D" t="inlineStr"><is><t>${description}</t></is></c><c r="F" ><v>${value}</v></c><c r="G" ><v>${balance}</v></c></row>`
+
+const statementAt = (path: string, rows: string[]): SourceFile => ({
+  path,
+  bytes: xlsxOf({
+    'xl/workbook.xml': '<workbook><sheets><sheet name="Extrato" sheetId="1"/></sheets></workbook>',
+    'xl/worksheets/sheet1.xml': `<worksheet><sheetData>${rows.join('')}</sheetData></worksheet>`,
+  }),
+})
+
+describe('a soma do razão contra o saldo declarado', () => {
+  it('quando FECHA, não há problema nenhum — e é este o caso que faltava', async () => {
+    // Sem ele, todo teste do assunto poderia estar passando por um motivo qualquer: um extrato que
+    // o leitor não entende produz zero lançamentos, soma zero, e "não fecha" do mesmo jeito.
+    const ledger = await readBrokerageLedger(
+      [statement([balanceHeader(200), row(SERIAL_2026_01_05, 'TED BCO 001 XP - RECEBIMENTO DE TED', 1000), row(SERIAL_2026_01_05 + 1, 'COMPRA CDB', -800)])],
+      browserEnv,
+    )
+
+    assert.ok(ledger)
+    assert.equal(ledger.cash, 200)
+    assert.deepEqual(ledger.problems, [])
+  })
+
+  it('quando NÃO fecha, o aviso traz os DOIS números e diz onde procurar', async () => {
+    // "Falta arquivo em docs/investimentos/" é a causa real: os extratos da XP saem por período, e
+    // um buraco no meio some com lançamentos sem que nada mais denuncie. O aviso precisa dos dois
+    // números porque a diferença entre eles é o que a pessoa vai caçar.
+    const ledger = await readBrokerageLedger([statement([balanceHeader(5000), row(SERIAL_2026_01_05, 'TED BCO 001 XP - RECEBIMENTO DE TED', 1000)])], browserEnv)
+
+    assert.ok(ledger)
+    assert.equal(ledger.problems.length, 1)
+    assert.match(ledger.problems[0], /1000\.00.*5000\.00/, 'a soma e o declarado')
+    assert.match(ledger.problems[0], /docs\/investimentos/)
+  })
+
+  it('e sem saldo declarado o aviso é OUTRO — não se confunde com a soma errada', async () => {
+    // O teste que já existia afirmava só `problems.length >= 1`, e por isso não separava os dois
+    // casos. São diagnósticos diferentes: um diz "falta arquivo", o outro diz "não deu para
+    // conferir", e quem lê precisa saber qual dos dois.
+    const ledger = await readBrokerageLedger([statement([row(SERIAL_2026_01_05, 'COMPRA CDB', -800)])], browserEnv)
+
+    assert.ok(ledger)
+    assert.equal(ledger.problems.length, 1)
+    assert.match(ledger.problems[0], /não pôde ser conferida/)
+    assert.doesNotMatch(ledger.problems[0], /não fecha/)
+  })
+})
+
+describe('a coluna do valor alterna entre E e F conforme o arquivo', () => {
+  it('a planilha que escreve em F é lida igual', async () => {
+    // Lendo só a E, todo arquivo do outro formato produziria ZERO lançamentos — e o razão não
+    // fecharia por um motivo que o aviso não sabe explicar, porque ele fala em arquivo faltando.
+    const ledger = await readBrokerageLedger(
+      [statementAt('docs/investimentos/extrato_de_conta_2026.xlsx', [balanceHeader(1000), rowF(SERIAL_2026_01_05, 'TED BCO 001 XP - RECEBIMENTO DE TED', 1000)])],
+      browserEnv,
+    )
+
+    assert.ok(ledger)
+    assert.deepEqual(
+      ledger.entries.map((e) => [e.description, e.value, e.kind]),
+      [['TED BCO 001 XP - RECEBIMENTO DE TED', 1000, 'bank']],
+    )
+    assert.deepEqual(ledger.problems, [])
+  })
+})
+
+describe('a ordem dos arquivos é do NOME, não da máquina de quem abre', () => {
+  it('o saldo declarado sai do primeiro nome em ordem, mesmo chegando por último', async () => {
+    // O módulo registra por que isto não é cosmético: `declared` fica com o saldo do PRIMEIRO
+    // arquivo da lista, e é ele que decide a trava aritmética. Sem a ordenação por NOME, a
+    // conferência passaria ou falharia conforme a ordem em que o sistema de arquivos devolveu a
+    // pasta — e o mesmo `docs/` daria respostas diferentes em duas máquinas.
+    //
+    // Os caminhos são escolhidos para que NOME e CAMINHO discordem: por nome de arquivo,
+    // `extrato_de_a` vem primeiro; por caminho inteiro, a pasta `a/` viria antes da `z/`. Só a
+    // comparação por BASENAME dá o resultado abaixo, e os saldos declarados diferem de propósito —
+    // só o do `extrato_de_a` fecha com a soma.
+    const porNome = statementAt('docs/investimentos/z/extrato_de_a.xlsx', [balanceHeader(1000), row(SERIAL_2026_01_05, 'TED BCO 001 XP - RECEBIMENTO DE TED', 1000)])
+    const porCaminho = statementAt('docs/investimentos/a/extrato_de_b.xlsx', [balanceHeader(9999)])
+
+    const ledger = await readBrokerageLedger([porCaminho, porNome], browserEnv)
+    assert.ok(ledger)
+    assert.deepEqual(ledger.problems, [], 'vence o `extrato_de_a`, cujo saldo fecha — apesar de a PASTA dele vir depois')
+  })
+})
+
+describe('o que a classificação decide, lida da planilha', () => {
+  it('imposto e provento saem do texto, e não do sinal do valor', async () => {
+    // Os dois são negativos e positivos respectivamente, mas não é isso que os separa — um resgate
+    // também é negativo. Classificar pelo sinal poria o IR na régua do aportado, e o rendimento
+    // apareceria menor do que foi.
+    const ledger = await readBrokerageLedger(
+      [statement([balanceHeader(42.5), row(SERIAL_2026_01_05, 'IRRF SOBRE RENDIMENTOS', -7.5), row(SERIAL_2026_01_05 + 1, 'JUROS S/ CAPITAL PROPRIO PETR4', 50)])],
+      browserEnv,
+    )
+
+    assert.ok(ledger)
+    assert.deepEqual(
+      ledger.entries.map((e) => e.kind),
+      ['tax', 'income'],
+    )
+  })
+
+  it('dois lançamentos IGUAIS no mesmo dia com saldos diferentes são dois', async () => {
+    // O saldo corrente entra na chave de deduplicação de propósito: duas compras idênticas no mesmo
+    // dia são legítimas, e sem a coluna `G` a segunda seria descartada como repetição de arquivo
+    // sobreposto. O caixa perderia o valor dela e o razão deixaria de fechar.
+    const ledger = await readBrokerageLedger([statement([balanceHeader(-1600), row(SERIAL_2026_01_05, 'COMPRA CDB', -800, 100), row(SERIAL_2026_01_05, 'COMPRA CDB', -800, 200)])], browserEnv)
+
+    assert.ok(ledger)
+    assert.equal(ledger.entries.length, 2)
+    assert.deepEqual(ledger.problems, [])
+  })
+})
