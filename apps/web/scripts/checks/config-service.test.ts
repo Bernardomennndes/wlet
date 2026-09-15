@@ -161,3 +161,76 @@ describe('serviço de configuração: cobranças a receber', () => {
     await assert.rejects(() => service.replace({ ...seedConfig(), receivables: [{ ...receivable, startMonth: 'xx' }] }), InvalidConfigError)
   })
 })
+
+/**
+ * AS BORDAS DA VALIDAÇÃO — o que a tela nunca produz, e o pacote produz.
+ *
+ * Os testes acima cobrem o que um formulário errado manda. Estes cobrem o que chega por outro
+ * caminho: a importação de um pacote gerado noutra versão, um arquivo editado à mão, um campo que
+ * o schema de uma tela antiga não exigia. `importState` passa pela MESMA validação — o próprio
+ * arquivo registra isso —, e é por ela que o valor impossível entra.
+ *
+ * Nenhum destes estoura na tela: eles produzem um teto de gastos que não é teto, ou um aviso que
+ * avisa sempre — ou nunca. O medidor da rubrica continua desenhando, com a régua errada.
+ */
+describe('serviço de configuração: as bordas do teto', () => {
+  it('recusa teto NEGATIVO', async () => {
+    // Um teto negativo faz todo gasto estourar o limite, e a barra da rubrica nasce cheia. É a
+    // forma mais barata de a tela mentir sem nada quebrar.
+    const { service } = setup()
+    await assert.rejects(() => service.saveBudget({ monthlyLimit: -100, warnAt: 0.75, byCategory: [] }), InvalidConfigError)
+  })
+
+  it('e aceita teto ZERO, que é "não declarei teto"', async () => {
+    // Zero não é impossível — é o estado de quem ainda não definiu. Recusá-lo obrigaria a inventar
+    // um número, que é o que este projeto evita em toda tela.
+    const { service } = setup()
+    const saved = await service.saveBudget({ monthlyLimit: 0, warnAt: 0.75, byCategory: [] })
+    assert.equal(saved.budget.monthlyLimit, 0)
+  })
+
+  it('recusa aviso em ZERO — ele avisaria sempre', async () => {
+    // O outro lado do intervalo, e o que o teste que já existia não alcançava: ele mandava 75, que
+    // estoura o teto superior. Com `warnAt: 0`, a comparação `gasto >= limite * 0` é verdadeira
+    // desde o primeiro centavo, e a tela fica permanentemente em alerta — o que equivale a não
+    // avisar, porque ninguém repara no que está sempre aceso.
+    const { service } = setup()
+    await assert.rejects(() => service.saveBudget({ monthlyLimit: 1000, warnAt: 0, byCategory: [] }), InvalidConfigError)
+  })
+
+  it('e aceita aviso em UM, que é avisar só ao estourar', async () => {
+    // A ponta inclusiva. Quem não quer aviso antecipado declara 1, e recusá-lo o empurraria para
+    // 0,99 — um número sem significado.
+    const { service } = setup()
+    const saved = await service.saveBudget({ monthlyLimit: 1000, warnAt: 1, byCategory: [] })
+    assert.equal(saved.budget.warnAt, 1)
+  })
+})
+
+describe('serviço de configuração: regra sem mês inicial', () => {
+  it('a AUSÊNCIA do mês é recusada, e não só o formato errado', async () => {
+    // O teste que já existia manda um mês malformado. Este manda a ausência — o caso do pacote de
+    // uma versão que ainda não tinha o campo. Sem o `?? ''`, o `MONTH.test(undefined)` coagiria
+    // para a string "undefined" e a recusa aconteceria pelo motivo certo por acaso; com ele, a
+    // intenção fica escrita.
+    const { service } = setup()
+    const semMes = { id: 'x', kind: 'expense' as const, label: 'A', amount: 1, categoryId: 'moradia', entity: 'PF' as const, recurrence: 'monthly' as const }
+    await assert.rejects(() => service.savePlanned([semMes as never]), InvalidConfigError)
+  })
+})
+
+describe('serviço de configuração: reset sem semente', () => {
+  it('volta ao BRANCO, em vez de recusar', async () => {
+    // "Sem semente, voltar ao início é voltar ao branco — que é onde este app começa." O caso é o
+    // clone novo que nunca rodou `pnpm ingest`: ele não tem semente, e um reset que estourasse
+    // deixaria a pessoa presa numa configuração que ela quer descartar.
+    const repository = makeFakeConfigRepository(seedConfig())
+    const service = makeConfigService({ repository, seed: { read: async () => null } })
+
+    const depois = await service.reset()
+    assert.deepEqual(depois.planned, [])
+    assert.deepEqual(depois.receivables, [])
+    assert.equal(depois.budget.monthlyLimit, 0)
+    assert.deepEqual(await repository.find(), depois, 'e o branco é GRAVADO, não só devolvido')
+  })
+})
