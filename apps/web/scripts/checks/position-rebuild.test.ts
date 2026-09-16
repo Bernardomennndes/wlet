@@ -123,12 +123,44 @@ describe('a renda fixa precisa do CDI para ter série', () => {
     // Renda fixa não tem cotação diária: o valor de cada mês sai do valor de emissão composto
     // pelo CDI, com o percentual RESOLVIDO para bater com a posição de hoje. Sem isso a linha do
     // patrimônio ficaria plana até o último mês e daria um salto no fim.
-    const report = await build(`<row>${cell('D', 'CDB012345678', true)}${cell('I', '1')}${cell('N', '1050')}</row>`, movement('Credito', '10/01/2026', 'Aplicação', 'CDB012345678 - BANCO X', 1, 1000))
+    //
+    // **Este teste tinha duas fraquezas, e as duas foram achadas depois — ficam escritas porque a
+    // segunda é a mais fácil de repetir.** A primeira: o fixture punha o CDB na aba 1, que é RENDA
+    // VARIÁVEL; o último mês, que vem do relatório, saía como `equity` e o `fixedIncome` dele era
+    // zero. A segunda: as asserções eram `series.length > 0` e "nenhum ponto vira NaN" — as duas
+    // passam com a reconstrução inteira errada, porque uma série de valores plausíveis também tem
+    // comprimento e também é finita.
+    //
+    // Compra em NOVEMBRO e posição em janeiro, para haver mês reconstruído de verdade; valores
+    // presos, para a asserção enxergar a diferença.
+    const report = await buildInvestments(
+      [fixedPositionAt('docs/investimentos/posicao-2026-01-31.xlsx', 'CDB012345678', 1, 1050), movements(movement('Credito', '10/11/2025', 'Aplicação', 'CDB012345678 - BANCO X', 1, 1000))],
+      browserEnv,
+      [
+        { date: '2025-11-30', rate: 0.0005 },
+        { date: '2025-12-31', rate: 0.0005 },
+        { date: '2026-01-31', rate: 0.0005 },
+      ],
+    )
+
     assert.ok(report)
-    assert.ok(report.series.length > 0, 'a renda fixa entra na série')
-    assert.ok(
-      report.series.every((point) => Number.isFinite(point.total)),
-      'nenhum ponto vira NaN',
+    assert.deepEqual(
+      report.series.map((point) => point.month),
+      ['2025-11', '2025-12', '2026-01'],
+      'três meses: dois reconstruídos e o do relatório',
+    )
+    assert.equal(report.series.at(-1)?.fixedIncome, 1050, 'o último vem do RELATÓRIO, e como renda FIXA')
+    // Os números são PRESOS, e a terceira fraqueza deste teste foi descoberta assim: com
+    // `novembro > 1000 && dezembro > novembro` a mutação que fixa o percentual em 100% do CDI passa
+    // ilesa, porque a série plana também cresce — só que menos. Os dois mundos, medidos:
+    // resolvido dá 1001,25 e 1002,50; a 100% do CDI dá 1000,50 e 1001,00.
+    //
+    // Setenta e cinco centavos separam "a régua do papel" de "uma régua qualquer", e nenhuma
+    // comparação por maior-que enxerga isso.
+    assert.deepEqual(
+      report.series.map((point) => point.fixedIncome),
+      [1001.25, 1002.5, 1050],
+      'compõe pela taxa RESOLVIDA; a 100% do CDI daria 1000,50 e 1001,00',
     )
   })
 
