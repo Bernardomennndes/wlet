@@ -17,13 +17,25 @@ import { read, repoRoot } from './support/source-fields'
  * fica vermelho pedindo para TIRAR o item — não para consertar de novo.
  */
 const CLAUDE = 'CLAUDE.md'
-const SECTION = '## Débitos em aberto'
 
-const doc = () => read(CLAUDE)
+/**
+ * A âncora é o CABEÇALHO, no início de uma linha — e isso custou um portão vermelho.
+ *
+ * Era `indexOf('## Débitos em aberto')`, e bastou eu escrever esse título DENTRO de uma nota, entre
+ * crases, para o `indexOf` encontrar a menção antes do cabeçalho e fatiar o arquivo a partir dali.
+ * A seção passou a ter 115 "débitos" — todas as notas do documento —, contra 8 guardas, e o sensor
+ * ficou vermelho acusando o próprio texto que o explicava.
+ *
+ * Uma âncora que qualquer prosa pode mover não é âncora. `^## ` presa ao começo da linha, e o fim
+ * no próximo cabeçalho de mesmo nível, tornam o recorte independente do que se escreve sobre ele.
+ */
 const section = () => {
-  const at = doc().indexOf(SECTION)
-  assert.notEqual(at, -1, 'a seção de débitos sumiu do CLAUDE.md')
-  return doc().slice(at)
+  const source = read(CLAUDE)
+  const start = source.search(/^## Débitos em aberto\s*$/m)
+  assert.notEqual(start, -1, 'a seção de débitos sumiu do CLAUDE.md')
+  const rest = source.slice(start + 1)
+  const end = rest.search(/^## /m)
+  return end === -1 ? source.slice(start) : source.slice(start, start + 1 + end)
 }
 
 describe('o balanço de débitos está inteiro', () => {
