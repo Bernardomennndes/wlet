@@ -152,8 +152,18 @@ describe('pacote: importação seletiva', () => {
     const destino = setup()
     await importState(lido.payload, ['declarations'], destino)
     const regra = (await destino.config.load()).rules[0]
+    // **O que ele CASA não basta, e o que ele NÃO casa é a metade que importa.** As duas asserções
+    // que estavam aqui — `instanceof RegExp` e `.test('padaria do bairro')` — passam com uma
+    // expressão VAZIA, porque `//` casa qualquer texto. E esse é justamente o pior desfecho: uma
+    // regra que casa tudo manda TODA transação para a primeira categoria da lista, com o valor
+    // certo e a conta errada.
+    //
+    // Por isso o padrão e as flags ficam presos, e há um caso negativo ao lado.
     assert.ok(regra.test instanceof RegExp)
-    assert.ok(regra.test.test('padaria do bairro'))
+    assert.equal(regra.test.source, 'PADARIA|PAO')
+    assert.equal(regra.test.flags, 'i')
+    assert.ok(regra.test.test('padaria do bairro'), 'casa o que deve')
+    assert.equal(regra.test.test('MERCADO CENTRAL'), false, 'e NÃO casa o que não deve — uma regra vazia casaria')
   })
 
   it('a configuração importada passa pela MESMA validação', async () => {

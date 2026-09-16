@@ -41,7 +41,12 @@ describe('serialização portável', () => {
     assert.equal(back.s, 'ação')
     assert.equal(back.b, false)
     assert.equal(back.nul, null)
-    assert.ok((((back.arr as unknown[])[1] as unknown[])[1] as { deep: RegExp }).deep instanceof RegExp)
+    // A expressão ANINHADA também leva origem e flags: `instanceof` sozinho passa com uma vazia, e
+    // `//` casa qualquer texto — o mesmo desfecho que a regra de categoria perdida.
+    const deep = (((back.arr as unknown[])[1] as unknown[])[1] as { deep: RegExp }).deep
+    assert.ok(deep instanceof RegExp)
+    assert.equal(deep.source, 'a')
+    assert.equal(deep.flags, 'g')
   })
 
   it('faz a volta completa por texto', () => {
