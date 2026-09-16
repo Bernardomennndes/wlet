@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { read, stripComments } from './support/source-fields'
 import { describe, it } from 'node:test'
 import { deflateSync } from 'node:zlib'
 import { browserEnv, type SourceFile } from '@wlet/ingest/io'
@@ -85,10 +86,22 @@ describe('o que não infla é IGNORADO, não estoura', () => {
     assert.deepEqual(await readPdfLines(pdf([FONT_DICT, font(false), content]), browserEnv), [])
   })
 
-  it('e byte sobrando que NÃO é fim de linha não é aparado', async () => {
-    // O remendo só corta `\\n` e `\\r`. Cortar qualquer byte final iria, cedo ou tarde, comer dado
-    // comprimido de verdade e devolver um texto silenciosamente incompleto.
-    const content = object(3, '/Filter /FlateDecode /Font << /F1 1 0 R >>', Buffer.concat([deflateSync(Buffer.from(draw(50, 700, A))), Buffer.from('X')]))
-    assert.deepEqual(await readPdfLines(pdf([FONT_DICT, font(false), content]), browserEnv), [])
+  it('e o remendo só aceita `\n` e `\r` — por FONTE, porque o resto é da plataforma', () => {
+    // Este teste era comportamental e quebrou quando o Node do ambiente foi de 26 para 22.
+    //
+    // A regra do módulo não mudou: ele tenta inflar; se falhar E o último byte for 10 ou 13, corta
+    // um e tenta de novo; qualquer outro byte final faz desistir. O que mudou foi o INFLADOR — o do
+    // Node 22 aceita lixo depois do fluxo válido e devolve o texto, o do 26 recusa. Com um `X` no
+    // fim, o primeiro nem chega ao `catch`, e a asserção de lista vazia media a rigidez do
+    // `DecompressionStream`, não a decisão daqui.
+    //
+    // A decisão é a LISTA de bytes reaproveitáveis, e ela se lê na fonte. Cortar qualquer byte
+    // final iria, cedo ou tarde, comer dado comprimido de verdade e devolver texto silenciosamente
+    // incompleto — por isso o `else` desiste em vez de insistir.
+    const source = stripComments(read('packages/ingest/src/pdf.ts'))
+    const retry = /previous === (\d+) \|\| previous === (\d+)/.exec(source)
+    assert.ok(retry, 'o remendo do fim de linha sumiu de `decodeStream`')
+    assert.deepEqual([retry[1], retry[2]].sort(), ['10', '13'], 'só a quebra de linha é reaproveitada')
+    assert.match(source, /else return null/, 'e qualquer outro byte final faz DESISTIR')
   })
 })

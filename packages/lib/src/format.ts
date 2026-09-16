@@ -1,5 +1,8 @@
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
-const brlCompact = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 1 })
+// `minimumFractionDigits: 0` não é redundante com o máximo: no ICU do Node 22, `maximumFractionDigits: 1`
+// sozinho MANTÉM o zero à direita e imprime "R$ 22,0 mil"; no do Node 26 ele o descarta. Declarar o
+// mínimo fixa a saída nas duas — e "R$ 22 mil" é o que o docblock de `formatAxis` documenta.
+const brlCompact = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 1, minimumFractionDigits: 0 })
 
 export function formatBRL(value: number): string {
   return brl.format(value)
@@ -9,7 +12,7 @@ export function formatBRLCompact(value: number): string {
   return Math.abs(value) >= 10_000 ? brlCompact.format(value) : brl.format(value)
 }
 
-const brlAxis = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 1 })
+const brlAxis = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 1, minimumFractionDigits: 0 })
 
 /** Rótulo curto para eixos: "R$ 5,5 mil", "R$ 22 mil", "R$ 0". */
 export function formatAxis(value: number): string {
