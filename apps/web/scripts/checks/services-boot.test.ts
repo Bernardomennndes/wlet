@@ -13,6 +13,28 @@ import { describe, it } from 'node:test'
  * Este teste roda no Node, onde `setDataset` nunca foi chamado: se algum módulo da cadeia ler o
  * dataset na avaliação, o import estoura aqui em vez de estourar no navegador de alguém.
  */
+/**
+ * AUDITADO POR MUTAÇÃO em 16/09/2026 — e a razão de o número de cobertura deste arquivo ser baixo.
+ *
+ * O medidor mostra ~74% de ramos aqui, e é o estado CERTO: os ramos que faltam são os que empurram
+ * um infrator para a lista, e eles só rodam quando há infração. Um sensor com cobertura alta dos
+ * próprios ramos seria um sensor acusando alguma coisa.
+ *
+ * O que esse número não diz é se as asserções CONSEGUEM falhar — e um sensor que não acende é pior
+ * que sensor nenhum, porque produz confiança falsa. As cinco de maior consequência foram
+ * falsificadas contra a produção, uma a uma, e cada uma acendeu na afirmação certa:
+ *
+ * 1. a montagem voltando a inventar o id num literal (o defeito que a §6 da rule de serviços
+ *    registra ter acontecido, e que fez 200 ids num tique virarem UM);
+ * 2. o `apiUrl()` caindo num padrão em vez de acusar a variável ausente;
+ * 3. a semente voltando a importar `@/generated` por caminho fixo, que é o que derrubava o build
+ *    inteiro num clone sem a pasta;
+ * 4. o cliente voltando a ler `localStorage` — pego aqui E no `browser-storage.test.ts`, que é a
+ *    redundância desejada para essa regra;
+ * 5. o app voltando a passar `token`, que é coisa de script e de teste, não de navegador.
+ *
+ * Fica escrito para ninguém refazer a auditoria, e para o 74% não ser lido como vão.
+ */
 describe('portão de boot', () => {
   it('importar @wlet/services não lê o dataset', async () => {
     await assert.doesNotReject(() => import('../../src/lib/services.ts'))
