@@ -53,9 +53,20 @@ describe('tradução de erro remoto', () => {
   })
 
   it('5xx é falha do servidor; outro status vira falha com o número dentro', () => {
+    // **A CLASSE não basta aqui, e a auditoria por mutação mostrou por quê.** As duas famílias
+    // devolvem `ServerError`, então trocar `status >= 500` por um limiar impossível não quebrava
+    // nada: o 500 caía na linha final e continuava `instanceof ServerError`. O que mudava era a
+    // MENSAGEM — e é ela que a pessoa lê.
+    //
+    // A diferença é de utilidade: "o servidor falhou, tente de novo em instantes" diz o que fazer;
+    // "o servidor respondeu 500" é um número que não significa nada para quem não programa. O
+    // número só ganha lugar quando o status é inesperado, porque aí ele é a única pista que existe.
+    assert.match(translateRemoteError(orpcError(500)).message, /Tente de novo/)
+    assert.doesNotMatch(translateRemoteError(orpcError(500)).message, /500/, 'o número não vaza para a tela num 5xx')
+    assert.match(translateRemoteError(orpcError(503)).message, /Tente de novo/)
+    assert.match(translateRemoteError(orpcError(418)).message, /418/, 'mas o status inesperado leva o número, que é a única pista')
     assert.ok(translateRemoteError(orpcError(500)) instanceof ServerError)
-    assert.ok(translateRemoteError(orpcError(503)) instanceof ServerError)
-    assert.match(translateRemoteError(orpcError(418)).message, /418/)
+    assert.ok(translateRemoteError(orpcError(418)) instanceof ServerError)
   })
 
   it('erro de DOMÍNIO passa intacto', () => {
