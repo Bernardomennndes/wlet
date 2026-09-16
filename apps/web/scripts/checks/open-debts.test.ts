@@ -55,16 +55,35 @@ describe('e nenhum débito já foi pago sem sair da lista', () => {
     assert.ok(stale || consumers.length > 0, 'o `plans.ts` foi limpo — tire o item da seção "Débitos em aberto"')
   })
 
-  it('`docs/` na raiz continua fora do `.gitignore`', () => {
-    // Só vale enquanto a pasta existir: num clone sem ela o débito não se manifesta, e cobrar
-    // seria acusar quem não tem o problema.
-    if (!existsSync(`${repoRoot}docs`)) return
-    let ignored = true
+  /**
+   * Esta afirmação guardava o enquadramento ANTIGO do débito, e por isso foi reescrita.
+   *
+   * Ela exigia que `docs/` na raiz NÃO estivesse no `.gitignore`, e mandava tirar o item se
+   * passasse a estar. O item mudou: medido em 15/09/2026, os extratos moram em `apps/web/docs/`,
+   * que ESTÁ ignorada, e a raiz `docs/` guarda só specs — que devem mesmo ser versionadas. A
+   * mensagem antiga daria conselho errado a quem a lesse.
+   *
+   * O que o débito hoje descreve é valor REAL de compra em arquivo versionado, e o que o protege é
+   * a pasta dos extratos continuar ignorada. É isso que se afirma agora.
+   */
+  it('a pasta dos EXTRATOS continua ignorada — é ela que protege', () => {
+    // Perder esta linha do `.gitignore` é o único caminho para extrato, fatura e relatório da
+    // corretora entrarem num commit. O débito dos valores em prosa é pequeno ao lado disso.
+    let ignored = false
     try {
-      execFileSync('git', ['check-ignore', '-q', 'docs'], { cwd: repoRoot })
+      execFileSync('git', ['check-ignore', '-q', 'apps/web/docs'], { cwd: repoRoot })
+      ignored = true
     } catch {
       ignored = false
     }
-    assert.equal(ignored, false, '`docs/` passou a ser ignorado — tire o item da seção "Débitos em aberto"')
+    assert.equal(ignored, true, '`apps/web/docs/` saiu do `.gitignore` — os extratos ficaram commitáveis')
+  })
+
+  it('e os valores que o débito nomeia ainda estão em arquivo versionado', () => {
+    // O outro lado: se os números saírem dos arquivos, o débito foi pago e o item tem de sair da
+    // lista. Conferido pelo `git grep`, que só enxerga o que está RASTREADO — é a pergunta certa,
+    // porque o risco é o repositório virar público, não o disco de quem trabalha nele.
+    const tracked = execFileSync('git', ['grep', '-l', '-E', '5\\.?622[,.]2|937[,.]03', '--', 'docs', 'apps', 'packages'], { cwd: repoRoot, encoding: 'utf8' }).split('\n').filter(Boolean)
+    assert.ok(tracked.length > 0, 'os valores sumiram dos arquivos versionados — tire o item da seção "Débitos em aberto"')
   })
 })
