@@ -64,6 +64,7 @@ function readObjects(bytes: Uint8Array): Map<number, PdfObject> {
   const out = new Map<number, PdfObject>()
   const re = /(\d+)\s+(\d+)\s+obj\b/g
   let match: RegExpExecArray | null
+  // biome-ignore lint/suspicious/noAssignInExpressions: iterar um regex global exige avançar `lastIndex` na própria condição; sem a atribuição aqui o laço não anda.
   while ((match = re.exec(text))) {
     const start = match.index + match[0].length
     const end = text.indexOf('endobj', start)
@@ -236,6 +237,7 @@ export async function readPdfLines(file: SourceFile, env: IngestEnv): Promise<Pd
     const re =
       /([\d.-]+)\s+TL|\/([A-Za-z][A-Za-z0-9]*)\s+[\d.]+\s+Tf|([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s+Tm|([\d.-]+)\s+([\d.-]+)\s+Td|\[((?:\\.|[^\]])*)\]\s*TJ|\(((?:\\.|[^)])*)\)\s*Tj|\bT\*/g
     let op: RegExpExecArray | null
+    // biome-ignore lint/suspicious/noAssignInExpressions: mesma iteração de regex global da varredura de objetos acima.
     while ((op = re.exec(content))) {
       if (op[1] !== undefined) {
         leading = Number(op[1])

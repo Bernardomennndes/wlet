@@ -48,6 +48,7 @@ describe('sha1 do navegador contra o node:crypto', () => {
 
   it('bate em entradas longas e variadas', () => {
     let seed = 7
+    // biome-ignore lint/suspicious/noAssignInExpressions: avançar a semente É o passo do gerador; separar a atribuição da divisão exigiria uma função de duas linhas para o mesmo efeito.
     const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff
     for (let i = 0; i < 300; i++) {
       const len = Math.floor(rnd() * 500)

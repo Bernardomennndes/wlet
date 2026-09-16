@@ -23,7 +23,27 @@
     }
   },
   "linter": {
-    "enabled": false
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "a11y": {
+        "preset": "none"
+      },
+      "correctness": {
+        "useHookAtTopLevel": "error"
+      },
+      "style": {
+        "useComponentExportOnlyModules": {
+          "level": "warn",
+          "options": {
+            "allowConstantExport": true
+          }
+        }
+      },
+      "suspicious": {
+        "noArrayIndexKey": "warn"
+      }
+    }
   },
   "files": {
     "includes": ["**", "!**/dist/**", "!**/node_modules/**", "!pnpm-lock.yaml", "!**/docs/**", "!wlet-*.json", "!**/.turbo/**", "!**/drizzle/**"],
@@ -43,6 +63,22 @@
       "json": {
         "parser": {
           "allowComments": true
+        }
+      }
+    },
+    {
+      "includes": ["packages/ui/src/components/**", "apps/web/src/components/ui/**"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "useExhaustiveDependencies": "off"
+          },
+          "security": {
+            "noDangerouslySetInnerHtml": "off"
+          },
+          "suspicious": {
+            "noArrayIndexKey": "off"
+          }
         }
       }
     }

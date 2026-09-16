@@ -139,6 +139,7 @@ export function OverviewPageContent() {
     const byMonth: Record<string, ExpenseSegment[]> = {}
     const add = (month: string, categoryId: string, value: number) => {
       if (value <= 0) return
+      // biome-ignore lint/suspicious/noAssignInExpressions: `??=` devolvendo o valor é o idioma de "pega ou cria"; a alternativa é ler o mapa duas vezes.
       const list = (byMonth[month] ??= [])
       const found = list.find((s) => s.categoryId === categoryId)
       if (found) found.value += value

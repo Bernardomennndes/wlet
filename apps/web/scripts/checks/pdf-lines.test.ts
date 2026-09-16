@@ -91,8 +91,9 @@ describe('readPdfLines', () => {
     const semFonte = { path: 'docs/fatura/x.pdf', bytes: new TextEncoder().encode(`%PDF-1.4\n1 0 obj << /Length 40 >> stream\n${draw(50, 700, A)}\nendstream endobj\n%%EOF`) }
     const lines = await readPdfLines(semFonte, browserEnv)
     assert.ok(
-      // Por código, e não por regex: um `/[\\x00-\\x08]/` acende o `no-control-regex` do oxlint, e
-      // subir a linha de base de avisos por causa de um teste é trocar um sinal por outro.
+      // Por código, e não por regex: um `/[\\x00-\\x08]/` acende o `noControlCharactersInRegex` do
+      // Biome, que é ERRO e derruba `pnpm lint` — quebrar o portão por causa de um teste é trocar um
+      // sinal por outro.
       lines.every((l) => [...l.text].every((ch) => ch.charCodeAt(0) > 8)),
       'nenhum byte cru na saída',
     )

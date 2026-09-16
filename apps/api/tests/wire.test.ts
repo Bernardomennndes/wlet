@@ -43,8 +43,7 @@ describe('dinheiro na fronteira', () => {
   it('a volta fixa DOIS decimais, e é o que impede a deriva de float de chegar ao banco', () => {
     // A deriva é PRODUZIDA por soma, e não escrita como literal, por duas razões: é assim que ela
     // nasce no app — somando lançamento a lançamento —, e um literal como `12973.399999999999`
-    // acende o `no-loss-of-precision` do oxlint, subindo a linha de base de avisos por causa de
-    // um teste.
+    // acende o `noPrecisionLoss` do Biome, que é ERRO e derruba `pnpm lint` por causa de um teste.
     const somaDeOnze = Array.from({ length: 11 }, () => 1179.4).reduce((total, value) => total + value, 0)
     assert.notEqual(somaDeOnze, 11 * 1179.4, 'a soma derivou, que é a premissa deste caso')
     assert.equal(toMoney(somaDeOnze), '12973.40', 'e o `toFixed(2)` corta a cauda que pintou o mês de vermelho')
