@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readdirSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { describe, it } from 'node:test'
 import { body, read, repoRoot, stripComments } from './support/source-fields'
 
@@ -86,6 +86,28 @@ describe('tocar em cookie exige guarda', () => {
       }
     }
     assert.deepEqual(naked, [])
+  })
+
+  it('e toda anistia de `UNGUARDED` ainda anistia ALGUMA COISA', () => {
+    // O lado esquecido de toda lista de exceção, e o mesmo que `rule-module-refs.test.ts` já
+    // prende para as rules: uma entrada que sobrevive ao motivo dela vira licença em branco. Se o
+    // arquivo sumir, ou se o acesso dele ganhar `try/catch`, a linha aqui continua permitindo — e
+    // o PRÓXIMO `document.cookie` nu naquele arquivo passa sem ninguém ver.
+    //
+    // É o débito do `sidebar.tsx` que faz esta guarda valer: ele é código de terceiro na nossa
+    // árvore, e no dia em que o registry o atualizar com um `try`, a anistia precisa sair junto.
+    const useless: string[] = []
+    for (const [file, reason] of Object.entries(UNGUARDED)) {
+      if (!existsSync(`${repoRoot}${file}`)) {
+        useless.push(`${file}: o arquivo não existe mais`)
+        continue
+      }
+      const source = stripComments(read(file))
+      const naked = [...source.matchAll(/document\.cookie/g)].some((m) => !guarded(source, m.index))
+      if (!naked) useless.push(`${file}: já está embrulhado — a anistia não protege nada`)
+      assert.ok(reason.length > 30, `${file}: o porquê precisa dizer de quem é o código e por que não se mexe`)
+    }
+    assert.deepEqual(useless, [], 'tire a entrada de UNGUARDED e o item de "Débitos em aberto" junto')
   })
 
   it('e a exceção declarada continua sendo exceção', () => {
