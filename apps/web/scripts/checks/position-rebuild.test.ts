@@ -374,3 +374,76 @@ describe('a renda fixa não rende ALÉM do último dia com CDI', () => {
     assert.equal(fevereiro.fixedIncome, janeiro.fixedIncome, 'fevereiro não rende: não há CDI para compor')
   })
 })
+
+/**
+ * O TÍTULO JÁ EXTINTO — o papel que foi comprado e resgatado DENTRO do histórico.
+ *
+ * Ele não está na posição de hoje, então não há valor de mercado para resolver o %CDI contra. O
+ * módulo usa o valor de SAÍDA: o percentual sai do que o resgate pagou, não do que a carteira vale.
+ *
+ * Sem esse ramo, `pct` fica em 1 — cem por cento do CDI — e o papel é avaliado a uma taxa que não é
+ * a dele em TODOS os meses em que existiu. Um CDB a 110% do CDI, resgatado no ano passado, aparece
+ * valendo menos do que valia em cada ponto da série, e o patrimônio histórico fica baixo.
+ *
+ * O efeito na tela é o pior possível: a linha do passado desce, a de hoje não muda — e a diferença
+ * entre as duas é justamente o RENDIMENTO, que passa a parecer maior do que foi.
+ */
+describe('o papel que não está mais na carteira', () => {
+  it('tira o %CDI do valor de RESGATE, e não do valor de hoje', async () => {
+    // Comprado em novembro por R$ 1.000, resgatado em janeiro por R$ 1.100 — dez por cento em dois
+    // meses, muito acima do CDI do fixture. A posição de hoje não o contém.
+    //
+    // O que se afirma é o resultado observável do `pct` resolvido: com ele, o valor reconstruído de
+    // dezembro fica ENTRE a compra e o resgate, compondo à taxa que o resgate revelou. Com `pct`
+    // preso em 1, dezembro ficaria colado nos mil reais da emissão.
+    const compra = movement('Credito', '10/11/2025', 'Aplicação', 'CDB012345678 - BANCO X', 1, 1000)
+    const resgate = movement('Debito', '15/01/2026', 'Resgate Antecipado/', 'CDB012345678 - BANCO X', 1, 1100)
+    const report = await buildInvestments([fixedPositionAt('docs/investimentos/posicao-2026-01-31.xlsx', 'OUTRO987654321', 1, 500), movements([compra, resgate].join(''))], browserEnv, [
+      { date: '2025-11-10', rate: 0.0005 },
+      { date: '2025-12-31', rate: 0.0005 },
+      { date: '2026-01-15', rate: 0.0005 },
+      { date: '2026-01-31', rate: 0.0005 },
+    ])
+
+    assert.ok(report)
+    const dezembro = report.series.find((p) => p.month === '2025-12')
+    assert.ok(dezembro, 'a série alcança o mês em que o papel ainda existia')
+    //
+    // O número é preso, e não um `> 1000`: com o ramo desligado dezembro dá 1000,50 — que também é
+    // maior que mil. Escrevi assim primeiro e as duas mutações passaram. A diferença entre os dois
+    // mundos é de setenta e cinco centavos aqui, e é ela que o teste precisa enxergar.
+    //
+    // O percentual resolvido satura no teto da bisseção (250% do CDI), porque dez por cento em dois
+    // dias de CDI é inalcançável — o solver devolve o limite em vez de um número sem sentido, e o
+    // problema declarado do bloco acima é quem avisa quando isso importa.
+    assert.equal(dezembro.fixedIncome, 1001.25, 'compõe à taxa que o resgate revelou; sem o ramo daria 1000,50')
+  })
+
+  it('e o resgate mais RECENTE é o que manda, quando há mais de um', async () => {
+    // A lista é ordenada e o `.at(-1)` pega o último. Dois resgates parciais são o caso de quem
+    // tira o dinheiro em partes, e é o preço da ÚLTIMA saída que reflete a taxa acumulada até ali.
+    //
+    // **Os dois resgates precisam implicar taxas DIFERENTES, senão o teste não separa nada.** Com
+    // os valores que escrevi primeiro — e com o CDI esparso do fixture — os dois solves saturavam
+    // no mesmo teto, e trocar `.at(-1)` por `.at(0)` não mudava um centavo. O parcial aqui paga
+    // pouco acima da emissão (taxa baixa) e o último paga dez por cento (taxa no teto).
+    const compra = movement('Credito', '10/11/2025', 'Aplicação', 'CDB012345678 - BANCO X', 2, 1000)
+    const parcial = movement('Debito', '10/12/2025', 'Resgate Antecipado/', 'CDB012345678 - BANCO X', 1, 1001)
+    const ultimo = movement('Debito', '15/01/2026', 'Resgate Antecipado/', 'CDB012345678 - BANCO X', 1, 1100)
+    const report = await buildInvestments([fixedPositionAt('docs/investimentos/posicao-2026-01-31.xlsx', 'OUTRO987654321', 1, 500), movements([compra, parcial, ultimo].join(''))], browserEnv, [
+      { date: '2025-11-30', rate: 0.0005 },
+      { date: '2025-12-05', rate: 0.0005 },
+      { date: '2025-12-20', rate: 0.0005 },
+      { date: '2026-01-10', rate: 0.0005 },
+    ])
+
+    assert.ok(report)
+    const novembro = report.series.find((p) => p.month === '2025-11')
+    const dezembro = report.series.find((p) => p.month === '2025-12')
+    assert.ok(novembro && dezembro)
+    assert.equal(novembro.fixedIncome, 2002.5, 'dois papéis, já compondo o dia de CDI que caiu depois da compra')
+    // Dezembro é onde os dois resgates se separam: depois do parcial resta UM papel, e ele compõe
+    // pela taxa que o ÚLTIMO resgate revelou.
+    assert.equal(dezembro.fixedIncome, 1003.75, 'taxa do resgate de janeiro; pela do de dezembro daria 1001,50')
+  })
+})
