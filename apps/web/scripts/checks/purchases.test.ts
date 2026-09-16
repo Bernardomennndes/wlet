@@ -335,3 +335,38 @@ describe('duas compras SUGERIDAS se ordenam pela pontuação', () => {
     assert.equal(suggested[0].purchase.postedDate, '2026-05-11', 'maio, apesar de ser a mais antiga')
   })
 })
+
+describe('duas sugeridas EMPATADAS caem na data', () => {
+  it('mesma pontuação: a compra mais recente vem primeiro', () => {
+    // O último ramo da ordenação. O bloco anterior cobre pontuações diferentes; aqui elas são
+    // IGUAIS, e a terceira comparação é quem decide.
+    //
+    // O plano bate parcelas (6) e categoria (moradia) nas duas compras, e o mês dele — junho — está
+    // a um mês de maio E a um mês de julho. Três pontos em cada, as duas sugeridas, e nenhuma
+    // vantagem de uma sobre a outra.
+    //
+    // Recência é o critério certo para esse empate: quem abre o diálogo para vincular um plano
+    // acabou de fazer a compra, e a lista deve começar por ela.
+    const planoDeJunho = {
+      id: 'plan-junho',
+      label: 'Hospedagem',
+      categoryId: 'moradia',
+      cash: 1,
+      financed: { total: 1, installments: 6 },
+      payment: 'financed',
+      status: 'decided',
+      month: '2026-06',
+    } as Plan
+
+    const ranked = suggestPurchases(planoDeJunho, group(), [planoDeJunho], '2026-09')
+    const suggested = ranked.filter((r) => r.suggested)
+
+    assert.equal(suggested.length, 2, 'as duas passam do limiar')
+    assert.equal(suggested[0].score, suggested[1].score, 'e empatam — é isso que leva ao desempate por data')
+    assert.deepEqual(
+      suggested.map((s) => s.purchase.postedDate),
+      ['2026-07-04', '2026-05-11'],
+      'a mais recente primeiro',
+    )
+  })
+})

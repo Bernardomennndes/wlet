@@ -181,6 +181,30 @@ describe('serviço do conjunto ingerido: arquivos-fonte', () => {
     )
   })
 
+  it('e o que o reset DEVOLVE, quando não há semente, é o vazio', async () => {
+    // "Sem semente no build, voltar ao início é voltar ao VAZIO — que é literalmente o estado de
+    // origem deste app." O caso é o clone novo que nunca rodou `pnpm ingest`: não há
+    // `src/generated/`, então a semente devolve `null`.
+    //
+    // O teste ao lado prende que o reset LIMPA; este prende o que ele devolve. Sem o
+    // `?? emptyDataset()`, o `null` chegaria à tela como conjunto — e a tela lê `meta.months`, que
+    // num `null` estoura. A pessoa apertaria "recomeçar" e o app quebraria, no exato momento em que
+    // ela quer voltar ao início.
+    const sources = makeFakeSourceStore([arquivo('docs/a.ofx')])
+    const service = makeDatasetService({
+      sources,
+      runner: makeFakeRunner({}),
+      repository: makeFakeDatasetRepository(seedDataset()),
+      seed: { read: async () => null },
+    })
+
+    const fresh = await service.reset()
+    assert.deepEqual(fresh.transactions, [])
+    assert.deepEqual(fresh.accounts, [])
+    assert.deepEqual(fresh.meta.months, [], 'e `meta` existe, com meses vazios — é isso que a tela lê')
+    assert.equal(sources.cleared, true, 'os arquivos somem igual')
+  })
+
   it('reset descarta o conjunto E os arquivos', async () => {
     const sources = makeFakeSourceStore([arquivo('docs/a.ofx')])
     const service = makeDatasetService({ sources, runner: makeFakeRunner({}), repository: makeFakeDatasetRepository(seedDataset()), seed: makeFakeSeed(seedDataset()) })
