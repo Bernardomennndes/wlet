@@ -457,3 +457,74 @@ ${TRN('20260105', '-80.00', 'PADARIA')}
     assert.match(accounts[0].name, /Cartão/)
   })
 })
+
+/**
+ * O FORMATO NÃO BASTA: o CAMINHO decide qual leitor abre o arquivo.
+ *
+ * `parseFile` roteia por extensão E por pasta. Um `.csv` só é fatura da XP dentro de
+ * `fatura/xp/`; um `.pdf` só é fatura do Nubank dentro de `fatura/nubank/`. Os dois pares de
+ * condição existem porque os formatos não se identificam sozinhos — um CSV é um CSV, e lê-lo com o
+ * leitor errado não estoura: produz lançamentos plausíveis com data, valor e descrição vindos das
+ * colunas erradas.
+ *
+ * É o modo de falha mais difícil de perceber do ingest, porque o relatório não acusa e a tela
+ * mostra números que parecem extrato.
+ */
+describe('a pasta faz parte da identificação do formato', () => {
+  it('um `.csv` FORA de `fatura/xp/` não é lido como fatura da XP', async () => {
+    // O CSV da XP é `Data;Estabelecimento;Portador;Valor;Parcela`. Um CSV qualquer em
+    // `docs/extrato/` tem outras colunas — e se fosse roteado para lá, as colunas 1 e 4 virariam
+    // data e valor de qualquer jeito.
+    const csv = 'Data;Estabelecimento;Portador;Valor;Parcela\n05/01/2026;MERCADO;FULANO;1.234,56;-'
+    const { transactions, report } = await runIngest(input([file('docs/extrato/exemplo/janeiro.csv', csv)]))
+
+    assert.deepEqual(transactions, [], 'nenhum lançamento: o arquivo não foi lido')
+    assert.deepEqual(report.pdfProblems, [], 'e nada foi acusado — ele simplesmente não é um formato conhecido ALI')
+  })
+
+  it('e o MESMO conteúdo dentro de `fatura/xp/` é lido', async () => {
+    // O contraste que dá sentido ao anterior: o arquivo não mudou, a pasta mudou. Sem ele, o teste
+    // acima passaria também se o leitor de CSV estivesse quebrado.
+    const csv = 'Data;Estabelecimento;Portador;Valor;Parcela\n05/01/2026;MERCADO;FULANO;1.234,56;-'
+    const { transactions } = await runIngest(input([file('docs/fatura/xp/2026-02-10.csv', csv)], { accounts: [PROFILE_CARTAO] }))
+
+    assert.equal(transactions.length, 1)
+    assert.equal(transactions[0].amount, -1234.56)
+  })
+
+  it('um `.pdf` fora de `fatura/nubank/` também fica de fora', async () => {
+    const { transactions, report } = await runIngest(
+      input([{ ...pdfInvoice(['05 FEV MERCADO X 123,45', 'Total de compras R$ 123,45']), path: 'docs/extrato/exemplo/janeiro.pdf' }], { accounts: [PROFILE_CARTAO] }),
+    )
+
+    assert.deepEqual(transactions, [])
+    assert.deepEqual(report.pdfProblems, [], 'nem sequer chega ao leitor para ser recusado')
+  })
+})
+
+describe('um ponto no nome da PASTA não é extensão', () => {
+  it('o `.ofx` continua sendo `.ofx` dentro de uma pasta com ponto no nome', async () => {
+    // `extensionOf` compara a posição do último ponto com a da última barra, e a comparação está
+    // certa — mas ela é INOBSERVÁVEL daqui, e isso ficou medido: trocá-la por `dot >= 0` não muda
+    // resultado nenhum, porque uma "extensão" falsa como `.antigo/janeiro` não casa rota alguma e
+    // o arquivo é ignorado do mesmo jeito.
+    //
+    // O que este teste prova é o que importa para quem organiza a pasta: um ponto no nome do
+    // diretório — `docs/backup.2025/` — não impede o arquivo de ser lido. A guarda continua certa
+    // e continua sem custo; o que não se pode é dizer que este teste a sustenta.
+    const ofx = OFX(TRN('20260105', '-120.50', 'DROGARIA'))
+    const { transactions } = await runIngest(input([file('docs/backup.2025/exemplo/janeiro.ofx', ofx)]))
+
+    assert.equal(transactions.length, 1, 'o `.ofx` continua sendo `.ofx` apesar do ponto na pasta')
+  })
+})
+
+describe('o mesmo mês em dois formatos: o CSV perde para o OFX, mas só quando há OFX', () => {
+  it('sem OFX, o grupo inteiro passa — inclusive um CSV sozinho', async () => {
+    // `csv.length > 0 ? csv : group` na escolha de formato é sobre outra coisa que não o nome:
+    // `pickBestFormat` já resolveu OFX contra CSV. O ramo `: group` é o que mantém um grupo que não
+    // tem CSV nenhum — e descartá-lo silenciaria a pasta inteira.
+    const picked = pickBestFormat([file('docs/fatura/xp/2026-02-10.csv', ''), file('docs/fatura/xp/2026-03-10.csv', '')])
+    assert.equal(picked.length, 2, 'dois meses, dois arquivos')
+  })
+})
