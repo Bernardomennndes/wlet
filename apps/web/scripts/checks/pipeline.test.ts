@@ -383,3 +383,77 @@ describe('a parcela cai no mês certo, mesmo quando o mês é CURTO', () => {
     assert.equal(transactions[0].postedDate, '2026-01-31', 'e a data da COMPRA não se mexe')
   })
 })
+
+/**
+ * A CONTA FABRICADA — quantas ela é, e como ela se chama.
+ *
+ * O teste acima prende que ela NASCE. O que não estava preso é o resto da decisão: dois arquivos da
+ * mesma conta desconhecida precisam encontrar o MESMO perfil, e o nome dela sai dos metadados que o
+ * arquivo trouxer, degradando quando não trouxer.
+ *
+ * O primeiro é o de consequência. Sem a reutilização, cada extrato cria a sua conta, a mesma conta
+ * aparece três vezes na tela de Contas, e o saldo se parte entre elas — cada pedaço certo, o
+ * conjunto errado. E como o id é derivado dos metadados, dois arquivos do mesmo banco produzem
+ * exatamente o mesmo id: a reutilização não é otimização, é o que impede a duplicata.
+ */
+describe('a conta fabricada é UMA, por mais arquivos que venham', () => {
+  it('dois meses da mesma conta desconhecida compartilham o perfil', async () => {
+    const janeiro = OFX(TRN('20260105', '-80.00', 'PADARIA'), { bankId: '999', acctId: '77' })
+    const fevereiro = OFX(TRN('20260210', '-50.00', 'MERCADO'), { bankId: '999', acctId: '77' }).replace('<DTSTART>20260101</DTSTART><DTEND>20260131', '<DTSTART>20260201</DTSTART><DTEND>20260228')
+    const { transactions, accounts, report } = await runIngest(
+      input([file('docs/extrato/desconhecido/janeiro.ofx', janeiro), file('docs/extrato/desconhecido/fevereiro.ofx', fevereiro)], { accounts: [] }),
+    )
+
+    assert.equal(accounts.length, 1, 'uma conta, não duas')
+    assert.equal(transactions.length, 2)
+    assert.deepEqual([...new Set(transactions.map((t) => t.accountId))], [accounts[0].id], 'os dois meses apontam para ela')
+    assert.deepEqual(report.unknownAccounts, [accounts[0].id], 'e o relatório a nomeia uma vez só')
+  })
+
+  it('contas desconhecidas DIFERENTES continuam sendo duas', () => {
+    // O contraste que dá sentido ao anterior: a reutilização é por id derivado, e ids diferentes
+    // precisam continuar diferentes — senão dois bancos viram um.
+    const um = OFX(TRN('20260105', '-80.00', 'PADARIA'), { bankId: '999', acctId: '77' })
+    const outro = OFX(TRN('20260105', '-30.00', 'FARMACIA'), { bankId: '888', acctId: '55' })
+    return runIngest(input([file('docs/extrato/a/janeiro.ofx', um), file('docs/extrato/b/janeiro.ofx', outro)], { accounts: [] })).then(({ accounts }) => {
+      assert.equal(accounts.length, 2)
+    })
+  })
+})
+
+describe('o nome da conta fabricada sai do que o arquivo trouxer', () => {
+  it('com nome do banco, ele aparece; e o tipo distingue cartão de conta', async () => {
+    // O nome é o que a pessoa vê na tela de Contas para decidir se cadastra o perfil de verdade.
+    // "Banco Conta" sem número não ajuda ninguém a reconhecer qual conta é.
+    const ofx = OFX(TRN('20260105', '-80.00', 'PADARIA'), { bankId: '999', acctId: '77' })
+    const { accounts } = await runIngest(input([file('docs/extrato/desconhecido/janeiro.ofx', ofx)], { accounts: [] }))
+
+    assert.match(accounts[0].name, /77/, 'o número da conta entra no nome')
+    assert.equal(accounts[0].type, 'checking')
+    // O código do banco sai do `<FID>` do CABEÇALHO, com o `<BANKID>` da conta só como reserva:
+    // `ofxTag(text, 'FID') ?? ofxTag(accountBlock, 'BANKID')`. Escrevi `999` — o `BANKID` deste
+    // fixture — e veio `001`, que é o `FID`. A precedência é do arquivo inteiro sobre o bloco da
+    // conta, e conhecê-la importa: um OFX sem `FID` cai no `BANKID`, e os dois nem sempre são o
+    // mesmo número.
+    assert.equal(accounts[0].bankCode, '001', 'do `<FID>`, não do `<BANKID>`')
+  })
+
+  it('e a FATURA fabricada se chama "Cartão", não "Conta"', async () => {
+    // O bloco `<CCSTMTRS>` marca cartão. Chamar tudo de "Conta" faria a fatura parecer conta
+    // corrente na lista — e a diferença entre as duas é justamente o que a tela de Contas separa.
+    const fatura = `OFXHEADER:100
+<OFX>
+  <SIGNONMSGSRSV1><SONRS><FI><ORG>BANCO DESCONHECIDO</ORG><FID>999</FID></FI></SONRS></SIGNONMSGSRSV1>
+  <CREDITCARDMSGSRSV1><CCSTMTTRNRS><CCSTMTRS>
+    <CCACCTFROM><ACCTID>4444</ACCTID></CCACCTFROM>
+    <BANKTRANLIST><DTSTART>20260101</DTSTART><DTEND>20260131</DTEND>
+${TRN('20260105', '-80.00', 'PADARIA')}
+    </BANKTRANLIST>
+  </CCSTMTRS></CCSTMTTRNRS></CREDITCARDMSGSRSV1>
+</OFX>`
+    const { accounts } = await runIngest(input([file('docs/fatura/desconhecido/janeiro.ofx', fatura)], { accounts: [] }))
+
+    assert.equal(accounts[0].type, 'credit-card')
+    assert.match(accounts[0].name, /Cartão/)
+  })
+})
