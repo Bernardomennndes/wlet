@@ -1,6 +1,6 @@
 import { Warning } from '@phosphor-icons/react'
 import { useState } from 'react'
-import { HidingSquaresIcon } from '@/components/hiding-squares-icon'
+import { IsometricCubeIcon } from '@/components/isometric-cube-icon'
 import { auth } from '@/lib/auth'
 import { useDocumentTitle } from '@/hooks/use-document-title'
 import { Button } from '@wlet/ui/components/button'
@@ -54,7 +54,7 @@ export function EntrarPageContent({ onEntrou }: { onEntrou: () => void }) {
     <main className="flex min-h-svh items-center justify-center p-6">
       <div className="flex w-full max-w-sm flex-col gap-5">
         <div className="flex items-center gap-2">
-          <HidingSquaresIcon className="size-8 shrink-0" />
+          <IsometricCubeIcon className="size-8 shrink-0" />
           <span className="font-mono text-lg font-semibold">WLET</span>
         </div>
 

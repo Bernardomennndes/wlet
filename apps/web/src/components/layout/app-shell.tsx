@@ -1,15 +1,14 @@
 import { Moon, SignOut, Sun } from '@phosphor-icons/react'
-import { Suspense, useCallback, useMemo } from 'react'
+import { type CSSProperties, Suspense, useCallback, useMemo } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { Breadcrumbs } from '@/components/breadcrumbs'
 import { EmptyDatasetBanner } from '@/components/empty-dataset-banner'
-import { HidingSquaresIcon } from '@/components/hiding-squares-icon'
+import { IsometricCubeIcon } from '@/components/isometric-cube-icon'
 import { NAV } from '@/components/layout/nav'
 import { Button } from '@wlet/ui/components/button'
 import { ButtonGroup, ButtonGroupText } from '@wlet/ui/components/button-group'
 import { firstMonthWithData } from '@/lib/finance'
 import { MonthPicker } from '@wlet/ui/components/month-picker'
-import { Separator } from '@wlet/ui/components/separator'
 import {
   Sidebar,
   SidebarContent,
@@ -25,8 +24,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
-  SidebarRail,
-  SidebarTrigger,
 } from '@wlet/ui/components/sidebar'
 import { Skeleton } from '@wlet/ui/components/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@wlet/ui/components/toggle-group'
@@ -40,18 +37,24 @@ import { useTheme } from '@/providers/use-theme'
 const SCOPES: { value: Scope; label: string }[] = [{ value: 'all', label: 'Consolidado' }, ...entityKinds.map((option) => ({ value: option.value, label: option.label }))]
 
 /**
- * O SidebarProvider grava `sidebar_state` a cada alternância, mas quem lê esse cookie
- * no padrão oficial é o servidor do Next.js, que devolve o valor em `defaultOpen`.
- * Numa SPA não existe esse servidor: sem ler aqui, a barra sempre reabre expandida.
+ * As três medidas da casca, passadas pelo `style` do provider para o arquivo do registry ficar
+ * intacto. Constante de módulo porque o `style` é prop: um objeto novo a cada render seria
+ * recriado sem motivo.
+ *
+ * **`--sidebar-width`**, abaixo dos 10rem do registry, é MEDIDA contra o rótulo mais largo:
+ * "Transferências" tem 84,1px em Inter 12px, e com o recuo de `pl-3` e a cadeia de espaçamentos
+ * do item sobram 91px de texto. Abaixo de 9.5rem ele trunca. A gaveta de 14rem do celular deixou
+ * de existir: sem recolher, a barra é a mesma coluna em toda largura de tela.
+ *
+ * **`--app-width`** (90rem = 1440px) é o teto da APLICAÇÃO INTEIRA, barra e cabeçalho incluídos —
+ * não só do conteúdo das telas. Ela entra como `max-w` no invólucro do provider, que é quem
+ * contém tudo o que está no fluxo.
+ *
+ * **Não há `--app-inset`.** Ela existiu enquanto o painel da barra era `fixed` e precisava ser
+ * reposicionado pela metade da sobra da janela; com a barra sem recolher (`collapsible="none"`), o
+ * registry a desenha no FLUXO, dentro do invólucro, e ela herda o teto como qualquer outro filho.
  */
-function sidebarDefaultOpen(): boolean {
-  try {
-    const match = document.cookie.match(/(?:^|;\s*)sidebar_state=(true|false)/)
-    return match ? match[1] === 'true' : true
-  } catch {
-    return true
-  }
-}
+const SIDEBAR_STYLE = { '--sidebar-width': '9.5rem', '--app-width': '90rem' } as CSSProperties
 
 export function AppShell() {
   const { scope, setScope, period, setPeriod, monthsWithData } = useFilters()
@@ -73,25 +76,60 @@ export function AppShell() {
   )
 
   return (
-    <SidebarProvider defaultOpen={sidebarDefaultOpen()}>
-      {/* `offcanvas` e não `icon`: sem ícone no menu, a faixa estreita do modo `icon` ficaria
-          em branco — colapsar passou a significar esconder, que é o que sobra de honesto. */}
-      <Sidebar collapsible="offcanvas">
-        <SidebarHeader>
+    <SidebarProvider style={SIDEBAR_STYLE} className="mx-auto max-w-(--app-width)">
+      {/* `collapsible="none"`: a barra NÃO recolhe, e o modo muda o que o registry renderiza — some o
+          painel `fixed` e o vão que o acompanhava, e a barra passa a ser a primeira COLUNA do
+          invólucro, no fluxo. Com ela some a razão do rail e do botão de alternar, e some a conta da
+          sobra da janela (`--app-inset`): no fluxo, a barra herda o teto de largura da aplicação como
+          qualquer filho. O modo `none` também não desenha borda, então o `border-r-0` saiu.
+          O `sticky top-0 h-svh self-start` é o que faz "sempre visível" valer também ao ROLAR: sem
+          ele a coluna sobe com a página. O `self-start` não é enfeite — item de flex esticado (o
+          padrão) não gruda, e sem ele o `sticky` não faz nada.
+          O `pl-3` descola o conteúdo da borda da janela. Ele custa 12px do texto, e é por isso que o
+          recuo do submenu abaixo não tem lado direito. A marca NÃO acompanha esse recuo: ela fica
+          centrada na barra (ver o cabeçalho). O `pt-3` soma aos 8px do cabeçalho e descola a marca do
+          topo da janela. */}
+      <Sidebar collapsible="none" className="sticky top-0 h-svh shrink-0 self-start pt-3 pl-3">
+        {/* A marca fica no CENTRO da barra, e o `md:-ml-3` é o que torna isso verdade. Centrar só
+            dentro do cabeçalho a deixaria 6px à direita, porque o `pl-3` do container empurra o
+            cabeçalho inteiro; a margem negativa desfaz aquele recuo, e como o cabeçalho é item de
+            uma coluna flex esticado, ele passa a ocupar a largura inteira da barra. Só no desktop:
+            a gaveta do celular não tem o `pl-3`, e o `md` é o mesmo ponto de troca do componente. */}
+        <SidebarHeader className="md:-ml-3">
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton size="lg" render={<NavLink to="/" />}>
-                {/* Sem o `Button` de fundo: a marca é o próprio padrão, não um glifo dentro de
-                    um quadrado cheio. O `!` é obrigatório e não é preguiça — o
-                    `SidebarMenuButton` traz `[&_svg]:size-4` como DESCENDENTE e sem escape de
-                    `:not([class*='size-'])`, então uma classe de tamanho aqui perde por
-                    especificidade e o ícone voltaria a 16px em silêncio. */}
-                <HidingSquaresIcon className="size-8! shrink-0" />
-                {/* `grid flex-1` + `truncate`: no modo ícone o bloco encolhe até zero
-                    em vez de vazar para fora da faixa de 48px. */}
-                <div className="grid flex-1 text-left leading-tight">
-                  <span className="truncate font-semibold font-mono text-lg">WLET</span>
-                </div>
+              {/* A marca é SÓ o ícone animado — o nome escrito saiu. O `aria-label` é o que o
+                  substitui: o ícone é `aria-hidden`, e sem ele o link para a raiz seria anunciado
+                  vazio. */}
+              {/* O botão é um quadrado de 48px centrado na barra (`w-12`, `justify-center`,
+                  `mx-auto`), e não a faixa da largura dela: com o nome escrito fora, a faixa
+                  deixava o ícone num canto e um vão vazio ao lado. A altura e o padding continuam
+                  sendo os da variante `lg`.
+                  **O fundo não muda de cor em estado nenhum**, a pedido: os quatro estados que o
+                  registry pinta com `bg-sidebar-accent` — hover, clique, rota ativa e menu aberto —
+                  vão a transparente, e o `rounded-full` troca o raio da variante por um círculo. Isso
+                  é exceção declarada à §6 da `component-construction` (cor e raio por classe num
+                  componente com variantes): a alternativa seria uma variante nova dentro do arquivo
+                  do registry, que o `CLAUDE.md` pede para não editar. Sem troca de cor, o círculo só
+                  aparece no anel de foco pelo teclado.
+                  O que continua do registry é a cor do TEXTO no hover, e o ícone a segue: no tema
+                  escuro dá no mesmo, no claro ele clareia um tom. */}
+              <SidebarMenuButton
+                size="lg"
+                aria-label="WLET — Visão geral"
+                className="mx-auto w-12 justify-center rounded-full hover:bg-transparent active:bg-transparent data-active:bg-transparent data-open:hover:bg-transparent"
+                render={<NavLink to="/" />}
+              >
+                {/* O ícone tem 44px e o botão, 48px com 8px de padding, então o conteúdo teria só
+                    32px. Não é defeito: o ícone não encolhe (`shrink-0`) e está centrado nos dois
+                    eixos, então os 12px a mais transbordam 6px para cada lado DENTRO do padding, e o
+                    `overflow-hidden` do botão só corta na borda de 48px. É o que deixa o ícone
+                    crescer sem sobrescrever altura nem padding de uma variante — e 48px é o teto
+                    deste caminho: daí para cima o corte começa, e a saída seria uma variante nova no
+                    registry.
+                    A classe de tamanho vale sem `!`: o `[&_svg]:size-4` do `SidebarMenuButton` não
+                    alcança um `<canvas>`. Se a marca voltar a ser SVG, o `!` volta junto. */}
+                <IsometricCubeIcon className="size-11 shrink-0" />
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -108,8 +146,12 @@ export function AppShell() {
                 {/* O recuo padrão do `SidebarMenuSub` (`mx-3.5 px-2.5`) soma 24px antes do texto, e
                     numa barra de 10rem isso truncava "Transferências". Aqui ele é layout, não
                     variante: o componente do registry não expõe tamanho, e o vão é o que faz o
-                    rótulo caber. */}
-                <SidebarMenuSub className="mx-2 px-2">
+                    rótulo caber. O lado ESQUERDO fica (`mx-2 px-2`) porque alinha a linha sob o
+                    título do grupo e posiciona o marcador; o DIREITO sai (`mr-0 pr-0`) porque não
+                    alinha nada, e é dele que vêm os 16px que a barra mais estreita e o `pl-3`
+                    tomaram. Escrito como `mx-2 mr-0`, e não `ml-2`, porque só assim o `cn` descarta
+                    o `mx-3.5` do registry em vez de deixar os dois disputando pela ordem do CSS. */}
+                <SidebarMenuSub className="mx-2 mr-0 px-2 pr-0">
                   {group.items.map((item) => {
                     const active = item.to === '/' ? pathname === '/' : pathname.startsWith(item.to)
                     return (
@@ -131,49 +173,23 @@ export function AppShell() {
             </SidebarGroup>
           ))}
         </SidebarContent>
-
-        {/* Com o gatilho fora do desktop, o rail passou a ser a ÚNICA porta — e ele estava
-            perdendo metade de si mesmo.
-            Ele é `absolute` dentro do painel, e no modo `offcanvas` o painel inteiro desliza
-            para `left: -160px`; a aresta do rail ia junto e sobravam 7 dos 16px na tela.
-            Clicar funcionava, mas num alvo da metade do tamanho e sem nada que o anunciasse.
-            `fixed left-0` tira o rail do painel que se move e o prende na borda da janela,
-            onde ele recupera a largura inteira. Continua sendo layout, não restyle: a
-            largura, a cor e o realce de hover seguem sendo os do componente. */}
-        <SidebarRail
-          aria-label="Alternar barra lateral"
-          title="Alternar barra lateral"
-          className="group-data-[collapsible=offcanvas]:fixed group-data-[collapsible=offcanvas]:right-auto group-data-[collapsible=offcanvas]:left-0"
-        />
       </Sidebar>
 
       {/* `min-w-0`: item flex nasce com min-width auto e não encolhe abaixo do próprio
           conteúdo — sem isso a página rola na horizontal entre 768 e 912px. */}
       <SidebarInset className="min-w-0">
-        {/* `<div>`, não `<header>`: o landmark de cabeçalho pertence à página, e só pode haver um. */}
-        <div className="sticky top-0 z-10 flex min-h-14 flex-wrap items-center gap-2 border-b bg-background/95 px-4 backdrop-blur md:px-6">
-          {/* O gatilho SÓ existe no celular, e o `md:hidden` não é gosto — é o que impede a
-              navegação de ficar inalcançável.
-              No desktop quem abre e fecha é o `SidebarRail`, a faixa na aresta da barra: com
-              o painel escondido ela fica colada na borda esquerda da janela, de altura
-              inteira, e acende ao passar o cursor. Abaixo de 768px o rail NÃO EXISTE — o
-              invólucro do desktop é `hidden md:block` e o rail é `hidden sm:flex` —, e ali a
-              barra lateral é um `Sheet` que só este botão abre. Sem a exceção, um celular
-              ficaria sem nenhuma porta para o menu. 768px é o mesmo número dos dois lados:
-              o `MOBILE_BREAKPOINT` do `use-mobile` e o `md` do Tailwind.
-              O atalho Cmd/Ctrl+B continua valendo nos dois. */}
-          <SidebarTrigger className="-ml-1 md:hidden" aria-label="Alternar barra lateral" />
-          {/* A altura aqui é layout, não restyle: a barra não tem altura fixa, então o
-              divisor precisa declarar a sua para não esticar com o flex-wrap. Ele acompanha o
-              gatilho: sem botão à esquerda não há o que separar da trilha. */}
-          <Separator orientation="vertical" className="mr-1 data-vertical:h-4 data-vertical:self-auto md:hidden" />
+        {/* `<div>`, não `<header>`: o landmark de cabeçalho pertence à página, e só pode haver um.
+            **Ele NÃO é sticky**, a pedido: é parte da página, rola junto com ela e não reaparece na
+            rolagem. Com isso saíram também o `z-10`, o fundo semitransparente e o `backdrop-blur` —
+            os três existiam só para o conteúdo passar POR BAIXO dele, o que não acontece mais. Sem
+            borda inferior, pela mesma razão da barra integrada: sem a borda vertical da barra, a
+            linha nasceria solta no meio da tela. */}
+        <div className="flex min-h-14 flex-wrap items-center gap-2 px-4 md:px-6">
           {/* A trilha mora AQUI, e não mais acima do `<h1>` de cada página.
               Ela é chrome de navegação, não conteúdo da tela: repetida em dez `-content.tsx`,
               ela empurrava o título para baixo em todas e cobrava uma linha inteira do primeiro
-              scroll para dizer onde você já sabia que estava. Ao lado do botão que esconde a
-              barra lateral, ela passa a ocupar espaço que já existia — e vira o que responde
-              "onde estou" quando a barra está escondida, que é justamente quando a resposta
-              some da tela. */}
+              scroll para dizer onde você já sabia que estava. Na barra da aplicação ela ocupa
+              espaço que já existia, e responde "onde estou" ao lado dos filtros globais. */}
           <Breadcrumbs />
           {/* `min-w-0 flex-1` deixa o bloco encolher abaixo da largura do conteúdo; sem
               isso o flex-wrap nunca dispara e a página rola na horizontal entre 768 e 912px. */}

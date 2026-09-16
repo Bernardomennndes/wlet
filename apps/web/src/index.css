@@ -267,7 +267,7 @@
  * A curva `--ease-fluid` deixou a barra lateral mais macia, e macio não é a mesma coisa que
  * inofensivo: um painel de 160px atravessando a tela é justamente o tipo de movimento que
  * `prefers-reduced-motion` existe para desligar. O ícone animado da barra já respeitava a
- * preferência (`hiding-squares-icon.tsx`) — a transição que a acompanha passa a respeitar
+ * preferência (`isometric-cube-icon.tsx`) — a transição que a acompanha passa a respeitar
  * também.
  *
  * O corte é ESCOPADO aos dois elementos que deslizam, e não um `*` que zera a transição do app
