@@ -154,3 +154,53 @@ describe('pagamento de fatura exige um CARTÃO dos dois lados do par', () => {
     assert.equal(result.transfers.length, 0, 'sem categoria de fatura, o cartão não entra no par')
   })
 })
+
+/**
+ * O DESEMPATE por menção ao banco — o bônus que só existe quando há EMPATE.
+ *
+ * A pontuação parte da distância em dias e desce com dois bônus. O primeiro (pagamento de fatura
+ * entre contas do mesmo banco) já roda nos testes acima; o segundo, não, porque todos eles têm um
+ * candidato só, e com um candidato a ordenação não decide nada.
+ *
+ * O caso que o ativa precisa de TRÊS contas: uma saída e duas entradas do mesmo valor, no mesmo
+ * dia, em contas diferentes. Sem o bônus, o par sai da ordem em que os lançamentos foram lidos — e
+ * a ordem de leitura é a ordem alfabética dos arquivos na pasta. Quer dizer: renomear um extrato
+ * mudaria com qual conta o dinheiro foi parear.
+ *
+ * E parear errado não deixa rastro. As duas contas erradas ficam quites entre si, e as duas certas
+ * ficam com uma ponta solta cada: uma vira despesa, a outra vira receita, e o mês infla dos dois
+ * lados na mesma medida — o resultado continua certo por acaso.
+ */
+const INTER = account('inter', { bankCode: '077', bank: 'Inter', match: { externalId: '777' } })
+
+describe('duas entradas iguais no mesmo dia: vence a que CITA o banco da saída', () => {
+  it('a descrição que nomeia o outro banco desempata', async () => {
+    // A saída é do Inter (código 077). Das duas entradas possíveis, só uma cita "INTER" na
+    // descrição — e `BANK_MENTIONS['077']` é `/\bINTER\b/i`. Ela tem de vencer, mesmo estando no
+    // arquivo que é lido DEPOIS.
+    const sources = [
+      file('docs/extrato/a/janeiro.ofx', OFX(TRN('20260110', '-500.00', 'TRANSFERENCIA FULANO DE TAL'), '777', '077')),
+      file('docs/extrato/b/janeiro.ofx', OFX(TRN('20260110', '500.00', 'PIX RECEBIDO DE FULANO DE TAL'), '111')),
+      file('docs/extrato/c/janeiro.ofx', OFX(TRN('20260110', '500.00', 'TED RECEBIDA DE FULANO DE TAL INTER'), '222')),
+    ]
+    const { transfers } = await runIngest(input(sources, [INTER, CORRENTE, POUPANCA]))
+
+    assert.equal(transfers.length, 1, 'uma transferência: a outra entrada fica sozinha')
+    assert.equal(transfers[0].fromAccountId, 'inter')
+    assert.equal(transfers[0].toAccountId, 'poupanca', 'a POUPANÇA, cuja descrição cita o Inter — não a corrente')
+  })
+
+  it('e sem menção nenhuma, o par ainda se forma — só não é escolhido por ela', async () => {
+    // O controle: o bônus DESEMPATA, não habilita. Sem ele um par continua acontecendo, e é isso
+    // que torna o defeito silencioso — a ausência do bônus não produz "nenhuma transferência",
+    // produz "a transferência errada".
+    const sources = [
+      file('docs/extrato/a/janeiro.ofx', OFX(TRN('20260110', '-500.00', 'TRANSFERENCIA FULANO DE TAL'), '777', '077')),
+      file('docs/extrato/b/janeiro.ofx', OFX(TRN('20260110', '500.00', 'PIX RECEBIDO DE FULANO DE TAL'), '111')),
+    ]
+    const { transfers } = await runIngest(input(sources, [INTER, CORRENTE]))
+
+    assert.equal(transfers.length, 1)
+    assert.equal(transfers[0].toAccountId, 'corrente')
+  })
+})
