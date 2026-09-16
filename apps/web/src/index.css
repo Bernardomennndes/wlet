@@ -115,7 +115,11 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
+  /* A barra lateral é INTEGRADA: o fundo dela é o da aplicação, não um tom próprio. É o token
+     que carrega a decisão, e não um `bg-*` no componente — assim ela vale também para a gaveta
+     do celular e para o realce do rail. O `--sidebar-border` fica: ele desenha a linha que
+     agrupa os itens de cada grupo, e zerá-lo apagaria a estrutura da navegação. */
+  --sidebar: var(--background);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0 0 0);
   --sidebar-primary-foreground: oklch(1 0 0);
@@ -198,7 +202,7 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
+  --sidebar: var(--background);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(1 0 0);
   --sidebar-primary-foreground: oklch(0 0 0);
