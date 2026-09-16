@@ -138,3 +138,65 @@ describe('o erro do servidor chega traduzido', () => {
     )
   })
 })
+
+/**
+ * O `accountType` — o campo de casamento que NENHUM dos testes acima carregava.
+ *
+ * As três contas do `WIRE` casam por código de banco, por id externo e por caminho. Nenhuma casa
+ * por TIPO, e por isso os dois ramos do `accountType` — leitura e escrita — nunca rodavam no
+ * adapter.
+ *
+ * Ele é o campo de maior consequência entre os quatro, e o `profile-match.test.ts` já registra por
+ * quê: sem o tipo, a fatura do cartão entra na corrente do MESMO banco, o saldo passa a incluir
+ * dívida, e o gasto conta duas vezes quando a fatura é paga. Um adapter que o deixasse cair não
+ * estouraria nada — as duas contas existem, o casamento continua acontecendo, e é o lado errado
+ * que ganha.
+ *
+ * O `WIRE` acima não muda de propósito: ele é o fixture dos testes de `RegExp`, e mexer nele
+ * mediria outra coisa. Este bloco monta o seu.
+ */
+const WIRE_COM_TIPO = {
+  ...WIRE,
+  accounts: [
+    { id: 'nu-cartao', name: 'Nubank Cartão', bank: 'Nubank', bankCode: '260', type: 'credit-card', entity: 'PF', holder: 'T', match: { bankCode: '260', accountType: 'credit-card' } },
+    { id: 'nu-conta', name: 'Nubank Conta', bank: 'Nubank', bankCode: '260', type: 'checking', entity: 'PF', holder: 'T', match: { bankCode: '260', accountType: 'checking' } },
+  ],
+}
+
+describe('o TIPO de conta atravessa as duas direções', () => {
+  const clientOf = () => {
+    const sent: unknown[] = []
+    return {
+      client: {
+        config: {
+          get: async () => structuredClone(WIRE_COM_TIPO),
+          replace: async (input: unknown) => {
+            sent.push(input)
+            return input
+          },
+        },
+      } as never,
+      sent,
+    }
+  }
+
+  it('na LEITURA, as duas contas do mesmo banco continuam distinguíveis', async () => {
+    const config = await found(makeOrpcConfigRepository({ client: clientOf().client }))
+    assert.deepEqual(
+      config.accounts.map((a) => a.match.accountType),
+      ['credit-card', 'checking'],
+      'o tipo é o único campo que as separa — os dois `bankCode` são iguais',
+    )
+  })
+
+  it('e na ESCRITA ele volta ao fio, em vez de sumir na ida', async () => {
+    // O lado mais fácil de perder: a gravação monta o `match` por espalhamento condicional, campo a
+    // campo. Um campo esquecido ali não quebra nada na hora — ele some do servidor, e o estrago
+    // aparece no PRÓXIMO carregamento, quando a fatura passa a casar com a conta corrente.
+    const { client, sent } = clientOf()
+    const repository = makeOrpcConfigRepository({ client })
+    await repository.save(await found(repository))
+
+    assert.deepEqual(sent[0], WIRE_COM_TIPO, 'a ida e volta não perde o tipo')
+  })
+})
